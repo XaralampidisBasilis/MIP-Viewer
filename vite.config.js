@@ -1,0 +1,28 @@
+import glsl from 'vite-plugin-glsl'
+import { defineConfig } from 'vite'
+
+export default ({
+    root: 'src/',
+    publicDir: '../static/',
+    base: './',
+    server:
+    {
+        host: true, // Open to local network and display URL
+        open: !('SANDBOX_URL' in process.env || 'CODESANDBOX_HOST' in process.env) // Open if it's not a CodeSandbox
+    },
+    build:
+    {
+        outDir: '../docs', // Output in the docs/ folder
+        emptyOutDir: true, // Empty the folder first
+        sourcemap: true // Add sourcemap
+    },
+    plugins:
+    [
+        glsl({
+            include: '**/*.glsl',  // Include all .glsl files
+            root: '**/src/shaders', // Directory for root imports
+            warnDuplicatedImports: false, // Warn if the same chunk was imported multiple times
+            compress: false,             // Compress output shader code
+        })
+    ],      
+})
