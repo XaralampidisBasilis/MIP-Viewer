@@ -1,7 +1,7 @@
 clc,clear
 
 % trilinear_ray_symbolic_with_mapping.m
-pkg load symbolic
+% pkg load symbolic
 
 %% --------------------------------------------------------------------
 %% 1. Declare symbols
