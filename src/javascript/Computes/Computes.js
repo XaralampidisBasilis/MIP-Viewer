@@ -3,6 +3,7 @@ import EventEmitter from '../Utils/EventEmitter'
 import Experience from '../Experience'
 import VolumeMap from './Maps/VolumeMap'
 import InterpolationMap from './Maps/InterpolationMap'
+import OcclusionMap from './Maps/OcclusionMap'
 import ExtremaMap from './Maps/ExtremaMap'
 import OccupancyMap from './Maps/OccupancyMap'
 import IsotropicDistanceMap from './Maps/IsotropicDistanceMap'
@@ -36,6 +37,7 @@ export default class Computes extends EventEmitter
     {
         this.volumeMap = new VolumeMap()
         this.interpolationMap = new InterpolationMap()
+        this.occlusionMap = new OcclusionMap()
         this.extremaMap = new ExtremaMap()
         this.occupancyMap = new OccupancyMap()
         this.isotropicDistanceMap = new IsotropicDistanceMap()
@@ -65,6 +67,9 @@ export default class Computes extends EventEmitter
         console.time('start@Computes') 
 
         this.volumeMap.computeTensor()
+        this.occlusionMap.computeTensor()
+        await tf.nextFrame()
+
         this.interpolationMap.computeTensor()
         this.volumeMap.tensor.dispose()
         await tf.nextFrame()
