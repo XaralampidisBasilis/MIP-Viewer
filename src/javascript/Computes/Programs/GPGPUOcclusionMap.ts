@@ -67,6 +67,22 @@ class GPGPUOcclusionMap implements GPGPUProgram
             
             return true;
         } 
+
+        bool getCellOcclusion2(ivec3 cellCoords)
+        {
+            ivec3 voxelCoords = cellCoords - 1;
+
+            float f000 = getVoxelSample(voxelCoords + ivec3(0, 0, 0));
+            float f100 = getVoxelSample(voxelCoords + ivec3(1, 0, 0));
+            float f010 = getVoxelSample(voxelCoords + ivec3(0, 1, 0));
+            float f001 = getVoxelSample(voxelCoords + ivec3(0, 0, 1));
+            float f011 = getVoxelSample(voxelCoords + ivec3(0, 1, 1));
+            float f101 = getVoxelSample(voxelCoords + ivec3(1, 0, 1));
+            float f110 = getVoxelSample(voxelCoords + ivec3(1, 1, 0));
+            float f111 = getVoxelSample(voxelCoords + ivec3(1, 1, 1));
+            
+            return true;
+        } 
         
         void main()
         {
