@@ -1,18 +1,27 @@
 clc,clear
 
 % trilinear_ray_symbolic_with_mapping.m
-% pkg load symbolic
+pkg load symbolic
 
 %% --------------------------------------------------------------------
 %% 1. Declare symbols
 %% --------------------------------------------------------------------
 syms x y z t real
 
+% corner values
 syms f000 f100 f010 f001 f011 f101 f110 f111 real
-F = [f000 f100 f010 f001 f011 f101 f110 f111];
+
+% symmetric linear combinations of corner values
+syms v000 v100 v010 v001 v011 v101 v110 v111 real
 
 % Ray endpoints
 syms ax ay az bx by bz dx dy dz syx szx real
+
+F = [f000 f100 f010 f001 f011 f101 f110 f111];
+V = [v000 v100 v010 v001 v011 v101 v110 v111];
+A = [ax, ay, az];
+B = [bx, by, bz];
+D = [dx, dy, dz];
 
 %% --------------------------------------------------------------------
 %% 2. Trilinear interpolation f(x,y,z)
@@ -40,20 +49,15 @@ f_t = simplify( subs(f_xyz, [x y z], [x_t, y_t, z_t]) );
 f_t = collect(f_t, t);
 
 %% Extract coefficients (efficient for GLSL)
-[f_coeffs, f_terms] = coeffs(f_t, [t]);
+[f_t_coeffs, f_t_terms] = coeffs(f_t, t);
 
 disp("Mapped expression coefficients and terms");
-disp([f_coeffs(:), f_coeffs(:)]);
+disp([f_t_coeffs(:), f_t_terms(:)]);
 
 %% --------------------------------------------------------------------
 %% 4. Simplification patterns (YOUR REQUESTED SECTION)
 %% --------------------------------------------------------------------
 
-% Declare v000 ... v111 instead of d000 ... d111
-syms v000 v100 v010 v001 v011 v101 v110 v111 real
-V = [v000 v100 v010 v001 v011 v101 v110 v111];
-
-%% Forward mapping: f-values → v-values
 % Mapping:
 % f000 = v000
 % f100 = v100 + v000
@@ -63,6 +67,17 @@ V = [v000 v100 v010 v001 v011 v101 v110 v111];
 % f101 = v101 + v001 + v100 + v000
 % f110 = v110 + v010 + v100 + v000
 % f111 = v111 + v011 + v101 + v110 + v100 + v010 + v001 + v000
+
+% Reverse Mapping:
+% v000 = f000
+% v100 = f100 - f000
+% v010 = f010 - f000
+% v001 = f001 - f000
+% v011 = f000 - f001 - f010 + f011
+% v101 = f000 - f001 - f100 + f101
+% v110 = f000 - f010 - f100 + f110
+% v111 = f001 - f000 + f010 - f011 + f100 - f101 - f110 + f111
+
 F2V = [
     v000, ...
     v100 + v000, ...
@@ -74,29 +89,6 @@ F2V = [
     v111 + v011 + v101 + v110 + v100 + v010 + v001 + v000, ...
 ];
 
-% Apply forward mapping
-v_xyz = simplify( subs(f_xyz, F, F2V) );
-v_t = simplify( subs(f_t, F, F2V) );
-v_t = collect(v_t, [t, bx, by, bz, ax, ay, az dx dy dz]);
-
-%% Extract coefficients (efficient for GLSL)
-[v_coeffs, v_terms] = coeffs(v_t, [t]);
-
-disp("Mapped expression coefficients and terms (a_coeffs, a_terms):");
-disp([v_coeffs(:), v_terms(:)]);
-
-%% --------------------------------------------------------------------
-%% 5. Reverse mapping (v-values → f-values)
-%% --------------------------------------------------------------------
-% Matched to your formulas, but using vXYZ
-% v000 = f000
-% v100 = f100 - f000
-% v010 = f010 - f000
-% v001 = f001 - f000
-% v011 = f000 - f001 - f010 + f011
-% v101 = f000 - f001 - f100 + f101
-% v110 = f000 - f010 - f100 + f110
-% v111 = f001 - f000 + f010 - f011 + f100 - f101 - f110 + f111
 V2F = [
     f000, ...
     f100 - f000, ...
@@ -108,371 +100,13 @@ V2F = [
     f001 - f000 + f010 - f011 + f100 - f101 - f110 + f111, ...
 ];
 
-%% --------------------------------------------------------------------
-%% 6. Bernstein form of a(t) on [0,1] and Bernstein coefficients
-%% --------------------------------------------------------------------
+% Apply forward mapping
+v_xyz = simplify( subs(f_xyz, F, F2V) );
+v_t = simplify( subs(f_t, F, F2V) );
+v_t = collect(v_t, [t, bx, by, bz, ax, ay, az dx dy dz]);
 
-% We assume v(t) is a cubic polynomial in t:
-% f(t) = c0 + c1*t + c2*t^2 + c3*t^3
+%% Extract coefficients (efficient for GLSL)
+[v_t_coeffs, v_t_terms] = coeffs(v_t, t);
 
-c0 = simplify( v_coeffs(4) );
-c1 = simplify( v_coeffs(3) );
-c2 = simplify( v_coeffs(2) );  
-c3 = simplify( v_coeffs(1) );  
-
-% Bernstein coefficients for degree-3 polynomial on [0,1]:
-B0 = simplify(c0);
-B1 = simplify(c0 + c1*1/3);
-B2 = simplify(c0 + c1*2/3 + c2*1/3);
-B3 = simplify(c0 + c1 + c2 + c3);
-
-% Collect coefficients
-B0 = collect(B0, V);
-B1 = collect(B1, V);
-B2 = collect(B2, V);
-B3 = collect(B3, V);
-
-% Bernstein-form polynomial (for verification / export)
-B_t = simplify( ...
-    B0 * 1 * t^0 * (1 - t)^3 ...
-  + B1 * 3 * t^1 * (1 - t)^2 ...
-  + B2 * 3 * t^2 * (1 - t)^1 ...
-  + B3 * 1 * t^3 * (1 - t)^0);
-
-disp("Bernstein coefficients b0, b1, b2, b3:");
-disp(B0);
-disp(B1);
-disp(B2);
-disp(B3);
-
-disp("Sanity check a(t) - a_bernstein(t) (should be 0):");
-disp(simplify(v_t - B_t));
-
-% Collect coefficients
-B0_F = collect(expand(simplify(subs(B0, V, V2F))), F);
-B1_F = collect(expand(simplify(subs(B1, V, V2F))), F);
-B2_F = collect(expand(simplify(subs(B2, V, V2F))), F);
-B3_F = collect(expand(simplify(subs(B3, V, V2F))), F);
-
-B01 = simplify(B1 - B0);
-B02 = simplify(B2 - B0);
-B03 = simplify(B3 - B0);
-
-H = [ 
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [0,0,0,1,0,0])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [0,0,0,1,0,1])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [0,0,0,1,1,0])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [0,0,0,1,1,1])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [0,0,1,1,0,0])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [0,0,1,1,0,1])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [0,0,1,1,1,0])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [0,0,1,1,1,1])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [0,1,0,1,0,0])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [0,1,0,1,0,1])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [0,1,0,1,1,0])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [0,1,0,1,1,1])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [0,1,1,1,0,0])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [0,1,1,1,0,1])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [0,1,1,1,1,0])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [0,1,1,1,1,1])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [1,0,0,1,0,0])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [1,0,0,1,0,1])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [1,0,0,1,1,0])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [1,0,0,1,1,1])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [1,0,1,1,0,0])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [1,0,1,1,0,1])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [1,0,1,1,1,0])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [1,0,1,1,1,1])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [1,1,0,1,0,0])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [1,1,0,1,0,1])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [1,1,0,1,1,0])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [1,1,0,1,1,1])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [1,1,1,1,0,0])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [1,1,1,1,0,1])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [1,1,1,1,1,0])), ...
-    simplify(subs(B01, [ax, ay, az, dx, dy, dz], [1,1,1,1,1,1])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [0,0,0,1,0,0])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [0,0,0,1,0,1])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [0,0,0,1,1,0])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [0,0,0,1,1,1])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [0,0,1,1,0,0])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [0,0,1,1,0,1])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [0,0,1,1,1,0])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [0,0,1,1,1,1])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [0,1,0,1,0,0])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [0,1,0,1,0,1])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [0,1,0,1,1,0])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [0,1,0,1,1,1])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [0,1,1,1,0,0])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [0,1,1,1,0,1])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [0,1,1,1,1,0])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [0,1,1,1,1,1])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [1,0,0,1,0,0])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [1,0,0,1,0,1])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [1,0,0,1,1,0])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [1,0,0,1,1,1])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [1,0,1,1,0,0])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [1,0,1,1,0,1])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [1,0,1,1,1,0])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [1,0,1,1,1,1])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [1,1,0,1,0,0])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [1,1,0,1,0,1])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [1,1,0,1,1,0])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [1,1,0,1,1,1])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [1,1,1,1,0,0])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [1,1,1,1,0,1])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [1,1,1,1,1,0])), ...
-    simplify(subs(B02, [ax, ay, az, dx, dy, dz], [1,1,1,1,1,1])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [0,0,0,1,0,0])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [0,0,0,1,0,1])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [0,0,0,1,1,0])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [0,0,0,1,1,1])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [0,0,1,1,0,0])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [0,0,1,1,0,1])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [0,0,1,1,1,0])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [0,0,1,1,1,1])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [0,1,0,1,0,0])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [0,1,0,1,0,1])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [0,1,0,1,1,0])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [0,1,0,1,1,1])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [0,1,1,1,0,0])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [0,1,1,1,0,1])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [0,1,1,1,1,0])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [0,1,1,1,1,1])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [1,0,0,1,0,0])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [1,0,0,1,0,1])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [1,0,0,1,1,0])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [1,0,0,1,1,1])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [1,0,1,1,0,0])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [1,0,1,1,0,1])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [1,0,1,1,1,0])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [1,0,1,1,1,1])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [1,1,0,1,0,0])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [1,1,0,1,0,1])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [1,1,0,1,1,0])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [1,1,0,1,1,1])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [1,1,1,1,0,0])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [1,1,1,1,0,1])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [1,1,1,1,1,0])), ...
-    simplify(subs(B03, [ax, ay, az, dx, dy, dz], [1,1,1,1,1,1])), ...
-];
-
-%H = simplify(H*3);
-H = unique(H);
-
-%% --------------------------------------------------------------------
-%  9. Build coefficient matrix A:  H(i) <= 0  →  A(i,:) * v.' <= 0
-%% --------------------------------------------------------------------
-H = H(:);                            % ensure column
-n_ineq = length(H);
-n_var  = length(V);
-A_sym = sym(zeros(n_ineq, n_var));
-zeroV = num2cell(zeros(1, n_var));   % F = 0
-
-for i = 1:n_ineq
-for j = 1:n_var
-    A_sym(i,j) = subs(diff(H(i), V(j)), V, zeroV);
-end
-end
-
-A = double(A_sym);  % numeric matrix (all coefficients are small integers)
-
-fprintf('Coefficient matrix A (H <= 0 → A * V <= 0):\n');
-disp(A);
-
-%% 
-keep = true(n_ineq,1);  % assume all are essential initially
-
-options = optimoptions('linprog', ...
-    'Display','none', ...
-    'Algorithm','dual-simplex');  % or 'interior-point'
-
-for k = 1:n_ineq
-    % Build M_other: all rows except k
-    rows = true(n_ineq,1);
-    rows(k) = false;
-    M_other = A(rows,:);          % (n_ineq-1) x n_var
-    m_k     = A(k,:).';           % column (n_var x 1)
-
-    % We want: M_other' * lambda = m_k, lambda >= 0.
-    Aeq = M_other.';              % n_var x (n_ineq-1)
-    beq = m_k;                    % n_var x 1
-
-    n_lambda = size(Aeq,2);
-    f = zeros(n_lambda,1);        % objective doesn't matter (feasibility problem)
-
-    % Bounds: lambda >= 0
-    lb = zeros(n_lambda,1);
-    ub = inf(n_lambda,1);
-
-    % linprog signature:
-    %   x = linprog(f, Aineq, bineq, Aeq, beq, lb, ub, options)
-    [lambda, fval, exitflag] = linprog(f, [], [], Aeq, beq, lb, ub, options);
-
-    if exitflag > 0
-        % Found a feasible (actually optimal) solution: A(k,:) is in the cone
-        % generated by the other rows → inequality k is redundant.
-        keep(k) = false;
-        fprintf('Inequality %d is redundant.\n', k);
-    else
-        fprintf('Inequality %d appears essential.\n', k);
-    end
-end
-
-%% --------------------------------------------------------------------
-%  11. Reduced system
-%% --------------------------------------------------------------------
-A_reduced = A(keep,:);
-H_reduced = H(keep);
-
-fprintf('\nEssential inequalities (kept):\n');
-disp(find(keep).');   % indices of non-redundant inequalities
-
-fprintf('\nReduced coefficient matrix A_reduced:\n');
-disp(A_reduced);
-
-fprintf('\nReduced symbolic inequalities H_reduced <= 0:\n');
-disp(H_reduced);
-
-%% --------------------------------------------------------------------
-%% 8. Partial derivatives
-%% --------------------------------------------------------------------
-
-df_x = simplify(diff(f_xyz, x));
-df_y = simplify(diff(f_xyz, y));
-df_z = simplify(diff(f_xyz, z));
-
-h_xyz = df_x + syx * df_y + szx * df_z;
-
-H = [ 
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [0,0,0,0,0])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [0,0,0,0,1])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [0,0,0,1,0])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [0,0,0,1,1])), ...
-
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [0,0,1,0,0])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [0,0,1,0,1])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [0,0,1,1,0])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [0,0,1,1,1])), ...
-
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [0,1,0,0,0])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [0,1,0,0,1])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [0,1,0,1,0])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [0,1,0,1,1])), ...
-
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [0,1,1,0,0])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [0,1,1,0,1])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [0,1,1,1,0])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [0,1,1,1,1])), ...
-
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [1,0,0,0,0])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [1,0,0,0,1])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [1,0,0,1,0])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [1,0,0,1,1])), ...
-
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [1,0,1,0,0])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [1,0,1,0,1])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [1,0,1,1,0])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [1,0,1,1,1])), ...
-
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [1,1,0,0,0])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [1,1,0,0,1])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [1,1,0,1,0])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [1,1,0,1,1])), ...
-
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [1,1,1,0,0])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [1,1,1,0,1])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [1,1,1,1,0])), ...
-    simplify(subs(h_xyz, [x, y, z, syx, szx], [1,1,1,1,1])), ...
-];
-
-H = unique(H);
-
-
-%% --------------------------------------------------------------------
-%  9. Build coefficient matrix A:  H(i) <= 0  →  A(i,:) * F.' <= 0
-%% --------------------------------------------------------------------
-H = H(:);                            % ensure column
-n_ineq = length(H);
-n_var  = length(F);
-
-A_sym = sym(zeros(n_ineq, n_var));
-zeroF = num2cell(zeros(1, n_var));   % F = 0
-
-for i = 1:n_ineq
-    for j = 1:n_var
-        % coefficient of F(j) in H(i):
-        A_sym(i,j) = subs(diff(H(i), F(j)), F, zeroF);
-    end
-end
-
-A = double(A_sym);  % numeric matrix (all coefficients are small integers)
-
-fprintf('Coefficient matrix A (H <= 0 → A * F <= 0):\n');
-disp(A);
-
-%% --------------------------------------------------------------------
-%  10. Detect redundant inequalities via conic combination test
-%
-%  Inequality k: A(k,:) * F <= 0  is redundant if
-%       A(k,:) = sum_{i!=k} lambda_i * A(i,:),
-%       with lambda_i >= 0.
-%
-%  We check this using linprog for each row k.
-%% --------------------------------------------------------------------
-if ~license('test','optimization_toolbox')
-    error('This script requires Optimization Toolbox (linprog).');
-end
-
-keep = true(n_ineq,1);  % assume all are essential initially
-
-options = optimoptions('linprog', ...
-    'Display','none', ...
-    'Algorithm','dual-simplex');  % or 'interior-point'
-
-for k = 1:n_ineq
-    % Build M_other: all rows except k
-    rows = true(n_ineq,1);
-    rows(k) = false;
-    M_other = A(rows,:);          % (n_ineq-1) x n_var
-    m_k     = A(k,:).';           % column (n_var x 1)
-
-    % We want: M_other' * lambda = m_k, lambda >= 0.
-    Aeq = M_other.';              % n_var x (n_ineq-1)
-    beq = m_k;                    % n_var x 1
-
-    n_lambda = size(Aeq,2);
-    f = zeros(n_lambda,1);        % objective doesn't matter (feasibility problem)
-
-    % Bounds: lambda >= 0
-    lb = zeros(n_lambda,1);
-    ub = inf(n_lambda,1);
-
-    % linprog signature:
-    %   x = linprog(f, Aineq, bineq, Aeq, beq, lb, ub, options)
-    [lambda, fval, exitflag] = linprog(f, [], [], Aeq, beq, lb, ub, options);
-
-    if exitflag > 0
-        % Found a feasible (actually optimal) solution: A(k,:) is in the cone
-        % generated by the other rows → inequality k is redundant.
-        keep(k) = false;
-        fprintf('Inequality %d is redundant.\n', k);
-    else
-        fprintf('Inequality %d appears essential.\n', k);
-    end
-end
-
-%% --------------------------------------------------------------------
-%  11. Reduced system
-%% --------------------------------------------------------------------
-A_reduced = A(keep,:);
-H_reduced = H(keep);
-
-fprintf('\nEssential inequalities (kept):\n');
-disp(find(keep).');   % indices of non-redundant inequalities
-
-fprintf('\nReduced coefficient matrix A_reduced:\n');
-disp(A_reduced);
-
-fprintf('\nReduced symbolic inequalities H_reduced <= 0:\n');
-disp(H_reduced);
+disp("Mapped expression coefficients and terms (a_coeffs, a_terms):");
+disp([v_t_coeffs(:), v_t_terms(:)]);

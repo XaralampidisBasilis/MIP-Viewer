@@ -44,7 +44,7 @@ export default class Configs extends EventEmitter
 
         this.blockSize = 2
         this.downscaleFactor = 0.8
-        this.isosurfaceValue = 0.7
+        this.isosurfaceValue = 0.4
         
         this.interpolationMethod = 'tricubicCsébfalvi'
         this.gradientsMethod = 'triquadraticBspline'
