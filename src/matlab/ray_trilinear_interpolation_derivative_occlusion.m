@@ -99,13 +99,6 @@ disp(A);
 
 %% --------------------------------------------------------------------
 %  10. Detect redundant inequalities via conic combination test
-%
-%  Inequality k: A(k,:) * F <= 0  is redundant if
-%       A(k,:) = sum_{i!=k} lambda_i * A(i,:),
-%       with lambda_i >= 0.
-%
-%  We check this using linprog for each row k.
-%  'Algorithm','dual-simplex' or 'interior-point' needed
 %% --------------------------------------------------------------------
 keep = true(n_ineq,1);  % assume all are essential initially
 tol_eq = 1e-8;   % tolerance for Aeq*lambda ≈ beq
