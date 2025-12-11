@@ -1,5 +1,8 @@
 clc,clear
 
+pkg load symbolic % OCTAVE version
+pkg load optim % OCTAVE version
+
 %% --------------------------------------------------------------------
 %% Include ray trilinear interpolation equations in bernstein form
 %% --------------------------------------------------------------------
@@ -108,21 +111,44 @@ inequalities = unique(inequalities);
 inequalities = inequalities(:);
 
 %% --------------------------------------------------------------------
+%% Sort inequalities by expression complexity
+%% --------------------------------------------------------------------
+
+% Assume F = [f000 f001 ... f111] is already defined
+n_expr = length(inequalities);
+complexity = zeros(n_expr, 1);
+
+for i = 1:n_expr
+    % Extract coefficients of this expression w.r.t. F
+    [c, terms] = coeffs(inequalities(i), F);
+
+    % complexity = number of nonzero linear coefficients
+    complexity(i) = length(c);
+end
+
+% Now sort by complexity
+[complexity_sorted, order] = sort(complexity, 'descend');
+inequalities = inequalities(order);
+
+fprintf("Sorted expressions (from simplest to most complex):\n");
+disp(inequalities);
+
+
+%% --------------------------------------------------------------------
 %  Build coefficient matrix A
 %% --------------------------------------------------------------------
-n_ineq = length(inequalities);
+n_expr = length(inequalities);
 n_var  = length(F);
+A_sym = sym(zeros(n_expr, n_var));
 
-A_sym = sym(zeros(n_ineq, n_var));
-zeroF = num2cell(zeros(1, n_var));   % F = 0
-
-for i = 1:n_ineq
 for j = 1:n_var
-    A_sym(i,j) = subs(diff(inequalities(i), F(j)), F, zeroF);
-end
+    % basis vector e_j: F(j) = 1, others = 0
+    basisF = zeros(1, n_var);
+    basisF(j) = 1;
+    A_sym(:, j) = subs(inequalities, F, basisF);
 end
 
-A = double(A_sym);  % numeric matrix (all coefficients are small integers)
+A = double(A_sym);
 
 fprintf('Coefficient matrix A * F <= 0:\n');
 disp(A);
@@ -139,13 +165,13 @@ disp(A);
 %% --------------------------------------------------------------------
 keep = true(n_ineq,1);  % assume all are essential initially
 tol_eq = 1e-8;   % tolerance for Aeq*lambda ≈ beq
-tol_lb = 1e-10;  % tolerance for lambda ≥ 0
+tol_lb = 1e-8;  % tolerance for lambda ≥ 0
 
-options = optimoptions('linprog', 'Algorithm', 'dual-simplex', 'Display', 'none');  % MATLAB version
+%options = optimoptions('linprog', 'Algorithm', 'dual-simplex', 'Display', 'none');  % MATLAB version
 
 for k = 1:n_ineq
     % Build M_other: all rows except k
-    rows = true(n_ineq,1);
+    rows = keep(:);
     rows(k) = false;
     M_other = A(rows,:);          % (n_ineq-1) x n_var
     m_k     = A(k,:).';           % column (n_var x 1)
@@ -162,8 +188,8 @@ for k = 1:n_ineq
     ub = inf(n_lambda,1);
 
     % linprog signature:
-    % [lambda, fval] = linprog(f, [], [], Aeq, beq, lb, ub); % OCTAVE version
-    [lambda, fval, exitflag] = linprog(f, [], [], Aeq, beq, lb, ub, options); % MATLAB version
+    [lambda, fval] = linprog(f, [], [], Aeq, beq, lb, ub); % OCTAVE version
+    %[lambda, fval, exitflag] = linprog(f, [], [], Aeq, beq, lb, ub, options); % MATLAB version
 
    redundant = false;
 
