@@ -152,47 +152,55 @@ class GPGPUOcclusionMap implements GPGPUProgram
             float f011 = getVoxelSample(voxelCoords + ivec3(0, 1, 1));
             float f101 = getVoxelSample(voxelCoords + ivec3(1, 0, 1));
             float f110 = getVoxelSample(voxelCoords + ivec3(1, 1, 0));
-            
             float f111 = getVoxelSample(voxelCoords + ivec3(1, 1, 1));
 
-            if ((f001 + f100)/2.0 > f000) return false;
-            if ((f010 + f100)/2.0 > f000) return false;
-            if ((f011 + f101)/2.0 > f001) return false;
-            if ((f011 + f110)/2.0 > f010) return false;
+            bool monotone = 
+            f100 <= f000 &&         
+            f110 <= f010 &&         
+            f101 <= f001 &&         
+            f111 <= f011 &&  
+            f000 >= (f010 + f100) / 2.0 && 
+            f000 >= (f001 + f100) / 2.0 &&
+            f010 >= (f011 + f110) / 2.0 &&
+            f001 >= (f011 + f101) / 2.0 &&
+            f110 <= (f010 + f100) / 2.0 && 
+            f101 <= (f001 + f100) / 2.0 &&
+            f111 <= (f011 + f110) / 2.0 &&
+            f111 <= (f011 + f101) / 2.0 &&
+            f000 >= (f001 + f010 + f100) / 3.0 &&   
+            f111 <= (f011 + f101 + f110) / 3.0 &&
+            f011 + f101 + f110 <= f001 + f010 + f100;
 
-            if (f111 > (f001 + f110)/2.0) return false;
-            if (f111 > (f010 + f101)/2.0) return false;
-            if (f111 > (f011 + f110)/2.0) return false;
-            if (f111 > (f011 + f101)/2.0) return false;
-            if (f111 > (f011 + f100)/2.0) return false;
+            
+            return monotone;
+        } 
 
-            if (f011 + f101 > f000 + f001) return false;
-            if (f011 + f110 > f000 + f010) return false;
-            if (f011 + f111 > f001 + f010) return false;
-            if (f101 + f110 > f000 + f100) return false;
-            if (f101 + f111 > f001 + f100) return false;
-            if (f110 + f111 > f010 + f100) return false;
+        float getCellMaxDifference(ivec3 cellCoords)
+        {
+            float m = 0.0;
 
-            if ((f001 + f010 + f100)/3.0 > f000) return false;
+            m = max(m, f100 - f000);
+            m = max(m, f110 - f010);
+            m = max(m, f101 - f001);
+            m = max(m, f111 - f011);
 
-            if (f000 - 2.0*f001 - 2.0*f100 + 3.0*f101 > 0.0) return false;
-            if (f000 - 2.0*f010 - 2.0*f100 + 3.0*f110 > 0.0) return false;
+            m = max(m, f010 + f100 - 2.0 * f000);
+            m = max(m, f001 + f100 - 2.0 * f000);
+            m = max(m, f011 + f110 - 2.0 * f010);
+            m = max(m, f011 + f101 - 2.0 * f001);
 
-            if (-f001 - 3.0*f010 + 2.0*f011 - f100 + 2.0*f110 + f111 > 0.0) return false;
-            if (-f001 - 3.0*f100 + 2.0*f101 - f010 + 2.0*f110 + f111 > 0.0) return false;
-            if (-f010 - 3.0*f001 + 2.0*f011 - f100 + 2.0*f101 + f111 > 0.0) return false;
+            m = max(m, 2.0 * f110 - f010 - f100);
+            m = max(m, 2.0 * f101 - f001 - f100);
+            m = max(m, 2.0 * f111 - f011 - f110);
+            m = max(m, 2.0 * f111 - f011 - f101);
 
-            if (f000 - 2.0*f001 - 2.0*f010 + f011 - f101 - f110 + 4.0*f111 > 0.0) return false;
-            if (f000 - 2.0*f001 - 2.0*f100 + f101 - f011 - f110 + 4.0*f111 > 0.0) return false;
-            if (f000 - 2.0*f010 - 2.0*f100 + f110 - f011 - f101 + 4.0*f111 > 0.0) return false;
+            m = max(m, f001 + f010 + f100 - 3.0 * f000);
+            m = max(m, 3.0 * f111 - f011 - f101 - f110);
+            m = max(m, f011 + f101 + f110 - f001 - f010 - f100);
 
-            if (-f011 + f100 - 2.0*f101 - 2.0*f110 + 4.0*f111 > 0.0) return false;
-            if (-f101 + f010 - 2.0*f011 - 2.0*f110 + 4.0*f111 > 0.0) return false;
-            if (-f110 + f001 - 2.0*f011 - 2.0*f101 + 4.0*f111 > 0.0) return false;
-
-            return true;
+            return m;
         }
-        
+
         void main()
         {
             ivec3 outputCoords = getOutputCoords();

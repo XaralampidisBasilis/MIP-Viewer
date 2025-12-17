@@ -4,9 +4,8 @@ pkg load symbolic % OCTAVE version
 pkg load optim % OCTAVE version
 
 %% --------------------------------------------------------------------
-%% 1. Declare symbols
+%% Declare symbols
 %% --------------------------------------------------------------------
-syms x y z t real
 
 % corner values
 % symmetric linear combinations of corner values
@@ -38,12 +37,23 @@ V2F = [
     f001 - f000 + f010 - f011 + f100 - f101 - f110 + f111, ...
 ];
 
+% Variables
+syms x y z t real
+
+r = [x, y, z];
+
 % Ray endpoints
 syms ax ay az bx by bz dx dy dz sx sy sz real
 
+a = [ax, ay, az];
+b = [bx, by, bz];
+d = [dx, dy, dz];
+s = [sx, sy, sz];
+
 %% --------------------------------------------------------------------
-%% 2. Trilinear interpolation f(x,y,z)
+%% Trilinear interpolation f(x,y,z)
 %% --------------------------------------------------------------------
+
 f_xyz = f000 * (1-x) * (1-y) * (1-z) ...
       + f100 *    x  * (1-y) * (1-z) ...
       + f010 * (1-x) *    y  * (1-z) ...
@@ -54,8 +64,9 @@ f_xyz = f000 * (1-x) * (1-y) * (1-z) ...
       + f111 *    x  *    y  *    z;
 
 %% --------------------------------------------------------------------
-%% 3. Ray substitution r(t) = a(1-t) + b*t
+%% Ray substitution r(t) 
 %% --------------------------------------------------------------------
+
 x_t = ax + dx*t;
 y_t = ay + dy*t;
 z_t = az + dz*t;
@@ -68,182 +79,144 @@ z_t = az + dz*t;
 % y_t = ay*(1-t) + by*t;
 % z_t = az*(1-t) + bz*t;
 
-f_t = simplify( subs(f_xyz, [x y z], [x_t, y_t, z_t]) );
+r_t = [x_t, y_t, z_t];
+
+%% --------------------------------------------------------------------
+%% Trilinear function over ray  
+%% --------------------------------------------------------------------
+
+f_t = simplify( subs(f_xyz, r, r_t) );
 f_t = collect(f_t, t);
 
 % Extract coefficients
 [f_t_coeffs, f_t_terms] = coeffs(f_t, t);
 
-disp("Mapped expression coefficients and terms");
-disp([f_t_coeffs(:), f_t_terms(:)]);
-
-% Compute derivatives
-dfx = simplify(diff(f_xyz, x));
-dfy = simplify(diff(f_xyz, y));
-dfz = simplify(diff(f_xyz, z));
-
-% directional derivative
-Df_xyz = dfx * dx + dfy * dy + dfz * dz;
-
 %% --------------------------------------------------------------------
-%% Simplification patterns
+%% Bernstein Trilinear function over ray 
 %% --------------------------------------------------------------------
 
-% Apply forward mapping
-v_xyz = simplify( subs(f_xyz, F, F2V) );
-v_t = simplify( subs(f_t, F, F2V) );
-v_t = collect(v_t, [t, bx, by, bz, ax, ay, az dx dy dz]);
+% Bernstein coefficients
+Bf_t_coeffs = [
+    simplify(f_t_coeffs(4)), ...
+    simplify(f_t_coeffs(4) + f_t_coeffs(3)*1/3), ...
+    simplify(f_t_coeffs(4) + f_t_coeffs(3)*2/3 + f_t_coeffs(2)*1/3), ...
+    simplify(f_t_coeffs(4) + f_t_coeffs(3) + f_t_coeffs(2) + f_t_coeffs(1)), ...
+];
 
-% Extract coefficients
-[v_t_coeffs, v_t_terms] = coeffs(v_t, t);
+% Bernstein terms
+Bf_t_terms = [ ...
+    1 * t^0 * (1 - t)^3, ...
+    3 * t^1 * (1 - t)^2, ...
+    3 * t^2 * (1 - t)^1, ...
+    1 * t^3 * (1 - t)^0, ...
+];
 
-
-disp("Mapped expression coefficients and terms (a_coeffs, a_terms):");
-disp([v_t_coeffs(:), v_t_terms(:)]);
-
-% Compute derivatives
-dvx = simplify(diff(v_xyz, x));
-dvy = simplify(diff(v_xyz, y));
-dvz = simplify(diff(v_xyz, z));
-
-% directional derivative
-Dv_xyz = dvx * dx + dvy * dy + dvz * dz;
-
-%% --------------------------------------------------------------------
-%% Include ray trilinear interpolation equations in bernstein form
-%% --------------------------------------------------------------------
-
-% We assume f(t) is a cubic polynomial in t:
-% f(t) = c0 + c1*t + c2*t^2 + c3*t^3
-
-Cf0 = simplify( f_t_coeffs(4) );
-Cf1 = simplify( f_t_coeffs(3) );
-Cf2 = simplify( f_t_coeffs(2) );
-Cf3 = simplify( f_t_coeffs(1) );
-
-% Bernstein coefficients for degree-3 polynomial on [0,1]:
-Bf0 = simplify(Cf0);
-Bf1 = simplify(Cf0 + Cf1*1/3);
-Bf2 = simplify(Cf0 + Cf1*2/3 + Cf2*1/3);
-Bf3 = simplify(Cf0 + Cf1 + Cf2 + Cf3);
-
-% Collect coefficients
-Bf0 = collect(Bf0, F);
-Bf1 = collect(Bf1, F);
-Bf2 = collect(Bf2, F);
-Bf3 = collect(Bf3, F);
-
-% Collect differences
-Bf10 = collect(simplify(Bf1 - Bf0), [dx, dy, dz]);
-Bf20 = collect(simplify(Bf2 - Bf0), [dx, dy, dz]);
-Bf30 = collect(simplify(Bf3 - Bf0), [dx, dy, dz]);
-
-% Bernstein-form polynomial (for verification / export)
-Bf_t = simplify( ...
-    Bf0 * 1 * t^0 * (1 - t)^3 ...
-  + Bf1 * 3 * t^1 * (1 - t)^2 ...
-  + Bf2 * 3 * t^2 * (1 - t)^1 ...
-  + Bf3 * 1 * t^3 * (1 - t)^0);
-
-disp("Bernstein coefficients");
-disp(Bf0);
-disp(Bf1);
-disp(Bf2);
-disp(Bf3);
+% Bernstein trilinear function over ray
+Bf_t = dot(Bf_t_coeffs, Bf_t_terms);
 
 disp("Sanity check f(t) - Bf_t(t), should be 0:");
 disp(simplify(f_t - Bf_t));
 
 %% --------------------------------------------------------------------
-%% Convert ray trilinear interpolation symmetric equation into bernstein form
+%% Trilinear function derivative over ray  
 %% --------------------------------------------------------------------
 
-% We assume f(t) is a cubic polynomial in t:
-% f(t) = c0 + c1*t + c2*t^2 + c3*t^3
+% Compute partial derivatives
+fx = simplify(diff(f_xyz, x));
+fy = simplify(diff(f_xyz, y));
+fz = simplify(diff(f_xyz, z));
 
-Cv0 = simplify( v_t_coeffs(4) );
-Cv1 = simplify( v_t_coeffs(3) );
-Cv2 = simplify( v_t_coeffs(2) );
-Cv3 = simplify( v_t_coeffs(1) );
+% Gradient vector
+Gf_xyz = [fx, fy, fz];
 
-% Bernstein coefficients for degree-3 polynomial on [0,1]:
-Bv0 = simplify(Cv0);
-Bv1 = simplify(Cv0 + Cv1*1/3);
-Bv2 = simplify(Cv0 + Cv1*2/3 + Cv2*1/3);
-Bv3 = simplify(Cv0 + Cv1 + Cv2 + Cv3);
+% directional derivative
+Df_xyz = dot(Gf_xyz, d);
 
-% Collect coefficients
-Bv0 = collect(Bv0, V);
-Bv1 = collect(Bv1, V);
-Bv2 = collect(Bv2, V);
-Bv3 = collect(Bv3, V);
+% directional derivative over ray
+Gf_t = simplify( subs(Gf_xyz, r, r_t) );
+Df_t = simplify( subs(Df_xyz, r, r_t) );
 
-% Collect differences
-Bv10 = collect(simplify(Bv1 - Bv0), [dx, dy, dz]);
-Bv20 = collect(simplify(Bv2 - Bv0), [dx, dy, dz]);
-Bv30 = collect(simplify(Bv3 - Bv0), [dx, dy, dz]);
+% coefficients
+[Df_t_coeffs, Df_t_terms] = coeffs(Df_t, t);
 
-% Bernstein-form polynomial (for verification / export)
-Bv_t = simplify( ...
-    Bv0 * 1 * t^0 * (1 - t)^3 ...
-  + Bv1 * 3 * t^1 * (1 - t)^2 ...
-  + Bv2 * 3 * t^2 * (1 - t)^1 ...
-  + Bv3 * 1 * t^3 * (1 - t)^0);
-
-disp("Bernstein coefficients");
-disp(Bv0);
-disp(Bv1);
-disp(Bv2);
-disp(Bv3);
-
-disp("Sanity check v_t - Bv_t, should be 0:");
-disp(simplify(v_t - Bv_t));
 %% --------------------------------------------------------------------
-%% Partial derivatives
-%% -------------------------------------------------------------------- 
+%% Bernstein trilinear function derivative over ray  
+%% --------------------------------------------------------------------
 
-% Since we want directional derivative Df_xyz <= 0
-% and we have dy/dx, dz/dx in [0, 1] from restrictions
-% we set dx = 1
+% Bernstein coefficients
+BDf_t_coeffs = [
+    simplify(Df_t_coeffs(3)), ...
+    simplify(Df_t_coeffs(3) + Df_t_coeffs(2)/2), ...
+    simplify(Df_t_coeffs(3) + Df_t_coeffs(2) + Df_t_coeffs(1)), ...
+];
+
+% Bernstein terms
+BDf_t_terms = [
+    1 * t^0 * (1 - t)^2, ...
+    2 * t^1 * (1 - t)^1, ...
+    1 * t^2 * (1 - t)^0, ...
+];
+
+% Bernstein trilinear derivative function over ray
+BDf_t = dot(BDf_t_coeffs, BDf_t_terms);
+
+disp("Sanity check Df(t) - BDf(t), should be 0:");
+disp(simplify(Df_t - BDf_t));
+
+%% --------------------------------------------------------------------
+%% Simplification patterns
+%% --------------------------------------------------------------------
+
+% v_xyz        = simplify( subs(f_xyz, F, F2V) );
+% v_t          = simplify( subs(f_t, F, F2V) );
+% v_t_coeffs   = simplify( subs(f_t_coeffs, F, F2V) );
+% Dv_xyz       = simplify( subs(Df_xyz, F, F2V) );
+% Dv_t         = simplify( subs(Df_t, F, F2V) );
+% Dv_t_coeffs  = simplify( subs(Df_t_coeffs, F, F2V) );
+% Bv_t_coeffs  = simplify( subs(Bf_t_coeffs, F, F2V) );
+% BDv_t_coeffs = simplify( subs(BDf_t_coeffs, F, F2V) );
+
+%% --------------------------------------------------------------------
+%% Maxima of trilinear derivative over ray
+%% --------------------------------------------------------------------
+
+%% Subspace of ax = 0 and dz/dx, dy/dx <= 1
+bern_coeffs = simplify(subs(BDf_t_coeffs, [d], [b-a]));
 
 maxima = [
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [0,0,0,1,0,0])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [0,0,0,1,0,1])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [0,0,0,1,1,0])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [0,0,0,1,1,1])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [0,0,1,1,0,0])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [0,0,1,1,0,1])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [0,0,1,1,1,0])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [0,0,1,1,1,1])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [0,1,0,1,0,0])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [0,1,0,1,0,1])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [0,1,0,1,1,0])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [0,1,0,1,1,1])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [0,1,1,1,0,0])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [0,1,1,1,0,1])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [0,1,1,1,1,0])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [0,1,1,1,1,1])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [1,0,0,1,0,0])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [1,0,0,1,0,1])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [1,0,0,1,1,0])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [1,0,0,1,1,1])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [1,0,1,1,0,0])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [1,0,1,1,0,1])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [1,0,1,1,1,0])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [1,0,1,1,1,1])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [1,1,0,1,0,0])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [1,1,0,1,0,1])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [1,1,0,1,1,0])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [1,1,0,1,1,1])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [1,1,1,1,0,0])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [1,1,1,1,0,1])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [1,1,1,1,1,0])), ...
-    simplify(subs(Df_xyz, [x, y, z, dx, dy, dz], [1,1,1,1,1,1])), ...
+    simplify(subs( bern_coeffs(1), [a, b], [[0,0,0], [1,0,0]]) ), ...
+    simplify(subs( bern_coeffs(1), [a, b], [[0,0,0], [1,1,0]]) ), ...
+    simplify(subs( bern_coeffs(1), [a, b], [[0,0,0], [1,0,1]]) ), ...
+    simplify(subs( bern_coeffs(1), [a, b], [[0,0,0], [1,1,1]]) ), ...
+    simplify(subs( bern_coeffs(1), [a, b], [[0,1,0], [1,1,0]]) ), ...
+    simplify(subs( bern_coeffs(1), [a, b], [[0,1,0], [1,1,1]]) ), ...
+    simplify(subs( bern_coeffs(1), [a, b], [[0,0,1], [1,0,1]]) ), ...
+    simplify(subs( bern_coeffs(1), [a, b], [[0,0,1], [1,1,1]]) ), ...
+    simplify(subs( bern_coeffs(1), [a, b], [[0,1,1], [1,1,1]]) ), ...
+
+    simplify(subs( bern_coeffs(2), [a, b], [[0,0,0], [1,0,0]]) ), ...
+    simplify(subs( bern_coeffs(2), [a, b], [[0,0,0], [1,1,0]]) ), ...
+    simplify(subs( bern_coeffs(2), [a, b], [[0,0,0], [1,0,1]]) ), ...
+    simplify(subs( bern_coeffs(2), [a, b], [[0,0,0], [1,1,1]]) ), ...
+    simplify(subs( bern_coeffs(2), [a, b], [[0,1,0], [1,1,0]]) ), ...
+    simplify(subs( bern_coeffs(2), [a, b], [[0,1,0], [1,1,1]]) ), ...
+    simplify(subs( bern_coeffs(2), [a, b], [[0,0,1], [1,0,1]]) ), ...
+    simplify(subs( bern_coeffs(2), [a, b], [[0,0,1], [1,1,1]]) ), ...
+    simplify(subs( bern_coeffs(2), [a, b], [[0,1,1], [1,1,1]]) ), ...
+
+    simplify(subs( bern_coeffs(3), [a, b], [[0,0,0], [1,0,0]]) ), ...
+    simplify(subs( bern_coeffs(3), [a, b], [[0,0,0], [1,1,0]]) ), ...
+    simplify(subs( bern_coeffs(3), [a, b], [[0,0,0], [1,0,1]]) ), ...
+    simplify(subs( bern_coeffs(3), [a, b], [[0,0,0], [1,1,1]]) ), ...
+    simplify(subs( bern_coeffs(3), [a, b], [[0,1,0], [1,1,0]]) ), ...
+    simplify(subs( bern_coeffs(3), [a, b], [[0,1,0], [1,1,1]]) ), ...
+    simplify(subs( bern_coeffs(3), [a, b], [[0,0,1], [1,0,1]]) ), ...
+    simplify(subs( bern_coeffs(3), [a, b], [[0,0,1], [1,1,1]]) ), ...
+    simplify(subs( bern_coeffs(3), [a, b], [[0,1,1], [1,1,1]]) ), ...
 ];
 
 maxima = unique(maxima);
 maxima = maxima(:);
-
 
 %% --------------------------------------------------------------------
 %% Sort maxima by expression complexity
@@ -274,9 +247,9 @@ A_sym = sym(zeros(n_expr, n_var));
 
 for j = 1:n_var
     % basis vector e_j: F(j) = 1, others = 0
-    basisF = zeros(1, n_var);
-    basisF(j) = 1;
-    A_sym(:, j) = subs(maxima, F, basisF);
+    basis = zeros(1, n_var);
+    basis(j) = 1;
+    A_sym(:, j) = subs(maxima, F, basis);
 end
 
 A = double(A_sym);
@@ -288,14 +261,14 @@ disp(A);
 %  Search for subconvex combination maxima to remove
 %% --------------------------------------------------------------------
 keep = true(n_expr,1);  % assume all are essential initially
-tol_eq = 1e-8;   % tolerance for Aeq*lambda ≈ beq
-tol_ub = 1e-8;   % tolerance for sum(lambda)<= 1
+tol = 1e-8;   % tolerance
 
 for k = 1:n_expr
 
     % Build M_other: all rows except k that are currently kept
     rows = keep(:);
     rows(k) = false;
+
     M_other = A(rows,:);          % (n_other) x n_var
     m_k = A(k,:).';               % n_var x 1
 
@@ -337,7 +310,7 @@ for k = 1:n_expr
         req = norm(Aeq*lambda - beq, Inf);
         sum_lambda = sum(lambda);
 
-        if req <= tol_eq && sum_lambda <= 1 + tol_ub
+        if req <= tol && sum_lambda <= 1 + tol
             redundant = true;
         end
     end
