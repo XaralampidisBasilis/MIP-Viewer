@@ -157,49 +157,49 @@ disp(simplify(Df_t - BDf_t));
 % BDv_t_coeffs = simplify( subs(BDf_t_coeffs, F, F2V) );
 
 %% --------------------------------------------------------------------
-%% Maxima of trilinear derivative over ray
+%% minima of trilinear derivative over ray
 %% --------------------------------------------------------------------
 
-%% Subspace of ax = 0 and dy/dx <= 1
-bern_coeffs = simplify(subs(BDf_t_coeffs, [d], [b-a]));
 
-maxima = [
-    simplify(subs( bern_coeffs(1), [a, b], [[0,0], [1,0]]) ), ...
-    simplify(subs( bern_coeffs(1), [a, b], [[0,0], [1,1]]) ), ...
-    simplify(subs( bern_coeffs(1), [a, b], [[0,1], [1,1]]) ), ...
-
-    simplify(subs( bern_coeffs(2), [a, b], [[0,0], [1,0]]) ), ...
-    simplify(subs( bern_coeffs(2), [a, b], [[0,0], [1,1]]) ), ...
-    simplify(subs( bern_coeffs(2), [a, b], [[0,1], [1,1]]) ), ...
+minima_terms = [
+    simplify(Bf_t_coeffs(1) - Bf_t_coeffs(3)), ...
 ];
 
-maxima = unique(maxima);
-maxima = maxima(:);
+minima_terms = simplify(subs(minima_terms, [d], [b-a]));
+
+minima = [
+    simplify(subs( minima_terms(1), [a, b], [[0,0], [1,0]]) ), ...
+    simplify(subs( minima_terms(1), [a, b], [[0,0], [1,1]]) ), ...
+    simplify(subs( minima_terms(1), [a, b], [[0,1], [1,1]]) ), ...
+];
+
+minima = unique(minima);
+minima = minima(:);
 
 %% --------------------------------------------------------------------
-%% Sort maxima by expression complexity
+%% Sort minima by expression complexity
 %% --------------------------------------------------------------------
 
 % Assume F = [f00 f10 f01 f11] is already defined
-n_expr = length(maxima);
+n_expr = length(minima);
 complexity = zeros(n_expr, 1);
 
 for i = 1:n_expr
     % complexity = number of nonzero linear coefficients
-    complexity(i) = length(char(maxima(i)));
+    complexity(i) = length(char(minima(i)));
 end
 
 % Now sort by complexity
 [complexity_sorted, order] = sort(complexity, 'descend');
-maxima = maxima(order);
+minima = minima(order);
 
 fprintf("Sorted expressions (from simplest to most complex):\n");
-disp(maxima);
+disp(minima);
 
 %% --------------------------------------------------------------------
 %  Build coefficient matrix A
 %% --------------------------------------------------------------------
-n_expr = length(maxima);
+n_expr = length(minima);
 n_var  = length(F);
 A_sym = sym(zeros(n_expr, n_var));
 
@@ -207,7 +207,7 @@ for j = 1:n_var
     % basis vector e_j: F(j) = 1, others = 0
     basis = zeros(1, n_var);
     basis(j) = 1;
-    A_sym(:, j) = subs(maxima, F, basis);
+    A_sym(:, j) = subs(minima, F, basis);
 end
 
 A = double(A_sym);
@@ -216,7 +216,7 @@ fprintf('Coefficient matrix A * F <= 0:\n');
 disp(A);
 
 %% --------------------------------------------------------------------
-%  Search for subconvex combination maxima to remove
+%  Search for subconvex combination minima to remove
 %% --------------------------------------------------------------------
 keep = true(n_expr,1);  % assume all are essential initially
 tol = 1e-8;   % tolerance
@@ -236,7 +236,7 @@ for k = 1:n_expr
         continue;
     end
 
-    % We want: M_other' * lambda = m_k, sum(lambda) <= 1, lambda >= 0
+    % We want: M_other' * lambda = m_k, sum(lambda) >= 1, lambda >= 0
 
     Aeq = M_other.';              % n_var x n_lambda
     beq = m_k;                    % n_var x 1
@@ -245,9 +245,9 @@ for k = 1:n_expr
     % Objective doesn't matter (feasibility problem)
     f = ones(n_lambda,1);
 
-    % Inequality: sum(lambda) <= 1
-    Aineq = ones(1, n_lambda);    % 1 x n_lambda
-    bineq = 1;
+    % Inequality: sum(lambda) >= 1
+    Aineq = -ones(1, n_lambda);    % 1 x n_lambda
+    bineq = -1;
 
     % Bounds: lambda >= 0
     lb = zeros(n_lambda,1);
@@ -268,17 +268,17 @@ for k = 1:n_expr
         req = norm(Aeq*lambda - beq, Inf);
         sum_lambda = sum(lambda);
 
-        if req <= tol && sum_lambda <= 1 + tol
+        if req <= tol && sum_lambda >= 1 - tol
             redundant = true;
         end
     end
 
     if redundant
         keep(k) = false;
-        fprintf('Inequality %d is redundant.\n', k);
+        fprintf('Inequality %d is redundant. sum(lambda) = %.6g\n', k, sum(lambda));
     else
         if ~isempty(lambda)
-            fprintf('Inequality %d appears essential. sum(lambda) = %.6g\n', k, sum(lambda));
+            fprintf('Inequality %d appears essential.\n', k);
         else
             fprintf('Inequality %d appears essential (no feasible lambda).\n', k);
         end
@@ -288,14 +288,14 @@ end
 %% --------------------------------------------------------------------
 %  Reduced system
 %% --------------------------------------------------------------------
-maxima_reduced = maxima(keep);
+minima_reduced = minima(keep);
 A_reduced = A(keep,:);
 
-fprintf('\nEssential maxima (kept):\n');
-disp(find(keep).');   % indices of non-redundant maxima
+fprintf('\nEssential minima (kept):\n');
+disp(find(keep).');   % indices of non-redundant minima
 
 fprintf('\nReduced coefficient matrix A_reduced:\n');
 disp(A_reduced);
 
-fprintf('\nReduced symbolic maxima maxima_reduced:\n');
-disp(maxima_reduced);
+fprintf('\nReduced symbolic minima minima_reduced:\n');
+disp(minima_reduced);

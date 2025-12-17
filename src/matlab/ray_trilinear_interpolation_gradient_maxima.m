@@ -317,10 +317,10 @@ for k = 1:n_expr
 
     if redundant
         keep(k) = false;
-        fprintf('Inequality %d is redundant.\n', k);
+        fprintf('Inequality %d is redundant. sum(lambda) = %.6g\n', k, sum_lambda);
     else
         if ~isempty(lambda)
-            fprintf('Inequality %d appears essential. sum(lambda) = %.6g\n', k, sum(lambda));
+            fprintf('Inequality %d appears essential.\n', k);
         else
             fprintf('Inequality %d appears essential (no feasible lambda).\n', k);
         end

@@ -46,10 +46,10 @@ s = [sx, sy];
 %% Trilinear interpolation f(x,y,z)
 %% --------------------------------------------------------------------
 
-f_xyz = f00 * (1-x) * (1-y) ...
-      + f10 *    x  * (1-y) ...
-      + f01 * (1-x) *    y  ...
-      + f11 *    x  *    y;
+f_xy = f00 * (1-x) * (1-y) ...
+     + f10 *    x  * (1-y) ...
+     + f01 * (1-x) *    y  ...
+     + f11 *    x  *    y;
 
 %% --------------------------------------------------------------------
 %% Ray substitution r(t) 
@@ -70,7 +70,7 @@ r_t = [x_t, y_t];
 %% Trilinear function over ray  
 %% --------------------------------------------------------------------
 
-f_t = simplify( subs(f_xyz, r, r_t) );
+f_t = simplify( subs(f_xy, r, r_t) );
 f_t = collect(f_t, t);
 
 % Extract coefficients
@@ -105,18 +105,18 @@ disp(simplify(f_t - Bf_t));
 %% --------------------------------------------------------------------
 
 % Compute partial derivatives
-fx = simplify(diff(f_xyz, x));
-fy = simplify(diff(f_xyz, y));
+fx = simplify(diff(f_xy, x));
+fy = simplify(diff(f_xy, y));
 
 % Gradient vector
-Gf_xyz = [fx, fy];
+Gf_xy = [fx, fy];
 
 % directional derivative
-Df_xyz = dot(Gf_xyz, d);
+Df_xy = dot(Gf_xy, d);
 
 % directional derivative over ray
-Gf_t = simplify( subs(Gf_xyz, r, r_t) );
-Df_t = simplify( subs(Df_xyz, r, r_t) );
+Gf_t = simplify( subs(Gf_xy, r, r_t) );
+Df_t = simplify( subs(Df_xy, r, r_t) );
 
 % coefficients
 [Df_t_coeffs, Df_t_terms] = coeffs(Df_t, t);
@@ -147,30 +147,36 @@ disp(simplify(Df_t - BDf_t));
 %% Simplification patterns
 %% --------------------------------------------------------------------
 
-% v_xyz        = simplify( subs(f_xyz, F, F2V) );
-% v_t          = simplify( subs(f_t, F, F2V) );
-% v_t_coeffs   = simplify( subs(f_t_coeffs, F, F2V) );
-% Dv_xyz       = simplify( subs(Df_xyz, F, F2V) );
-% Dv_t         = simplify( subs(Df_t, F, F2V) );
-% Dv_t_coeffs  = simplify( subs(Df_t_coeffs, F, F2V) );
-% Bv_t_coeffs  = simplify( subs(Bf_t_coeffs, F, F2V) );
-% BDv_t_coeffs = simplify( subs(BDf_t_coeffs, F, F2V) );
+v_xy         = simplify( subs(f_xy, F, F2V) );
+v_t          = simplify( subs(f_t, F, F2V) );
+v_t_coeffs   = simplify( subs(f_t_coeffs, F, F2V) );
+Dv_xy        = simplify( subs(Df_xy, F, F2V) );
+Dv_t         = simplify( subs(Df_t, F, F2V) );
+Dv_t_coeffs  = simplify( subs(Df_t_coeffs, F, F2V) );
+Bv_t_coeffs  = simplify( subs(Bf_t_coeffs, F, F2V) );
+BDv_t_coeffs = simplify( subs(BDf_t_coeffs, F, F2V) );
 
 %% --------------------------------------------------------------------
 %% Maxima of trilinear derivative over ray
 %% --------------------------------------------------------------------
 
 %% Subspace of ax = 0 and dy/dx <= 1
-bern_coeffs = simplify(subs(BDf_t_coeffs, [d], [b-a]));
+
+maxima_terms = [
+    simplify(Bf_t_coeffs(2) - Bf_t_coeffs(1)), ...
+    simplify(Bf_t_coeffs(3) - Bf_t_coeffs(1)), ...
+];
+
+maxima_terms = simplify(subs(maxima_terms, [d], [b-a]));
 
 maxima = [
-    simplify(subs( bern_coeffs(1), [a, b], [[0,0], [1,0]]) ), ...
-    simplify(subs( bern_coeffs(1), [a, b], [[0,0], [1,1]]) ), ...
-    simplify(subs( bern_coeffs(1), [a, b], [[0,1], [1,1]]) ), ...
+    simplify(subs( maxima_terms(1), [a, b], [[0,0], [1,0]]) ), ...
+    simplify(subs( maxima_terms(1), [a, b], [[0,0], [1,1]]) ), ...
+    simplify(subs( maxima_terms(1), [a, b], [[0,1], [1,1]]) ), ...
 
-    simplify(subs( bern_coeffs(2), [a, b], [[0,0], [1,0]]) ), ...
-    simplify(subs( bern_coeffs(2), [a, b], [[0,0], [1,1]]) ), ...
-    simplify(subs( bern_coeffs(2), [a, b], [[0,1], [1,1]]) ), ...
+    simplify(subs( maxima_terms(2), [a, b], [[0,0], [1,0]]) ), ...
+    simplify(subs( maxima_terms(2), [a, b], [[0,0], [1,1]]) ), ...
+    simplify(subs( maxima_terms(2), [a, b], [[0,1], [1,1]]) ), ...
 ];
 
 maxima = unique(maxima);
@@ -275,10 +281,10 @@ for k = 1:n_expr
 
     if redundant
         keep(k) = false;
-        fprintf('Inequality %d is redundant.\n', k);
+        fprintf('Inequality %d is redundant. sum(lambda) = %.6g\n', k, sum_lambda);
     else
         if ~isempty(lambda)
-            fprintf('Inequality %d appears essential. sum(lambda) = %.6g\n', k, sum(lambda));
+            fprintf('Inequality %d appears essential.\n', k);
         else
             fprintf('Inequality %d appears essential (no feasible lambda).\n', k);
         end
