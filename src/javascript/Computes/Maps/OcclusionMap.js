@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import { computeOcclusionMap } from '../Programs/GPGPUOcclusionMap'
+import { computeExtendedAnisotropicOcclusionMap } from '../Programs/GPGPUExtendedAnisotropicOcclusionMap'
 
 export default class OcclusionMap
 {
@@ -12,10 +13,10 @@ export default class OcclusionMap
         this.volumeMap = this.computes.volumeMap
     }
 
-    computeTensor()
+    async computeTensor()
     {
         console.time('computeTensor') 
-        this.tensor = computeOcclusionMap(this.volumeMap.tensor)
+        this.tensor = await computeExtendedAnisotropicOcclusionMap(this.volumeMap.tensor)
         console.log(this.tensor.mean().dataSync())
         
         const shape = this.tensor.shape

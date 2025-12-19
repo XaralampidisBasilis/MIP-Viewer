@@ -348,6 +348,7 @@ class GPGPUOcclusionMap implements GPGPUProgram
             m = min(m, (f_000 - f_110));
             m = min(m, (f_010 - f_110));
             m = min(m, (f_000 - f_100));
+
             m = max(m, 0.0);
 
             return m;
@@ -355,7 +356,7 @@ class GPGPUOcclusionMap implements GPGPUProgram
 
         float getCellMaxXIncrement3(ivec3 cellCoords)
         {
-            ivec3 voxelCoords = cellCoords - 1;
+            ivec3 voxelCoords = cellCoords-1;
 
             float f_000 = getVoxelSample(voxelCoords + ivec3(0,0,0));
             float f_100 = getVoxelSample(voxelCoords + ivec3(1,0,0));
@@ -377,16 +378,18 @@ class GPGPUOcclusionMap implements GPGPUProgram
             m = max(m, (f_101 - f_001));
             m = max(m, (f_111 - f_001));
             m = max(m, (f_111 - f_011));
-            // m = max(m, (f_010 + f_100 - 2.0 * f_000) / 3.0);
-            // m = max(m, (f_001 + f_100 - 2.0 * f_000) / 3.0);
-            // m = max(m, (f_011 + f_110 - 2.0 * f_010) / 3.0);
-            // m = max(m, (f_011 + f_101 - 2.0 * f_001) / 3.0);
-            // m = max(m, (f_001 + f_010 + f_100) / 3.0 - f_000);
-            // m = max(m, (f_010 + f_100 + f_110) / 3.0 - f_000);
-            // m = max(m, (f_001 + f_100 + f_101) / 3.0 - f_000);
-            // m = max(m, (f_011 + f_101 + f_110) / 3.0 - f_000);
-            // m = max(m, (f_011 + f_110 + f_111) / 3.0 - f_010);
-            // m = max(m, (f_011 + f_101 + f_111) / 3.0 - f_001);
+
+            m = max(m, (f_000 + f_010 + f_100) / 3.0 - f_000);
+            m = max(m, (f_000 + f_001 + f_100) / 3.0 - f_000);
+            m = max(m, (f_010 + f_100 + f_110) / 3.0 - f_000);
+            m = max(m, (f_001 + f_100 + f_101) / 3.0 - f_000);
+            m = max(m, (f_001 + f_010 + f_100) / 3.0 - f_000);
+            m = max(m, (f_011 + f_101 + f_110) / 3.0 - f_000);
+            m = max(m, (f_011 + f_110 + f_111) / 3.0 - f_010);
+            m = max(m, (f_011 + f_110 + f_010) / 3.0 - f_010);
+            m = max(m, (f_011 + f_101 + f_111) / 3.0 - f_001);
+            m = max(m, (f_011 + f_101 + f_001) / 3.0 - f_001);
+
             m = max(m, 0.0);
 
             return m;
