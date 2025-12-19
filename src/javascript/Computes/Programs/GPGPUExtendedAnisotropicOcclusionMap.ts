@@ -92,12 +92,10 @@ class GPGPUStartOcclusionMap implements GPGPUProgram
         void main()
         {
             ivec3 cellCoords = getCellCoords();
-
             CellSamples cellSamples = getCellSamples(cellCoords);
 
             vec3 cellMinOutputs = getCellMinOutputs(cellSamples);
             vec3 cellMaxOutputs = getCellMaxOutputs(cellSamples);
-
             vec3 cellMinMaxOutputs = packVec3ToHalf2x16(cellMinOutputs, cellMaxOutputs);
 
             setOutput(vec4(cellMinMaxOutputs, 0.0));
