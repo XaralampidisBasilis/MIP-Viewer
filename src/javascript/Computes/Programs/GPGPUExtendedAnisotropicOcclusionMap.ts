@@ -35,6 +35,16 @@ class GPGPUStartOcclusionMap implements GPGPUProgram
             float f111;
         };
 
+        float mmin(float a, float b, float c, float d)
+        {
+            return min(min(min(a, b), c), d);
+        }
+
+        float mmax(float a, float b, float c, float d)
+        {
+            return max(max(max(a, b), c), d);
+        }
+
         vec3 packVec3ToHalf2x16(vec3 a, vec3 b)
         {
             uvec3 p;
@@ -75,17 +85,17 @@ class GPGPUStartOcclusionMap implements GPGPUProgram
 
         vec3 getCellMinOutputs(CellSamples s)
         {
-            float xMinOutput = min(min(min(s.f100, s.f110), s.f101), s.f111);
-            float yMinOutput = min(min(min(s.f010, s.f110), s.f011), s.f111);
-            float zMinOutput = min(min(min(s.f001, s.f101), s.f011), s.f111);
+            float xMinOutput = mmin(s.f100, s.f110, s.f101, s.f111);
+            float yMinOutput = mmin(s.f010, s.f110, s.f011, s.f111);
+            float zMinOutput = mmin(s.f001, s.f101, s.f011, s.f111);
             return vec3(xMinOutput, yMinOutput, zMinOutput);
         }
 
         vec3 getCellMaxOutputs(CellSamples s)
         {
-            float xMaxOutput = max(max(max(s.f100, s.f110), s.f101), s.f111);
-            float yMaxOutput = max(max(max(s.f010, s.f110), s.f011), s.f111);
-            float zMaxOutput = max(max(max(s.f001, s.f101), s.f011), s.f111);
+            float xMaxOutput = mmax(s.f100, s.f110, s.f101, s.f111);
+            float yMaxOutput = mmax(s.f010, s.f110, s.f011, s.f111);
+            float zMaxOutput = mmax(s.f001, s.f101, s.f011, s.f111);
             return vec3(xMaxOutput, yMaxOutput, zMaxOutput);
         }
 
