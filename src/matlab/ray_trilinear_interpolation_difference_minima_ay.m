@@ -64,7 +64,7 @@ f_xyz = f000 * (1-x) * (1-y) * (1-z) ...
       + f111 *    x  *    y  *    z;
 
 %% --------------------------------------------------------------------
-%% Ray substitution r(t) 
+%% Ray substitution r(t)
 %% --------------------------------------------------------------------
 
 x_t = ax + dx*t;
@@ -82,7 +82,7 @@ z_t = az + dz*t;
 r_t = [x_t, y_t, z_t];
 
 %% --------------------------------------------------------------------
-%% Trilinear function over ray  
+%% Trilinear function over ray
 %% --------------------------------------------------------------------
 
 f_t = simplify( subs(f_xyz, r, r_t) );
@@ -92,7 +92,7 @@ f_t = collect(f_t, t);
 [f_t_coeffs, f_t_terms] = coeffs(f_t, t);
 
 %% --------------------------------------------------------------------
-%% Bernstein Trilinear function over ray 
+%% Bernstein Trilinear function over ray
 %% --------------------------------------------------------------------
 
 % Bernstein coefficients
@@ -118,7 +118,7 @@ disp("Sanity check f(t) - Bf_t(t), should be 0:");
 disp(simplify(f_t - Bf_t));
 
 %% --------------------------------------------------------------------
-%% Trilinear function derivative over ray  
+%% Trilinear function derivative over ray
 %% --------------------------------------------------------------------
 
 % Compute partial derivatives
@@ -140,7 +140,7 @@ Df_t = simplify( subs(Df_xyz, r, r_t) );
 [Df_t_coeffs, Df_t_terms] = coeffs(Df_t, t);
 
 %% --------------------------------------------------------------------
-%% Bernstein trilinear function derivative over ray  
+%% Bernstein trilinear function derivative over ray
 %% --------------------------------------------------------------------
 
 % Bernstein coefficients
@@ -167,65 +167,40 @@ disp(simplify(Df_t - BDf_t));
 %% Simplification patterns
 %% --------------------------------------------------------------------
 
-v_xyz        = simplify( subs(f_xyz, F, F2V) );
-v_t          = simplify( subs(f_t, F, F2V) );
-v_t_coeffs   = simplify( subs(f_t_coeffs, F, F2V) );
-Dv_xyz       = simplify( subs(Df_xyz, F, F2V) );
-Dv_t         = simplify( subs(Df_t, F, F2V) );
-Dv_t_coeffs  = simplify( subs(Df_t_coeffs, F, F2V) );
-Bv_t_coeffs  = simplify( subs(Bf_t_coeffs, F, F2V) );
-BDv_t_coeffs = simplify( subs(BDf_t_coeffs, F, F2V) );
+% v_xyz        = simplify( subs(f_xyz, F, F2V) );
+% v_t          = simplify( subs(f_t, F, F2V) );
+% v_t_coeffs   = simplify( subs(f_t_coeffs, F, F2V) );
+% Dv_xyz       = simplify( subs(Df_xyz, F, F2V) );
+% Dv_t         = simplify( subs(Df_t, F, F2V) );
+% Dv_t_coeffs  = simplify( subs(Df_t_coeffs, F, F2V) );
+% Bv_t_coeffs  = simplify( subs(Bf_t_coeffs, F, F2V) );
+% BDv_t_coeffs = simplify( subs(BDf_t_coeffs, F, F2V) );
 
 %% --------------------------------------------------------------------
-%% Maxima of trilinear derivative over ray
+%% minima of trilinear derivative over ray
 %% --------------------------------------------------------------------
 
 %% Subspace of ax = 0 and dz/dx, dy/dx <= 1
-
-maxima_terms = [
-    simplify(Bf_t_coeffs(2) - Bf_t_coeffs(1)), ...
-    simplify(Bf_t_coeffs(3) - Bf_t_coeffs(1)), ...
-    simplify(Bf_t_coeffs(4) - Bf_t_coeffs(1)), ...
+minima_terms = [
+    simplify(subs(f_t, t, 1) - subs(f_t, t, 0)), ...
 ];
 
-maxima_terms = simplify(subs(maxima_terms, [d], [b-a]));
+minima_terms = simplify(subs(minima_terms, [d], [b-a]));
 
-maxima = [
-    simplify(subs( maxima_terms(1), [a, b], [[0,0,0], [1,0,0]]) ), ...
-    simplify(subs( maxima_terms(1), [a, b], [[0,0,0], [1,1,0]]) ), ...
-    simplify(subs( maxima_terms(1), [a, b], [[0,0,0], [1,0,1]]) ), ...
-    simplify(subs( maxima_terms(1), [a, b], [[0,0,0], [1,1,1]]) ), ...
-    simplify(subs( maxima_terms(1), [a, b], [[0,1,0], [1,1,0]]) ), ...
-    simplify(subs( maxima_terms(1), [a, b], [[0,1,0], [1,1,1]]) ), ...
-    simplify(subs( maxima_terms(1), [a, b], [[0,0,1], [1,0,1]]) ), ...
-    simplify(subs( maxima_terms(1), [a, b], [[0,0,1], [1,1,1]]) ), ...
-    simplify(subs( maxima_terms(1), [a, b], [[0,1,1], [1,1,1]]) ), ...
-
-    simplify(subs( maxima_terms(2), [a, b], [[0,0,0], [1,0,0]]) ), ...
-    simplify(subs( maxima_terms(2), [a, b], [[0,0,0], [1,1,0]]) ), ...
-    simplify(subs( maxima_terms(2), [a, b], [[0,0,0], [1,0,1]]) ), ...
-    simplify(subs( maxima_terms(2), [a, b], [[0,0,0], [1,1,1]]) ), ...
-    simplify(subs( maxima_terms(2), [a, b], [[0,1,0], [1,1,0]]) ), ...
-    simplify(subs( maxima_terms(2), [a, b], [[0,1,0], [1,1,1]]) ), ...
-    simplify(subs( maxima_terms(2), [a, b], [[0,0,1], [1,0,1]]) ), ...
-    simplify(subs( maxima_terms(2), [a, b], [[0,0,1], [1,1,1]]) ), ...
-    simplify(subs( maxima_terms(2), [a, b], [[0,1,1], [1,1,1]]) ), ...
-
-    simplify(subs( maxima_terms(3), [a, b], [[0,0,0], [1,0,0]]) ), ...
-    simplify(subs( maxima_terms(3), [a, b], [[0,0,0], [1,1,0]]) ), ...
-    simplify(subs( maxima_terms(3), [a, b], [[0,0,0], [1,0,1]]) ), ...
-    simplify(subs( maxima_terms(3), [a, b], [[0,0,0], [1,1,1]]) ), ...
-    simplify(subs( maxima_terms(3), [a, b], [[0,1,0], [1,1,0]]) ), ...
-    simplify(subs( maxima_terms(3), [a, b], [[0,1,0], [1,1,1]]) ), ...
-    simplify(subs( maxima_terms(3), [a, b], [[0,0,1], [1,0,1]]) ), ...
-    simplify(subs( maxima_terms(3), [a, b], [[0,0,1], [1,1,1]]) ), ...
-    simplify(subs( maxima_terms(3), [a, b], [[0,1,1], [1,1,1]]) ), ...
+minima = [
+    simplify(subs( minima_terms(1), [a, b], [[0,0,0], [1,0,0]]) ), ...
+    simplify(subs( minima_terms(1), [a, b], [[0,0,0], [1,1,0]]) ), ...
+    simplify(subs( minima_terms(1), [a, b], [[0,0,0], [1,0,1]]) ), ...
+    simplify(subs( minima_terms(1), [a, b], [[0,0,0], [1,1,1]]) ), ...
+    simplify(subs( minima_terms(1), [a, b], [[0,0,1], [1,0,1]]) ), ...
+    simplify(subs( minima_terms(1), [a, b], [[0,0,1], [1,1,1]]) ), ...
 ];
 
-maxima = unique(maxima);
-maxima = maxima(:);
+minima = unique(minima);
+minima = minima(:);
+maxima = -minima;
 
-%% --------------------------------------------------------------------
+%% ---------------------------------------------------------------
 %% Sort maxima by expression complexity
 %% --------------------------------------------------------------------
 
@@ -337,14 +312,14 @@ end
 %% --------------------------------------------------------------------
 %  Reduced system
 %% --------------------------------------------------------------------
-maxima_reduced = maxima(keep);
+minima_reduced = -maxima(keep);
 A_reduced = A(keep,:);
 
 fprintf('\nEssential maxima (kept):\n');
 disp(find(keep).');   % indices of non-redundant maxima
 
-fprintf('\nReduced coefficient matrix A_reduced:\n');
+fprintf('\nReduced coefficient matrix:\n');
 disp(A_reduced);
 
-fprintf('\nReduced symbolic maxima maxima_reduced:\n');
-disp(maxima_reduced);
+fprintf('\nReduced symbolic minima:\n');
+disp(minima_reduced);

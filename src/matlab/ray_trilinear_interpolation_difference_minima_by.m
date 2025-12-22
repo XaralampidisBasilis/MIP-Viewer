@@ -64,7 +64,7 @@ f_xyz = f000 * (1-x) * (1-y) * (1-z) ...
       + f111 *    x  *    y  *    z;
 
 %% --------------------------------------------------------------------
-%% Ray substitution r(t) 
+%% Ray substitution r(t)
 %% --------------------------------------------------------------------
 
 x_t = ax + dx*t;
@@ -82,7 +82,7 @@ z_t = az + dz*t;
 r_t = [x_t, y_t, z_t];
 
 %% --------------------------------------------------------------------
-%% Trilinear function over ray  
+%% Trilinear function over ray
 %% --------------------------------------------------------------------
 
 f_t = simplify( subs(f_xyz, r, r_t) );
@@ -92,7 +92,7 @@ f_t = collect(f_t, t);
 [f_t_coeffs, f_t_terms] = coeffs(f_t, t);
 
 %% --------------------------------------------------------------------
-%% Bernstein Trilinear function over ray 
+%% Bernstein Trilinear function over ray
 %% --------------------------------------------------------------------
 
 % Bernstein coefficients
@@ -118,7 +118,7 @@ disp("Sanity check f(t) - Bf_t(t), should be 0:");
 disp(simplify(f_t - Bf_t));
 
 %% --------------------------------------------------------------------
-%% Trilinear function derivative over ray  
+%% Trilinear function derivative over ray
 %% --------------------------------------------------------------------
 
 % Compute partial derivatives
@@ -140,7 +140,7 @@ Df_t = simplify( subs(Df_xyz, r, r_t) );
 [Df_t_coeffs, Df_t_terms] = coeffs(Df_t, t);
 
 %% --------------------------------------------------------------------
-%% Bernstein trilinear function derivative over ray  
+%% Bernstein trilinear function derivative over ray
 %% --------------------------------------------------------------------
 
 % Bernstein coefficients
@@ -167,14 +167,14 @@ disp(simplify(Df_t - BDf_t));
 %% Simplification patterns
 %% --------------------------------------------------------------------
 
-v_xyz        = simplify( subs(f_xyz, F, F2V) );
-v_t          = simplify( subs(f_t, F, F2V) );
-v_t_coeffs   = simplify( subs(f_t_coeffs, F, F2V) );
-Dv_xyz       = simplify( subs(Df_xyz, F, F2V) );
-Dv_t         = simplify( subs(Df_t, F, F2V) );
-Dv_t_coeffs  = simplify( subs(Df_t_coeffs, F, F2V) );
-Bv_t_coeffs  = simplify( subs(Bf_t_coeffs, F, F2V) );
-BDv_t_coeffs = simplify( subs(BDf_t_coeffs, F, F2V) );
+% v_xyz        = simplify( subs(f_xyz, F, F2V) );
+% v_t          = simplify( subs(f_t, F, F2V) );
+% v_t_coeffs   = simplify( subs(f_t_coeffs, F, F2V) );
+% Dv_xyz       = simplify( subs(Df_xyz, F, F2V) );
+% Dv_t         = simplify( subs(Df_t, F, F2V) );
+% Dv_t_coeffs  = simplify( subs(Df_t_coeffs, F, F2V) );
+% Bv_t_coeffs  = simplify( subs(Bf_t_coeffs, F, F2V) );
+% BDv_t_coeffs = simplify( subs(BDf_t_coeffs, F, F2V) );
 
 %% --------------------------------------------------------------------
 %% minima of trilinear derivative over ray
@@ -182,9 +182,7 @@ BDv_t_coeffs = simplify( subs(BDf_t_coeffs, F, F2V) );
 
 %% Subspace of ax = 0 and dz/dx, dy/dx <= 1
 minima_terms = [
-    simplify(subs(f_t, t, 0)   - subs(f_t, t, 1)), ...
-    simplify(subs(f_t, t, 1/3) - subs(f_t, t, 1)), ...
-    simplify(subs(f_t, t, 2/3) - subs(f_t, t, 1)), ...
+    simplify(subs(f_t, t, 0) - subs(f_t, t, 1)), ...
 ];
 
 minima_terms = simplify(subs(minima_terms, [d], [b-a]));
@@ -194,40 +192,38 @@ minima = [
     simplify(subs( minima_terms(1), [a, b], [[0,1,0], [1,1,1]]) ), ...
     simplify(subs( minima_terms(1), [a, b], [[0,0,1], [1,1,1]]) ), ...
     simplify(subs( minima_terms(1), [a, b], [[0,1,1], [1,1,1]]) ), ...
-    simplify(subs( minima_terms(1), [a, b], [[0,0,0], [1,0,1]]) ), ...
-    simplify(subs( minima_terms(1), [a, b], [[0,0,1], [1,0,1]]) ), ...
     simplify(subs( minima_terms(1), [a, b], [[0,0,0], [1,1,0]]) ), ...
     simplify(subs( minima_terms(1), [a, b], [[0,1,0], [1,1,0]]) ), ...
-    simplify(subs( minima_terms(1), [a, b], [[0,0,0], [1,0,0]]) ), ...
 ];
 
 minima = unique(minima);
 minima = minima(:);
+maxima = -minima;
 
-%% --------------------------------------------------------------------
-%% Sort minima by expression complexity
+%% ---------------------------------------------------------------
+%% Sort maxima by expression complexity
 %% --------------------------------------------------------------------
 
 % Assume F = [f000 f001 ... f111] is already defined
-n_expr = length(minima);
+n_expr = length(maxima);
 complexity = zeros(n_expr, 1);
 
 for i = 1:n_expr
     % complexity = number of nonzero linear coefficients
-    complexity(i) = length(char(minima(i)));
+    complexity(i) = length(char(maxima(i)));
 end
 
 % Now sort by complexity
 [complexity_sorted, order] = sort(complexity, 'descend');
-minima = minima(order);
+maxima = maxima(order);
 
 fprintf("Sorted expressions (from simplest to most complex):\n");
-disp(minima);
+disp(maxima);
 
 %% --------------------------------------------------------------------
 %  Build coefficient matrix A
 %% --------------------------------------------------------------------
-n_expr = length(minima);
+n_expr = length(maxima);
 n_var  = length(F);
 A_sym = sym(zeros(n_expr, n_var));
 
@@ -235,7 +231,7 @@ for j = 1:n_var
     % basis vector e_j: F(j) = 1, others = 0
     basis = zeros(1, n_var);
     basis(j) = 1;
-    A_sym(:, j) = subs(minima, F, basis);
+    A_sym(:, j) = subs(maxima, F, basis);
 end
 
 A = double(A_sym);
@@ -244,7 +240,7 @@ fprintf('Coefficient matrix A * F <= 0:\n');
 disp(A);
 
 %% --------------------------------------------------------------------
-%  Search for subconvex combination minima to remove
+%  Search for subconvex combination maxima to remove
 %% --------------------------------------------------------------------
 keep = true(n_expr,1);  % assume all are essential initially
 tol = 1e-8;   % tolerance
@@ -273,13 +269,13 @@ for k = 1:n_expr
     % Objective doesn't matter (feasibility problem)
     f = ones(n_lambda,1);
 
-    % Inequality: sum(lambda) >= 1
-    Aineq = -ones(1, n_lambda);    % 1 x n_lambda
-    bineq = -1;
+    % Inequality: sum(lambda) <= 1
+    Aineq = ones(1, n_lambda);    % 1 x n_lambda
+    bineq = 1;
 
     % Bounds: lambda >= 0
     lb = zeros(n_lambda,1);
-    ub = []; % no upper bound, other than sum(lambda)>=1
+    ub = []; % no upper bound, other than sum(lambda)<=1
 
     % linprog: minimize f' * lambda
     lambda = linprog(f, Aineq, bineq, Aeq, beq, lb, ub);
@@ -296,7 +292,7 @@ for k = 1:n_expr
         req = norm(Aeq*lambda - beq, Inf);
         sum_lambda = sum(lambda);
 
-        if req <= tol && sum_lambda >= 1 - tol
+        if req <= tol && sum_lambda <= 1 + tol
             redundant = true;
         end
     end
@@ -316,14 +312,14 @@ end
 %% --------------------------------------------------------------------
 %  Reduced system
 %% --------------------------------------------------------------------
-minima_reduced = minima(keep);
+minima_reduced = -maxima(keep);
 A_reduced = A(keep,:);
 
-fprintf('\nEssential minima (kept):\n');
-disp(find(keep).');   % indices of non-redundant minima
+fprintf('\nEssential maxima (kept):\n');
+disp(find(keep).');   % indices of non-redundant maxima
 
-fprintf('\nReduced coefficient matrix A_reduced:\n');
+fprintf('\nReduced coefficient matrix:\n');
 disp(A_reduced);
 
-fprintf('\nReduced symbolic minima minima_reduced:\n');
+fprintf('\nReduced symbolic minima:\n');
 disp(minima_reduced);

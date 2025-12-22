@@ -227,28 +227,28 @@ class GPGPUOcclusionMap implements GPGPUProgram
             float s_100_010_001 = f_001 + f_010 + f_100;
             float s_011_101_110 = f_011 + f_101 + f_110;
 
-            float m = -1.0/0.0;
+            float v = -1.0/0.0;
 
-            m = max(m, f_100 - f_000);
-            m = max(m, f_110 - f_010);
-            m = max(m, f_101 - f_001);
-            m = max(m, f_111 - f_011);
-            m = max(m, s_100_010 - 2.0 * f_000);
-            m = max(m, s_100_001 - 2.0 * f_000);
-            m = max(m, s_011_101 - 2.0 * f_001);
-            m = max(m, s_011_110 - 2.0 * f_010);
-            m = max(m, 2.0 * f_110 - s_100_010);
-            m = max(m, 2.0 * f_101 - s_100_001);
-            m = max(m, 2.0 * f_111 - s_011_101);
-            m = max(m, 2.0 * f_111 - s_011_110);
-            m = max(m, s_100_010_001 - 3.0 * f_000);
-            m = max(m, 3.0 * f_111 - s_011_101_110);
+            v = max(v, f_100 - f_000);
+            v = max(v, f_110 - f_010);
+            v = max(v, f_101 - f_001);
+            v = max(v, f_111 - f_011);
+            v = max(v, s_100_010 - 2.0 * f_000);
+            v = max(v, s_100_001 - 2.0 * f_000);
+            v = max(v, s_011_101 - 2.0 * f_001);
+            v = max(v, s_011_110 - 2.0 * f_010);
+            v = max(v, 2.0 * f_110 - s_100_010);
+            v = max(v, 2.0 * f_101 - s_100_001);
+            v = max(v, 2.0 * f_111 - s_011_101);
+            v = max(v, 2.0 * f_111 - s_011_110);
+            v = max(v, s_100_010_001 - 3.0 * f_000);
+            v = max(v, 3.0 * f_111 - s_011_101_110);
 
-            m = max(m, s_011_101_110 - s_100_010_001);
+            v = max(v, s_011_101_110 - s_100_010_001);
 
-            m = max(m, 0.0);
+            v = max(v, 0.0);
 
-            return m;
+            return v;
         }
 
         float getCellMinXIncrement(ivec3 cellCoords)
@@ -272,27 +272,27 @@ class GPGPUOcclusionMap implements GPGPUProgram
             float s_100_010_001 = f_001 + f_010 + f_100;
             float s_011_101_110 = f_011 + f_101 + f_110;
 
-            float m = 1.0/0.0;
+            float v = 1.0/0.0;
 
-            m = min(m, f_000 - f_100);
-            m = min(m, f_010 - f_110);
-            m = min(m, f_001 - f_101);
-            m = min(m, f_011 - f_111);
-            m = min(m, 2.0 * f_000 - s_100_010);
-            m = min(m, 2.0 * f_000 - s_100_001);
-            m = min(m, 2.0 * f_001 - s_011_101);
-            m = min(m, 2.0 * f_010 - s_011_110);
-            m = min(m, s_100_010 - 2.0 * f_110);
-            m = min(m, s_100_001 - 2.0 * f_101);
-            m = min(m, s_011_101 - 2.0 * f_111);
-            m = min(m, s_011_110 - 2.0 * f_111);
-            m = min(m, 3.0 * f_000  - s_100_010_001);
-            m = min(m, s_011_101_110 - 3.0 * f_111);
-            m = min(m, s_100_010_001 - s_011_101_110);
+            v = min(v, f_000 - f_100);
+            v = min(v, f_010 - f_110);
+            v = min(v, f_001 - f_101);
+            v = min(v, f_011 - f_111);
+            v = min(v, 2.0 * f_000 - s_100_010);
+            v = min(v, 2.0 * f_000 - s_100_001);
+            v = min(v, 2.0 * f_001 - s_011_101);
+            v = min(v, 2.0 * f_010 - s_011_110);
+            v = min(v, s_100_010 - 2.0 * f_110);
+            v = min(v, s_100_001 - 2.0 * f_101);
+            v = min(v, s_011_101 - 2.0 * f_111);
+            v = min(v, s_011_110 - 2.0 * f_111);
+            v = min(v, 3.0 * f_000  - s_100_010_001);
+            v = min(v, s_011_101_110 - 3.0 * f_111);
+            v = min(v, s_100_010_001 - s_011_101_110);
 
-            m = max(m, 0.0);
+            v = max(v, 0.0);
 
-            return m;
+            return v;
         }
 
         bool isCellConvex(ivec3 cellCoords)
@@ -324,7 +324,7 @@ class GPGPUOcclusionMap implements GPGPUProgram
             return convex;
         }
 
-         float getCellMinXIncrement3(ivec3 cellCoords)
+        float getCellMinOutputIncrementX(ivec3 cellCoords)
         {
             ivec3 voxelCoords = cellCoords - 1;
 
@@ -337,24 +337,78 @@ class GPGPUOcclusionMap implements GPGPUProgram
             float f_110 = getVoxelSample(voxelCoords + ivec3(1,1,0));
             float f_111 = getVoxelSample(voxelCoords + ivec3(1,1,1));
 
-            float m = 1.0/0.0;
+            float v = 1.0/0.0;
 
-            m = min(m, (f_000 - f_111));
-            m = min(m, (f_010 - f_111));
-            m = min(m, (f_001 - f_111));
-            m = min(m, (f_011 - f_111));
-            m = min(m, (f_000 - f_101));
-            m = min(m, (f_001 - f_101));
-            m = min(m, (f_000 - f_110));
-            m = min(m, (f_010 - f_110));
-            m = min(m, (f_000 - f_100));
+            v = min(v, (f_000 - f_111));
+            v = min(v, (f_010 - f_111));
+            v = min(v, (f_001 - f_111));
+            v = min(v, (f_011 - f_111));
+            v = min(v, (f_000 - f_101));
+            v = min(v, (f_001 - f_101));
+            v = min(v, (f_000 - f_110));
+            v = min(v, (f_010 - f_110));
+            v = min(v, (f_000 - f_100));
 
-            m = max(m, 0.0);
+            v = max(v, 0.0);
 
-            return m;
+            return v;
         }
 
-        float getCellMaxXIncrement3(ivec3 cellCoords)
+        float getCellMinOutputIncrementY(ivec3 cellCoords)
+        {
+            ivec3 voxelCoords = cellCoords - 1;
+
+            float f_000 = getVoxelSample(voxelCoords + ivec3(0,0,0));
+            float f_100 = getVoxelSample(voxelCoords + ivec3(1,0,0));
+            float f_010 = getVoxelSample(voxelCoords + ivec3(0,1,0));
+            float f_001 = getVoxelSample(voxelCoords + ivec3(0,0,1));
+            float f_011 = getVoxelSample(voxelCoords + ivec3(0,1,1));
+            float f_101 = getVoxelSample(voxelCoords + ivec3(1,0,1));
+            float f_110 = getVoxelSample(voxelCoords + ivec3(1,1,0));
+            float f_111 = getVoxelSample(voxelCoords + ivec3(1,1,1));
+
+            float v = 1.0/0.0;
+
+            v = min(v, (f000 - f111));
+            v = min(v, (f010 - f111));
+            v = min(v, (f001 - f111));
+            v = min(v, (f011 - f111));
+            v = min(v, (f000 - f110));
+            v = min(v, (f010 - f110));
+
+            v = max(v, 0.0);
+
+            return v;
+        }
+
+        float getCellMinOutputIncrementZ(ivec3 cellCoords)
+        {
+            ivec3 voxelCoords = cellCoords - 1;
+
+            float f_000 = getVoxelSample(voxelCoords + ivec3(0,0,0));
+            float f_100 = getVoxelSample(voxelCoords + ivec3(1,0,0));
+            float f_010 = getVoxelSample(voxelCoords + ivec3(0,1,0));
+            float f_001 = getVoxelSample(voxelCoords + ivec3(0,0,1));
+            float f_011 = getVoxelSample(voxelCoords + ivec3(0,1,1));
+            float f_101 = getVoxelSample(voxelCoords + ivec3(1,0,1));
+            float f_110 = getVoxelSample(voxelCoords + ivec3(1,1,0));
+            float f_111 = getVoxelSample(voxelCoords + ivec3(1,1,1));
+
+            float v = 1.0/0.0;
+
+            v = min(v, (f000 - f111));
+            v = min(v, (f010 - f111));
+            v = min(v, (f001 - f111));
+            v = min(v, (f011 - f111));
+            v = min(v, (f000 - f101));
+            v = min(v, (f001 - f101));
+
+            v = max(v, 0.0);
+
+            return v;
+        }
+
+        float getCellMaxInputIncrementX(ivec3 cellCoords)
         {
             ivec3 voxelCoords = cellCoords-1;
 
@@ -367,32 +421,101 @@ class GPGPUOcclusionMap implements GPGPUProgram
             float f_110 = getVoxelSample(voxelCoords + ivec3(1,1,0));
             float f_111 = getVoxelSample(voxelCoords + ivec3(1,1,1));
 
-            float m = -1.0/0.0;
+            float v = -1.0/0.0;
 
-            m = max(m, (f_100 - f_000));
-            m = max(m, (f_110 - f_000));
-            m = max(m, (f_101 - f_000));
-            m = max(m, (f_111 - f_000));
-            m = max(m, (f_110 - f_010));
-            m = max(m, (f_111 - f_010));
-            m = max(m, (f_101 - f_001));
-            m = max(m, (f_111 - f_001));
-            m = max(m, (f_111 - f_011));
+            v = max(v, (f_100 - f_000));
+            v = max(v, (f_110 - f_000));
+            v = max(v, (f_101 - f_000));
+            v = max(v, (f_111 - f_000));
+            v = max(v, (f_110 - f_010));
+            v = max(v, (f_111 - f_010));
+            v = max(v, (f_101 - f_001));
+            v = max(v, (f_111 - f_001));
+            v = max(v, (f_111 - f_011));
+            v = max(v, (f_000 + f_010 + f_100) / 3.0 - f_000);
+            v = max(v, (f_000 + f_001 + f_100) / 3.0 - f_000);
+            v = max(v, (f_010 + f_100 + f_110) / 3.0 - f_000);
+            v = max(v, (f_001 + f_100 + f_101) / 3.0 - f_000);
+            v = max(v, (f_001 + f_010 + f_100) / 3.0 - f_000);
+            v = max(v, (f_011 + f_101 + f_110) / 3.0 - f_000);
+            v = max(v, (f_011 + f_110 + f_111) / 3.0 - f_010);
+            v = max(v, (f_011 + f_110 + f_010) / 3.0 - f_010);
+            v = max(v, (f_011 + f_101 + f_111) / 3.0 - f_001);
+            v = max(v, (f_011 + f_101 + f_001) / 3.0 - f_001);
 
-            m = max(m, (f_000 + f_010 + f_100) / 3.0 - f_000);
-            m = max(m, (f_000 + f_001 + f_100) / 3.0 - f_000);
-            m = max(m, (f_010 + f_100 + f_110) / 3.0 - f_000);
-            m = max(m, (f_001 + f_100 + f_101) / 3.0 - f_000);
-            m = max(m, (f_001 + f_010 + f_100) / 3.0 - f_000);
-            m = max(m, (f_011 + f_101 + f_110) / 3.0 - f_000);
-            m = max(m, (f_011 + f_110 + f_111) / 3.0 - f_010);
-            m = max(m, (f_011 + f_110 + f_010) / 3.0 - f_010);
-            m = max(m, (f_011 + f_101 + f_111) / 3.0 - f_001);
-            m = max(m, (f_011 + f_101 + f_001) / 3.0 - f_001);
+            v = max(v, 0.0);
 
-            m = max(m, 0.0);
+            return v;
+        }
 
-            return m;
+        float getCellMaxInputIncrementY(ivec3 cellCoords)
+        {
+            ivec3 voxelCoords = cellCoords-1;
+
+            float f_000 = getVoxelSample(voxelCoords + ivec3(0,0,0));
+            float f_100 = getVoxelSample(voxelCoords + ivec3(1,0,0));
+            float f_010 = getVoxelSample(voxelCoords + ivec3(0,1,0));
+            float f_001 = getVoxelSample(voxelCoords + ivec3(0,0,1));
+            float f_011 = getVoxelSample(voxelCoords + ivec3(0,1,1));
+            float f_101 = getVoxelSample(voxelCoords + ivec3(1,0,1));
+            float f_110 = getVoxelSample(voxelCoords + ivec3(1,1,0));
+            float f_111 = getVoxelSample(voxelCoords + ivec3(1,1,1));
+
+            float v = -1.0/0.0;
+
+            v = max(v, (f_100 - f_000));
+            v = max(v, (f_110 - f_000));
+            v = max(v, (f_101 - f_000));
+            v = max(v, (f_111 - f_000));
+            v = max(v, (f_101 - f_001));
+            v = max(v, (f_111 - f_001));
+            v = max(v, (f_001 + f_010 + f_100) / 3.0 - f_000);
+            v = max(v, (f_010 + f_100 + f_000) / 3.0 - f_000);
+            v = max(v, (f_001 + f_100 + f_000) / 3.0 - f_000);
+            v = max(v, (f_010 + f_100 + f_110) / 3.0 - f_000);
+            v = max(v, (f_001 + f_100 + f_101) / 3.0 - f_000);
+            v = max(v, (f_011 + f_101 + f_110) / 3.0 - f_000);
+            v = max(v, (f_011 + f_101 + f_111) / 3.0 - f_001);
+            v = max(v, (f_011 + f_101 + f_001) / 3.0 - f_001);
+
+            v = max(v, 0.0);
+
+            return v;
+        }
+
+        float getCellMaxInputIncrementZ(ivec3 cellCoords)
+        {
+            ivec3 voxelCoords = cellCoords-1;
+
+            float f_000 = getVoxelSample(voxelCoords + ivec3(0,0,0));
+            float f_100 = getVoxelSample(voxelCoords + ivec3(1,0,0));
+            float f_010 = getVoxelSample(voxelCoords + ivec3(0,1,0));
+            float f_001 = getVoxelSample(voxelCoords + ivec3(0,0,1));
+            float f_011 = getVoxelSample(voxelCoords + ivec3(0,1,1));
+            float f_101 = getVoxelSample(voxelCoords + ivec3(1,0,1));
+            float f_110 = getVoxelSample(voxelCoords + ivec3(1,1,0));
+            float f_111 = getVoxelSample(voxelCoords + ivec3(1,1,1));
+
+            float v = -1.0/0.0;
+
+            v = max(v, (f_100 - f_000));
+            v = max(v, (f_110 - f_000));
+            v = max(v, (f_101 - f_000));
+            v = max(v, (f_111 - f_000));
+            v = max(v, (f_110 - f_010));
+            v = max(v, (f_111 - f_010));
+            v = max(v, (f_001 + f_010 + f_100) / 3.0 - f_000);
+            v = max(v, (f_010 + f_100 + f_110) / 3.0 - f_000);
+            v = max(v, (f_001 + f_100 + f_101) / 3.0 - f_000);
+            v = max(v, (f_011 + f_101 + f_110) / 3.0 - f_000);
+            v = max(v, (f_010 + f_100 + f_000) / 3.0 - f_000);
+            v = max(v, (f_001 + f_100 + f_000) / 3.0 - f_000);
+            v = max(v, (f_011 + f_110 + f_111) / 3.0 - f_010);
+            v = max(v, (f_011 + f_110 + f_010) / 3.0 - f_010);
+
+            v = max(v, 0.0);
+
+            return v;
         }
 
         void main()

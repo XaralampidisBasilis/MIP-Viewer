@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
-import { computeOcclusionMap } from '../Programs/GPGPUOcclusionMap'
+import { maxPooling3d } from '../Programs/GPGPUMaxPooling'
 import { computeExtendedAnisotropicOcclusionMap } from '../Programs/GPGPUExtendedAnisotropicOcclusionMap'
 
 export default class OcclusionMap
@@ -16,7 +16,9 @@ export default class OcclusionMap
     async computeTensor()
     {
         console.time('computeTensor') 
-        this.tensor = await computeExtendedAnisotropicOcclusionMap(this.volumeMap.tensor)
+
+        const tensor = maxPooling3d(this.volumeMap.tensor, this.volumeMap.tensor.shape.map((x) => Math.ceil(x/2)))
+        this.tensor = await computeExtendedAnisotropicOcclusionMap(tensor); tensor.dispose(0)
         console.log(this.tensor.mean().dataSync())
         
         const shape = this.tensor.shape
