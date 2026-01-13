@@ -180,13 +180,7 @@ disp(simplify(Df_t - BDf_t));
 %% Maxima of trilinear derivative over ray
 %% --------------------------------------------------------------------
 
-maxima_terms = [
-    simplify(Bf_t_coeffs(2) - Bf_t_coeffs(1)), ...
-    simplify(Bf_t_coeffs(3) - Bf_t_coeffs(1)), ...
-    simplify(Bf_t_coeffs(4) - Bf_t_coeffs(1)), ...
-];
-
-maxima_terms = simplify(subs(maxima_terms, [d], [b-a]));
+maxima_terms = simplify(subs(Bf_t_coeffs, [d], [b-a]));
 
 maxima = [
     simplify(subs( maxima_terms(1), [a, b], [[0,0,0], [1,0,0]]) ), ...
@@ -195,6 +189,9 @@ maxima = [
     simplify(subs( maxima_terms(1), [a, b], [[0,0,0], [1,1,1]]) ), ...
     simplify(subs( maxima_terms(1), [a, b], [[0,1,0], [1,1,0]]) ), ...
     simplify(subs( maxima_terms(1), [a, b], [[0,1,0], [1,1,1]]) ), ...
+    simplify(subs( maxima_terms(1), [a, b], [[0,0,1], [1,0,1]]) ), ...
+    simplify(subs( maxima_terms(1), [a, b], [[0,0,1], [1,1,1]]) ), ...
+    simplify(subs( maxima_terms(1), [a, b], [[0,1,1], [1,1,1]]) ), ...
 
     simplify(subs( maxima_terms(2), [a, b], [[0,0,0], [1,0,0]]) ), ...
     simplify(subs( maxima_terms(2), [a, b], [[0,0,0], [1,1,0]]) ), ...
@@ -202,6 +199,9 @@ maxima = [
     simplify(subs( maxima_terms(2), [a, b], [[0,0,0], [1,1,1]]) ), ...
     simplify(subs( maxima_terms(2), [a, b], [[0,1,0], [1,1,0]]) ), ...
     simplify(subs( maxima_terms(2), [a, b], [[0,1,0], [1,1,1]]) ), ...
+    simplify(subs( maxima_terms(2), [a, b], [[0,0,1], [1,0,1]]) ), ...
+    simplify(subs( maxima_terms(2), [a, b], [[0,0,1], [1,1,1]]) ), ...
+    simplify(subs( maxima_terms(2), [a, b], [[0,1,1], [1,1,1]]) ), ...
 
     simplify(subs( maxima_terms(3), [a, b], [[0,0,0], [1,0,0]]) ), ...
     simplify(subs( maxima_terms(3), [a, b], [[0,0,0], [1,1,0]]) ), ...
@@ -209,6 +209,19 @@ maxima = [
     simplify(subs( maxima_terms(3), [a, b], [[0,0,0], [1,1,1]]) ), ...
     simplify(subs( maxima_terms(3), [a, b], [[0,1,0], [1,1,0]]) ), ...
     simplify(subs( maxima_terms(3), [a, b], [[0,1,0], [1,1,1]]) ), ...
+    simplify(subs( maxima_terms(3), [a, b], [[0,0,1], [1,0,1]]) ), ...
+    simplify(subs( maxima_terms(3), [a, b], [[0,0,1], [1,1,1]]) ), ...
+    simplify(subs( maxima_terms(3), [a, b], [[0,1,1], [1,1,1]]) ), ...
+
+    simplify(subs( maxima_terms(4), [a, b], [[0,0,0], [1,0,0]]) ), ...
+    simplify(subs( maxima_terms(4), [a, b], [[0,0,0], [1,1,0]]) ), ...
+    simplify(subs( maxima_terms(4), [a, b], [[0,0,0], [1,0,1]]) ), ...
+    simplify(subs( maxima_terms(4), [a, b], [[0,0,0], [1,1,1]]) ), ...
+    simplify(subs( maxima_terms(4), [a, b], [[0,1,0], [1,1,0]]) ), ...
+    simplify(subs( maxima_terms(4), [a, b], [[0,1,0], [1,1,1]]) ), ...
+    simplify(subs( maxima_terms(4), [a, b], [[0,0,1], [1,0,1]]) ), ...
+    simplify(subs( maxima_terms(4), [a, b], [[0,0,1], [1,1,1]]) ), ...
+    simplify(subs( maxima_terms(4), [a, b], [[0,1,1], [1,1,1]]) ), ...
 ];
 
 maxima = unique(maxima);
@@ -257,7 +270,7 @@ disp(A);
 %  Search for subconvex combination maxima to remove
 %% --------------------------------------------------------------------
 keep = true(n_expr,1);  % assume all are essential initially
-tol = 1e-8;   % tolerance
+tol  = 1e-8;            % tolerance
 
 for k = 1:n_expr
 
@@ -266,7 +279,7 @@ for k = 1:n_expr
     rows(k) = false;
 
     M_other = A(rows,:);          % (n_other) x n_var
-    m_k = A(k,:).';               % n_var x 1
+    m_k     = A(k,:).';           % n_var x 1
 
     if isempty(M_other)
         % No "other" inequalities left -> can't be redundant
@@ -274,39 +287,35 @@ for k = 1:n_expr
         continue;
     end
 
-    % We want: M_other' * lambda = m_k, sum(lambda) <= 1, lambda >= 0
+    % We want: M_other' * lambda = m_k, sum(lambda) = 1, lambda >= 0
 
-    Aeq = M_other.';              % n_var x n_lambda
-    beq = m_k;                    % n_var x 1
-    n_lambda = size(Aeq,2);
+    Aeq_base = M_other.';         % n_var x n_lambda
+    beq_base = m_k;               % n_var x 1
+    n_lambda = size(Aeq_base, 2);
 
-    % Objective doesn't matter (feasibility problem)
+    % Add equality: sum(lambda) = 1
+    Aeq = [Aeq_base; ones(1, n_lambda)];   % (n_var+1) x n_lambda
+    beq = [beq_base; 1];                   % (n_var+1) x 1
+
+    % Objective doesn't matter much (feasibility-ish); keep something simple
     f = ones(n_lambda,1);
-
-    % Inequality: sum(lambda) <= 1
-    Aineq = ones(1, n_lambda);    % 1 x n_lambda
-    bineq = 1;
 
     % Bounds: lambda >= 0
     lb = zeros(n_lambda,1);
-    ub = []; % no upper bound, other than sum(lambda)<=1
+    ub = []; % no upper bounds
 
-    % linprog: minimize f' * lambda
-    lambda = linprog(f, Aineq, bineq, Aeq, beq, lb, ub);
+    % linprog: minimize f' * lambda subject to equalities + bounds
+    % (No inequality constraints now)
+    lambda = linprog(f, [], [], Aeq, beq, lb, ub);
 
     redundant = false;
 
     if ~isempty(lambda)
-        % Solution found that *already* satisfies:
-        %   M_other' * lambda = m_k  (within solver tolerance)
-        %   sum(lambda) <= 1
-        %   lambda >= 0
-        %
-        % Optionally, add a safeguard check with your tolerances:
-        req = norm(Aeq*lambda - beq, Inf);
+        % Safeguard check with tolerances:
+        req = norm(Aeq_base*lambda - beq_base, Inf);
         sum_lambda = sum(lambda);
 
-        if req <= tol && sum_lambda <= 1 + tol
+        if req <= tol && abs(sum_lambda - 1) <= tol
             redundant = true;
         end
     end
@@ -337,26 +346,3 @@ disp(A_reduced);
 
 fprintf('\nReduced symbolic maxima maxima_reduced:\n');
 disp(maxima_reduced);
-
-%% --------------------------------------------------------------------
-%  Results
-%% --------------------------------------------------------------------
-v = -1.0/0.0;
-
-v = max(v, (f_100 - f_000));
-v = max(v, (f_110 - f_000));
-v = max(v, (f_101 - f_000));
-v = max(v, (f_111 - f_000));
-v = max(v, (f_110 - f_010));
-v = max(v, (f_111 - f_010));
-
-v = max(v, (f_001 + f_010 + f_100) / 3.0 - f_000);
-v = max(v, (f_010 + f_100 + f_110) / 3.0 - f_000);
-v = max(v, (f_001 + f_100 + f_101) / 3.0 - f_000);
-v = max(v, (f_011 + f_101 + f_110) / 3.0 - f_000);
-v = max(v, (f_010 + f_100 + f_000) / 3.0 - f_000);
-v = max(v, (f_001 + f_100 + f_000) / 3.0 - f_000);
-v = max(v, (f_011 + f_110 + f_111) / 3.0 - f_010);
-v = max(v, (f_011 + f_110 + f_010) / 3.0 - f_010);
-
-v = max(v, 0.0);

@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import { maxPooling3d } from '../Programs/GPGPUMaxPooling'
-import { computeExtendedAnisotropicOcclusionMap } from '../Programs/GPGPUExtendedAnisotropicOcclusionMap'
+import { computeOcclusionMap } from '../Programs/GPGPUOcclusionMap3'
 
 export default class OcclusionMap
 {
@@ -16,15 +16,36 @@ export default class OcclusionMap
     async computeTensor()
     {
         console.time('computeTensor') 
-
-        const tensor = maxPooling3d(this.volumeMap.tensor, this.volumeMap.tensor.shape.map((x) => Math.ceil(x/2)))
-        this.tensor = await computeExtendedAnisotropicOcclusionMap(tensor); tensor.dispose(0)
+        this.tensor = await computeOcclusionMap(this.volumeMap.tensor)
+        this.dimensions = new THREE.Vector3(...this.tensor.shape.slice(0,3).toReversed())
         console.log(this.tensor.mean().dataSync())
-        
-        const shape = this.tensor.shape
-        this.dimensions = new THREE.Vector3(...shape.slice(0,3).toReversed())
-
         console.timeEnd('computeTensor') 
+    }
+
+    computeTexture()
+    {
+        console.time('computeTexture') 
+        this.texture = new THREE.Data3DTexture(this.getTextureData(), ...this.dimensions)
+        this.texture.format = THREE.RedIntegerFormat
+        this.texture.type = THREE.UnsignedByteType
+        this.texture.internalFormat = 'R8UI'
+        this.texture.minFilter = THREE.NearestFilter
+        this.texture.magFilter = THREE.NearestFilter
+        this.texture.generateMipmaps = false
+        this.texture.unpackAlignment = 1
+        this.texture.needsUpdate = true
+        console.timeEnd('computeTexture') 
+    }   
+
+    updateTexture()
+    {
+        this.texture.image.data.set(this.getTextureData())
+        this.texture.needsUpdate = true
+    }
+
+    getTextureData()
+    {
+        return new Uint8Array(this.tensor.dataSync())
     }
 
     dispose()

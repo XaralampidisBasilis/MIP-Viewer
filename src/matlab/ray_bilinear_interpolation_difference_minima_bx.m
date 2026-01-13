@@ -299,3 +299,13 @@ disp(A_reduced);
 
 fprintf('\nReduced symbolic minima minima_reduced:\n');
 disp(minima_reduced);
+
+%% --------------------------------------------------------------------
+%  Results
+%% --------------------------------------------------------------------
+
+v = min(
+    f00 - f10,
+    f00 - f11,
+    f01 - f11
+);

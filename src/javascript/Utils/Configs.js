@@ -42,8 +42,8 @@ export default class Configs extends EventEmitter
     {
         super()
 
-        this.blockSize = 2
-        this.downscaleFactor = 0.8
+        this.blockSize = 1
+        this.downscaleFactor = 0.5
         this.isosurfaceValue = 0.4
         
         this.interpolationMethod = 'tricubicCsébfalvi'
@@ -51,7 +51,7 @@ export default class Configs extends EventEmitter
         this.marchingMethod = 'digitalDifferentialAnalyzer'
         this.intersectionTest = 'uniformSamples'
         this.skippingStrategy = 'multipleBlocks'
-        this.skippingMethod = 'anisotropicDistance'
+        this.skippingMethod = 'occupancy'
         this.colormap = 'pasteljet'
 
         this.bernsteinEnabled = true

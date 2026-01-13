@@ -67,7 +67,9 @@ export default class Computes extends EventEmitter
         console.time('start@Computes') 
 
         this.volumeMap.computeTensor()
-        this.occlusionMap.computeTensor()
+        await this.occlusionMap.computeTensor()
+        this.occlusionMap.computeTexture()
+        this.occlusionMap.tensor.dispose()
         await tf.nextFrame()
 
         this.interpolationMap.computeTensor()

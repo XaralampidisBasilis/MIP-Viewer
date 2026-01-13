@@ -9,59 +9,47 @@ pkg load optim % OCTAVE version
 
 % corner values
 % symmetric linear combinations of corner values
-syms f000 f100 f010 f001 f011 f101 f110 f111 real
-syms v000 v100 v010 v001 v011 v101 v110 v111 real
+syms f00 f10 f01 f11 real
+syms v00 v10 v01 v11 real
 
-F = [f000 f100 f010 f001 f011 f101 f110 f111];
-V = [v000 v100 v010 v001 v011 v101 v110 v111];
+F = [f00 f10 f01 f11];
+V = [v00 v10 v01 v11];
 
 F2V = [
-    v000, ...
-    v100 + v000, ...
-    v010 + v000, ...
-    v001 + v000, ...
-    v011 + v001 + v010 + v000, ...
-    v101 + v001 + v100 + v000, ...
-    v110 + v010 + v100 + v000, ...
-    v111 + v011 + v101 + v110 + v100 + v010 + v001 + v000, ...
+    v00, ...
+    v10 + v00, ...
+    v01 + v00, ...
+    v11 + v10 + v01 + v00, ...
 ];
 
 V2F = [
-    f000, ...
-    f100 - f000, ...
-    f010 - f000, ...
-    f001 - f000, ...
-    f000 - f001 - f010 + f011, ...
-    f000 - f001 - f100 + f101, ...
-    f000 - f010 - f100 + f110, ...
-    f001 - f000 + f010 - f011 + f100 - f101 - f110 + f111, ...
+    f00, ...
+    f10 - f00, ...
+    f01 - f00, ...
+    f00 - f10 - f01 + f11, ...
 ];
 
 % Variables
-syms x y z t real
+syms x y t real
 
-r = [x, y, z];
+r = [x, y];
 
 % Ray endpoints
-syms ax ay az bx by bz dx dy dz sx sy sz real
+syms ax ay bx by dx dy sx sy real
 
-a = [ax, ay, az];
-b = [bx, by, bz];
-d = [dx, dy, dz];
-s = [sx, sy, sz];
+a = [ax, ay];
+b = [bx, by];
+d = [dx, dy];
+s = [sx, sy];
 
 %% --------------------------------------------------------------------
 %% Trilinear interpolation f(x,y,z)
 %% --------------------------------------------------------------------
 
-f_xyz = f000 * (1-x) * (1-y) * (1-z) ...
-      + f100 *    x  * (1-y) * (1-z) ...
-      + f010 * (1-x) *    y  * (1-z) ...
-      + f001 * (1-x) * (1-y) *    z  ...
-      + f011 * (1-x) *    y  *    z  ...
-      + f101 *    x  * (1-y) *    z  ...
-      + f110 *    x  *    y  * (1-z) ...
-      + f111 *    x  *    y  *    z;
+f_xy = f00 * (1-x) * (1-y) ...
+     + f10 *    x  * (1-y) ...
+     + f01 * (1-x) *    y  ...
+     + f11 *    x  *    y;
 
 %% --------------------------------------------------------------------
 %% Ray substitution r(t) 
@@ -69,23 +57,20 @@ f_xyz = f000 * (1-x) * (1-y) * (1-z) ...
 
 x_t = ax + dx*t;
 y_t = ay + dy*t;
-z_t = az + dz*t;
 
 % x_t = bx - dx*(1-t);
 % y_t = by - dy*(1-t);
-% z_t = bz - dz*(1-t);
 
 % x_t = ax*(1-t) + bx*t;
 % y_t = ay*(1-t) + by*t;
-% z_t = az*(1-t) + bz*t;
 
-r_t = [x_t, y_t, z_t];
+r_t = [x_t, y_t];
 
 %% --------------------------------------------------------------------
 %% Trilinear function over ray  
 %% --------------------------------------------------------------------
 
-f_t = simplify( subs(f_xyz, r, r_t) );
+f_t = simplify( subs(f_xy, r, r_t) );
 f_t = collect(f_t, t);
 
 % Extract coefficients
@@ -97,18 +82,16 @@ f_t = collect(f_t, t);
 
 % Bernstein coefficients
 Bf_t_coeffs = [
-    simplify(f_t_coeffs(4)), ...
-    simplify(f_t_coeffs(4) + f_t_coeffs(3)*1/3), ...
-    simplify(f_t_coeffs(4) + f_t_coeffs(3)*2/3 + f_t_coeffs(2)*1/3), ...
-    simplify(f_t_coeffs(4) + f_t_coeffs(3) + f_t_coeffs(2) + f_t_coeffs(1)), ...
+    simplify(f_t_coeffs(3)), ...
+    simplify(f_t_coeffs(3) + f_t_coeffs(2)*1/2), ...
+    simplify(f_t_coeffs(3) + f_t_coeffs(2) + f_t_coeffs(1)), ...
 ];
 
 % Bernstein terms
 Bf_t_terms = [ ...
-    1 * t^0 * (1 - t)^3, ...
-    3 * t^1 * (1 - t)^2, ...
-    3 * t^2 * (1 - t)^1, ...
-    1 * t^3 * (1 - t)^0, ...
+    1 * t^0 * (1 - t)^2, ...
+    2 * t^1 * (1 - t)^1, ...
+    1 * t^2 * (1 - t)^0, ...
 ];
 
 % Bernstein trilinear function over ray
@@ -122,19 +105,18 @@ disp(simplify(f_t - Bf_t));
 %% --------------------------------------------------------------------
 
 % Compute partial derivatives
-fx = simplify(diff(f_xyz, x));
-fy = simplify(diff(f_xyz, y));
-fz = simplify(diff(f_xyz, z));
+fx = simplify(diff(f_xy, x));
+fy = simplify(diff(f_xy, y));
 
 % Gradient vector
-Gf_xyz = [fx, fy, fz];
+Gf_xy = [fx, fy];
 
 % directional derivative
-Df_xyz = dot(Gf_xyz, d);
+Df_xy = dot(Gf_xy, d);
 
 % directional derivative over ray
-Gf_t = simplify( subs(Gf_xyz, r, r_t) );
-Df_t = simplify( subs(Df_xyz, r, r_t) );
+Gf_t = simplify( subs(Gf_xy, r, r_t) );
+Df_t = simplify( subs(Df_xy, r, r_t) );
 
 % coefficients
 [Df_t_coeffs, Df_t_terms] = coeffs(Df_t, t);
@@ -145,16 +127,14 @@ Df_t = simplify( subs(Df_xyz, r, r_t) );
 
 % Bernstein coefficients
 BDf_t_coeffs = [
-    simplify(Df_t_coeffs(3)), ...
-    simplify(Df_t_coeffs(3) + Df_t_coeffs(2)/2), ...
-    simplify(Df_t_coeffs(3) + Df_t_coeffs(2) + Df_t_coeffs(1)), ...
+    simplify(Df_t_coeffs(2)), ...
+    simplify(Df_t_coeffs(2) + Df_t_coeffs(1)), ...
 ];
 
 % Bernstein terms
 BDf_t_terms = [
-    1 * t^0 * (1 - t)^2, ...
-    2 * t^1 * (1 - t)^1, ...
-    1 * t^2 * (1 - t)^0, ...
+    1 * t^0 * (1 - t)^1, ...
+    1 * t^1 * (1 - t)^0, ...
 ];
 
 % Bernstein trilinear derivative function over ray
@@ -167,10 +147,10 @@ disp(simplify(Df_t - BDf_t));
 %% Simplification patterns
 %% --------------------------------------------------------------------
 
-% v_xyz        = simplify( subs(f_xyz, F, F2V) );
+% v_xy         = simplify( subs(f_xy, F, F2V) );
 % v_t          = simplify( subs(f_t, F, F2V) );
 % v_t_coeffs   = simplify( subs(f_t_coeffs, F, F2V) );
-% Dv_xyz       = simplify( subs(Df_xyz, F, F2V) );
+% Dv_xy        = simplify( subs(Df_xy, F, F2V) );
 % Dv_t         = simplify( subs(Df_t, F, F2V) );
 % Dv_t_coeffs  = simplify( subs(Df_t_coeffs, F, F2V) );
 % Bv_t_coeffs  = simplify( subs(Bf_t_coeffs, F, F2V) );
@@ -180,35 +160,23 @@ disp(simplify(Df_t - BDf_t));
 %% Maxima of trilinear derivative over ray
 %% --------------------------------------------------------------------
 
-maxima_terms = [
-    simplify(Bf_t_coeffs(2) - Bf_t_coeffs(1)), ...
-    simplify(Bf_t_coeffs(3) - Bf_t_coeffs(1)), ...
-    simplify(Bf_t_coeffs(4) - Bf_t_coeffs(1)), ...
-];
+%% Subspace of ax = 0 and dy/dx <= 1
 
-maxima_terms = simplify(subs(maxima_terms, [d], [b-a]));
+maxima_terms = simplify(subs(Bf_t_coeffs, [d], [b-a]));
 
 maxima = [
-    simplify(subs( maxima_terms(1), [a, b], [[0,0,0], [1,0,0]]) ), ...
-    simplify(subs( maxima_terms(1), [a, b], [[0,0,0], [1,1,0]]) ), ...
-    simplify(subs( maxima_terms(1), [a, b], [[0,0,0], [1,0,1]]) ), ...
-    simplify(subs( maxima_terms(1), [a, b], [[0,0,0], [1,1,1]]) ), ...
-    simplify(subs( maxima_terms(1), [a, b], [[0,1,0], [1,1,0]]) ), ...
-    simplify(subs( maxima_terms(1), [a, b], [[0,1,0], [1,1,1]]) ), ...
+    simplify(subs( maxima_terms(1), [a, b], [[0,0], [1,0]]) ), ...
+    simplify(subs( maxima_terms(1), [a, b], [[0,0], [1,1]]) ), ...
+    simplify(subs( maxima_terms(1), [a, b], [[0,1], [1,1]]) ), ...
+    simplify(subs( maxima_terms(1), [a, b], [[0,1], [0,1]]) ), ...
 
-    simplify(subs( maxima_terms(2), [a, b], [[0,0,0], [1,0,0]]) ), ...
-    simplify(subs( maxima_terms(2), [a, b], [[0,0,0], [1,1,0]]) ), ...
-    simplify(subs( maxima_terms(2), [a, b], [[0,0,0], [1,0,1]]) ), ...
-    simplify(subs( maxima_terms(2), [a, b], [[0,0,0], [1,1,1]]) ), ...
-    simplify(subs( maxima_terms(2), [a, b], [[0,1,0], [1,1,0]]) ), ...
-    simplify(subs( maxima_terms(2), [a, b], [[0,1,0], [1,1,1]]) ), ...
+    simplify(subs( maxima_terms(2), [a, b], [[0,0], [1,0]]) ), ...
+    simplify(subs( maxima_terms(2), [a, b], [[0,0], [1,1]]) ), ...
+    simplify(subs( maxima_terms(2), [a, b], [[0,1], [1,1]]) ), ...
 
-    simplify(subs( maxima_terms(3), [a, b], [[0,0,0], [1,0,0]]) ), ...
-    simplify(subs( maxima_terms(3), [a, b], [[0,0,0], [1,1,0]]) ), ...
-    simplify(subs( maxima_terms(3), [a, b], [[0,0,0], [1,0,1]]) ), ...
-    simplify(subs( maxima_terms(3), [a, b], [[0,0,0], [1,1,1]]) ), ...
-    simplify(subs( maxima_terms(3), [a, b], [[0,1,0], [1,1,0]]) ), ...
-    simplify(subs( maxima_terms(3), [a, b], [[0,1,0], [1,1,1]]) ), ...
+    simplify(subs( maxima_terms(3), [a, b], [[0,0], [1,0]]) ), ...
+    simplify(subs( maxima_terms(3), [a, b], [[0,0], [1,1]]) ), ...
+    simplify(subs( maxima_terms(3), [a, b], [[0,1], [1,1]]) ), ...
 ];
 
 maxima = unique(maxima);
@@ -218,7 +186,7 @@ maxima = maxima(:);
 %% Sort maxima by expression complexity
 %% --------------------------------------------------------------------
 
-% Assume F = [f000 f001 ... f111] is already defined
+% Assume F = [f00 f10 f01 f11] is already defined
 n_expr = length(maxima);
 complexity = zeros(n_expr, 1);
 
@@ -257,7 +225,7 @@ disp(A);
 %  Search for subconvex combination maxima to remove
 %% --------------------------------------------------------------------
 keep = true(n_expr,1);  % assume all are essential initially
-tol = 1e-8;   % tolerance
+tol  = 1e-8;            % tolerance
 
 for k = 1:n_expr
 
@@ -266,7 +234,7 @@ for k = 1:n_expr
     rows(k) = false;
 
     M_other = A(rows,:);          % (n_other) x n_var
-    m_k = A(k,:).';               % n_var x 1
+    m_k     = A(k,:).';           % n_var x 1
 
     if isempty(M_other)
         % No "other" inequalities left -> can't be redundant
@@ -274,39 +242,35 @@ for k = 1:n_expr
         continue;
     end
 
-    % We want: M_other' * lambda = m_k, sum(lambda) <= 1, lambda >= 0
+    % We want: M_other' * lambda = m_k, sum(lambda) = 1, lambda >= 0
 
-    Aeq = M_other.';              % n_var x n_lambda
-    beq = m_k;                    % n_var x 1
-    n_lambda = size(Aeq,2);
+    Aeq_base = M_other.';         % n_var x n_lambda
+    beq_base = m_k;               % n_var x 1
+    n_lambda = size(Aeq_base, 2);
 
-    % Objective doesn't matter (feasibility problem)
+    % Add equality: sum(lambda) = 1
+    Aeq = [Aeq_base; ones(1, n_lambda)];   % (n_var+1) x n_lambda
+    beq = [beq_base; 1];                   % (n_var+1) x 1
+
+    % Objective doesn't matter much (feasibility-ish); keep something simple
     f = ones(n_lambda,1);
-
-    % Inequality: sum(lambda) <= 1
-    Aineq = ones(1, n_lambda);    % 1 x n_lambda
-    bineq = 1;
 
     % Bounds: lambda >= 0
     lb = zeros(n_lambda,1);
-    ub = []; % no upper bound, other than sum(lambda)<=1
+    ub = []; % no upper bounds
 
-    % linprog: minimize f' * lambda
-    lambda = linprog(f, Aineq, bineq, Aeq, beq, lb, ub);
+    % linprog: minimize f' * lambda subject to equalities + bounds
+    % (No inequality constraints now)
+    lambda = linprog(f, [], [], Aeq, beq, lb, ub);
 
     redundant = false;
 
     if ~isempty(lambda)
-        % Solution found that *already* satisfies:
-        %   M_other' * lambda = m_k  (within solver tolerance)
-        %   sum(lambda) <= 1
-        %   lambda >= 0
-        %
-        % Optionally, add a safeguard check with your tolerances:
-        req = norm(Aeq*lambda - beq, Inf);
+        % Safeguard check with tolerances:
+        req = norm(Aeq_base*lambda - beq_base, Inf);
         sum_lambda = sum(lambda);
 
-        if req <= tol && sum_lambda <= 1 + tol
+        if req <= tol && abs(sum_lambda - 1) <= tol
             redundant = true;
         end
     end
@@ -323,6 +287,7 @@ for k = 1:n_expr
     end
 end
 
+
 %% --------------------------------------------------------------------
 %  Reduced system
 %% --------------------------------------------------------------------
@@ -337,26 +302,3 @@ disp(A_reduced);
 
 fprintf('\nReduced symbolic maxima maxima_reduced:\n');
 disp(maxima_reduced);
-
-%% --------------------------------------------------------------------
-%  Results
-%% --------------------------------------------------------------------
-v = -1.0/0.0;
-
-v = max(v, (f_100 - f_000));
-v = max(v, (f_110 - f_000));
-v = max(v, (f_101 - f_000));
-v = max(v, (f_111 - f_000));
-v = max(v, (f_110 - f_010));
-v = max(v, (f_111 - f_010));
-
-v = max(v, (f_001 + f_010 + f_100) / 3.0 - f_000);
-v = max(v, (f_010 + f_100 + f_110) / 3.0 - f_000);
-v = max(v, (f_001 + f_100 + f_101) / 3.0 - f_000);
-v = max(v, (f_011 + f_101 + f_110) / 3.0 - f_000);
-v = max(v, (f_010 + f_100 + f_000) / 3.0 - f_000);
-v = max(v, (f_001 + f_100 + f_000) / 3.0 - f_000);
-v = max(v, (f_011 + f_110 + f_111) / 3.0 - f_010);
-v = max(v, (f_011 + f_110 + f_010) / 3.0 - f_010);
-
-v = max(v, 0.0);
