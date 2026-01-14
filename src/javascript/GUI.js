@@ -76,7 +76,6 @@ export default class GUI
             skippingMethod      : this.configs.skippingMethod,    
             bernsteinEnabled    : this.configs.bernsteinEnabled,
             skippingEnabled     : this.configs.skippingEnabled,  
-            boundingBoxEnabled  : this.configs.boundingBoxEnabled,  
         }
     
         this.controllers.configs = 
@@ -147,12 +146,7 @@ export default class GUI
             { 
                 this.configs.set('skippingEnabled', boolean) 
             }),
-            
-            boundingBoxEnabled : folder.add(objects, 'boundingBoxEnabled')
-            .onFinishChange((boolean) => 
-            { 
-                this.configs.set('boundingBoxEnabled', boolean) 
-            }),
+        
         }
     }
 

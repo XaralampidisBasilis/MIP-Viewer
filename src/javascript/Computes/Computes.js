@@ -85,9 +85,6 @@ export default class Computes extends EventEmitter
         this.distanceMap.computeTensor()
         await tf.nextFrame()
 
-        if (this.configs.boundingBoxEnabled) 
-            this.occupancyMap.computeBoundingBox()
-
         this.occupancyMap.computeTexture()
         this.occupancyMap.tensor.dispose()
         await tf.nextFrame()
@@ -116,9 +113,6 @@ export default class Computes extends EventEmitter
         this.occupancyMap.computeTensor()
         this.distanceMap.computeTensor()
 
-        if (this.configs.boundingBoxEnabled) 
-            this.occupancyMap.computeBoundingBox()
-
         this.occupancyMap.updateTexture()
         this.occupancyMap.tensor.dispose()
 
@@ -145,9 +139,6 @@ export default class Computes extends EventEmitter
 
         this.occupancyMap.computeTensor()
         this.distanceMap.computeTensor()
-
-        if (this.configs.boundingBoxEnabled) 
-            this.occupancyMap.computeBoundingBox()
 
         this.occupancyMap.computeTexture()
         this.occupancyMap.tensor.dispose()
@@ -185,9 +176,6 @@ export default class Computes extends EventEmitter
         this.distanceMap.computeTensor()
         await tf.nextFrame()
 
-        if (this.configs.boundingBoxEnabled) 
-            this.occupancyMap.computeBoundingBox()
-
         this.occupancyMap.computeTexture()
         this.occupancyMap.tensor.dispose()
         await tf.nextFrame()
@@ -206,9 +194,6 @@ export default class Computes extends EventEmitter
 
         this.occupancyMap.computeTensor()
         this.distanceMap.computeTensor()
-
-        if (this.configs.boundingBoxEnabled) 
-            this.occupancyMap.computeBoundingBox()
 
         this.occupancyMap.updateTexture()
         this.occupancyMap.tensor.dispose()

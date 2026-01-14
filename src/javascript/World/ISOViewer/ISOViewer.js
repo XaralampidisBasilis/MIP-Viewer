@@ -58,7 +58,6 @@ export default class ISOViewer extends EventEmitter
         this.setDefinesIterators()
         this.setUniformsTextures()
         this.setUniformsVolume()
-        this.setUniformsBoundingBox()
         this.setUniformsDebug()
         this.setUniformsShading()
 
@@ -110,19 +109,6 @@ export default class ISOViewer extends EventEmitter
         uniforms.u_volume.value.inv_dimensions.fromArray(uniforms.u_volume.value.dimensions.toArray().map(x => 1/x))
     }
 
-    setUniformsBoundingBox()
-    {
-        const minCoords = new THREE.Vector3(0)
-        const maxCoords = new THREE.Vector3(...this.computes.volumeMap.dimensions)
-
-        const blockSize = this.configs.blockSize
-        const minBlockCoords = this.computes.occupancyMap.boundingBox.minCoords
-        const maxBlockCoords = this.computes.occupancyMap.boundingBox.maxCoords
-
-        const uniforms = this.material.uniforms
-        uniforms.u_bbox.value.min_position.fromArray(minBlockCoords).addScalar(0).multiplyScalar(blockSize).subScalar(0.5).clamp(minCoords, maxCoords)
-        uniforms.u_bbox.value.max_position.fromArray(maxBlockCoords).addScalar(1).multiplyScalar(blockSize).subScalar(0.5).clamp(minCoords, maxCoords)
-    }
 
     setUniformsShading()
     {
@@ -158,7 +144,6 @@ export default class ISOViewer extends EventEmitter
         else if (event.key === 'marchingMethod'     ) this.onChangeMarchingMethod(event)
         else if (event.key === 'skippingEnabled'    ) this.onChangeSkippingEnabled(event)
         else if (event.key === 'bernsteinEnabled'   ) this.onChangeBernsteinEnabled(event)
-        else if (event.key === 'boundingBoxEnabled' ) this.onChangeBoundingBoxEnabled(event)
         else if (event.key === 'colormap'           ) this.onChangeColormap(event)
         
         console.log(this)
@@ -168,7 +153,6 @@ export default class ISOViewer extends EventEmitter
     {
         const uniforms = this.material.uniforms
         uniforms.u_volume.value.isovalue = this.configs.isosurfaceValue
-        this.setUniformsBoundingBox()
     }
 
     onChangeBlockSize(event)
@@ -180,7 +164,6 @@ export default class ISOViewer extends EventEmitter
         uniforms.u_textures.value.occupancy_map = this.computes.occupancyMap.texture
         uniforms.u_textures.value.distance_map.dispose()
         uniforms.u_textures.value.distance_map = this.computes.distanceMap.texture
-        this.setUniformsBoundingBox()
         this.setDefinesIterators()
     }
 
@@ -200,7 +183,6 @@ export default class ISOViewer extends EventEmitter
         const uniforms = this.material.uniforms
         uniforms.u_textures.value.occupancy_map = this.computes.occupancyMap.texture
         uniforms.u_textures.value.distance_map = this.computes.distanceMap.texture
-        this.setUniformsBoundingBox()
 
         this.material.defines.INTERPOLATION_METHOD = Configs.InterpolationMethods.findIndex((x) => x === this.configs.interpolationMethod)
         this.material.needsUpdate = true
@@ -248,14 +230,6 @@ export default class ISOViewer extends EventEmitter
         this.material.defines.BERNSTEIN_ENABLED = Number(this.configs.bernsteinEnabled)
         this.material.needsUpdate = true
     }
-
-    onChangeBoundingBoxEnabled(event)
-    {
-        this.material.defines.BBOX_ENABLED = Number(this.configs.boundingBoxEnabled)
-        this.material.needsUpdate = true
-    }
-
-  
 
     onChangeColormap(event)
     {

@@ -2,48 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 
-class GPGPUStartMap implements GPGPUProgram 
-{
-    variableNames = ['A']
-    outputShape: number[]
-    userCode: string
-    packedInputs = false
-    packedOutput = true
-
-    constructor
-    (
-        inputShape: [number, number, number], 
-    ) 
-    {
-        const [inDepth, inHeight, inWidth] = inputShape
-        this.outputShape = [inDepth, inHeight, inWidth, 2, 2]  
-        this.userCode = `
-
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
-
-        ivec3 getVoxelCoords()
-        {
-            ivec5 outCoords = getOutputCoords();
-            return ivec3(outCoords.z, outCoords.y, outCoords.x);
-        }
-
-        float getVoxelValue(ivec3 voxelCoords)
-        {
-            ivec3 safeCoords = clamp(voxelCoords, minCoords, maxCoords);
-            return getA(safeCoords.z, safeCoords.y, safeCoords.x);
-        }
-
-        void main()
-        {
-            ivec3 voxelCoords = getVoxelCoords();
-            setOutput(vec4(getVoxelValue(voxelCoords)));
-        }
-        `
-    }
-}
-
-class GPGPUPropagationMap implements GPGPUProgram 
+class GPGPUBackPropagationMap implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -57,7 +16,7 @@ class GPGPUPropagationMap implements GPGPUProgram
     ) 
     {
         const [inDepth, inHeight, inWidth] = inputShape
-        this.outputShape = [inDepth, inHeight, inWidth, 2, 2]
+        this.outputShape = [inDepth, inHeight, inWidth]  
         this.userCode = `
 
         const ivec3 minCoords = ivec3(0);
@@ -70,47 +29,117 @@ class GPGPUPropagationMap implements GPGPUProgram
 
         ivec3 getVoxelCoords()
         {
-            ivec5 outCoords = getOutputCoords();
+            ivec3 outCoords = getOutputCoords();
             return ivec3(outCoords.z, outCoords.y, outCoords.x);
         }
 
-        vec4 getVoxelValue(ivec3 voxelCoords)
+        vec4 getPackedValues(ivec3 voxelCoords)
         {
             ivec3 safeCoords = clamp(voxelCoords, minCoords, maxCoords);
-            return getA(safeCoords.z, safeCoords.y, safeCoords.x, 0, 0);
+
+            bool insideWidth  = safeCoords.x < ${inWidth-1};
+            bool insideHeight = safeCoords.y < ${inHeight-1};
+
+            vec4 packedValues = getA(safeCoords.z, safeCoords.y, safeCoords.x);
+            packedValues.ga = insideWidth ? packedValues.ga : packedValues.rb;
+            packedValues.ba = insideHeight ? packedValues.ba : packedValues.rg;
+
+            return packedValues;
         }
 
         void main()
         {
             ivec3 voxelCoords = getVoxelCoords();
 
-            vec4 C000 = getVoxelValue(voxelCoords);
+            vec4 v000 = getPackedValues(voxelCoords - ivec3(0,0,0));
+            vec4 v001 = getPackedValues(voxelCoords - ivec3(0,0,1));
+            vec4 v201 = getPackedValues(voxelCoords - ivec3(2,0,1));
+            vec4 v021 = getPackedValues(voxelCoords - ivec3(0,2,1));
+            vec4 v221 = getPackedValues(voxelCoords - ivec3(2,2,1));
 
-            float G100 = getVoxelValue(voxelCoords - ivec3(1,0,0)).g;
-            float G110 = getVoxelValue(voxelCoords - ivec3(1,1,0)).g;
-            float G101 = getVoxelValue(voxelCoords - ivec3(1,0,1)).g;
-            float G111 = getVoxelValue(voxelCoords - ivec3(1,1,1)).g;
+            v000.r = max(v000.r, mmin(v001.r, v201.g, v021.b, v221.a));
+            v000.g = max(v000.g, mmin(v001.r, v001.g, v021.b, v021.a));
+            v000.b = max(v000.b, mmin(v001.r, v201.g, v001.b, v201.a));
+            v000.a = max(v000.a, mmin(v001.r, v001.g, v001.b, v001.a));
 
-            float B100 = getVoxelValue(voxelCoords + ivec3(1,0,0)).b;
-            float B110 = getVoxelValue(voxelCoords + ivec3(1,1,0)).b;
-            float B101 = getVoxelValue(voxelCoords + ivec3(1,0,1)).b;
-            float B111 = getVoxelValue(voxelCoords + ivec3(1,1,1)).b;
-
-            C000.g = max(C000.g, mmin(G100, G110, G101, G111));
-            C000.b = max(C000.b, mmin(B100, B110, B101, B111));
-
-            setOutput(vec4(C000));
+            setOutput(v000);
         }
         `
     }
 }
 
-class GPGPUOcclusionMap implements GPGPUProgram 
+class GPGPUFrontPropagationMap implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
     userCode: string
     packedInputs = true
+    packedOutput = true
+
+    constructor
+    (
+        inputShape: [number, number, number], 
+    ) 
+    {
+        const [inDepth, inHeight, inWidth] = inputShape
+        this.outputShape = [inDepth, inHeight, inWidth]  
+        this.userCode = `
+
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
+
+        float mmin(float a, float b, float c, float d)
+        {
+            return min(min(min(a, b), c), d);
+        }
+
+        ivec3 getVoxelCoords()
+        {
+            ivec3 outCoords = getOutputCoords();
+            return ivec3(outCoords.z, outCoords.y, outCoords.x);
+        }
+
+        vec4 getPackedValues(ivec3 voxelCoords)
+        {
+            ivec3 safeCoords = clamp(voxelCoords, minCoords, maxCoords);
+
+            bool insideWidth  = safeCoords.x < ${inWidth-1};
+            bool insideHeight = safeCoords.y < ${inHeight-1};
+
+            vec4 packedValues = getA(safeCoords.z, safeCoords.y, safeCoords.x);
+            packedValues.ga = insideWidth ? packedValues.ga : packedValues.rb;
+            packedValues.ba = insideHeight ? packedValues.ba : packedValues.rg;
+
+            return packedValues;
+        }
+
+        void main()
+        {
+            ivec3 voxelCoords = getVoxelCoords();
+
+            vec4 v000 = getPackedValues(voxelCoords + ivec3(0,0,0));
+            vec4 v001 = getPackedValues(voxelCoords + ivec3(0,0,1));
+            vec4 v201 = getPackedValues(voxelCoords + ivec3(2,0,1));
+            vec4 v021 = getPackedValues(voxelCoords + ivec3(0,2,1));
+            vec4 v221 = getPackedValues(voxelCoords + ivec3(2,2,1));
+
+            v000.r = max(v000.r, mmin(v001.r, v001.g, v001.b, v001.a));
+            v000.g = max(v000.g, mmin(v201.r, v001.g, v201.b, v001.a));
+            v000.b = max(v000.b, mmin(v021.r, v021.g, v001.b, v001.a));
+            v000.a = max(v000.a, mmin(v221.r, v021.g, v201.b, v001.a));
+
+            setOutput(v000);
+        }
+        `
+    }
+}
+
+class GPGPUBackOcclusionMap implements GPGPUProgram 
+{
+    variableNames = ['A', 'B']
+    outputShape: number[]
+    userCode: string
+    packedInputs = false
     packedOutput = false
 
     constructor
@@ -126,15 +155,103 @@ class GPGPUOcclusionMap implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
-        float mmin(float a, float b, float c, float d)
+        ivec3 getCellCoords()
         {
-            return min(min(min(a, b), c), d);
+            ivec3 outCoords = getOutputCoords();
+            return ivec3(outCoords.z, outCoords.y, outCoords.x);
         }
 
-        float mmax(float a, float b, float c, float d)
+        float getVoxelValue(ivec3 voxelCoords)
         {
-            return max(max(max(a, b), c), d);
+            ivec3 safeCoords = clamp(voxelCoords, minCoords, maxCoords);
+            return getA(safeCoords.z, safeCoords.y, safeCoords.x);
         }
+
+        float getPropagatedValue(ivec3 voxelCoords)
+        {
+            ivec3 safeCoords = clamp(voxelCoords, minCoords, maxCoords);
+            return getB(safeCoords.z, safeCoords.y, safeCoords.x);
+        }    
+
+        void main()
+        {
+            ivec3 cellCoords = getCellCoords();
+            ivec3 voxelCoords = cellCoords - 1;
+            
+            float v000 = getVoxelValue(voxelCoords + ivec3(0,0,0));
+            float v100 = getVoxelValue(voxelCoords + ivec3(1,0,0));
+            float v010 = getVoxelValue(voxelCoords + ivec3(0,1,0));
+            float v001 = getVoxelValue(voxelCoords + ivec3(0,0,1));
+            float v011 = getVoxelValue(voxelCoords + ivec3(0,1,1));
+            float v101 = getVoxelValue(voxelCoords + ivec3(1,0,1));
+            float v110 = getVoxelValue(voxelCoords + ivec3(1,1,0));
+            float v111 = getVoxelValue(voxelCoords + ivec3(1,1,1));
+
+            float m000 = getPropagatedValue(voxelCoords + ivec3(0,0,0));
+            float m010 = getPropagatedValue(voxelCoords + ivec3(0,1,0));
+            float m100 = getPropagatedValue(voxelCoords + ivec3(1,0,0));
+            float m110 = getPropagatedValue(voxelCoords + ivec3(1,1,0));
+
+            float M000 = 0.0;
+            float M010 = 0.0;
+            float M100 = 0.0;
+            float M110 = 0.0;
+
+            M000 = max(M000, v001);
+            M000 = max(M000, v011);
+            M000 = max(M000, v101);
+            M000 = max(M000, v111);
+            M000 = max(M000, (v000 + v100 + v001) / 3.0);
+            M000 = max(M000, (v000 + v010 + v001) / 3.0);
+            M000 = max(M000, (v100 + v010 + v001) / 3.0);
+            M000 = max(M000, (v100 + v001 + v101) / 3.0);
+            M000 = max(M000, (v010 + v001 + v011) / 3.0);
+            M000 = max(M000, (v110 + v101 + v011) / 3.0);
+
+            M010 = max(M010, v011);
+            M010 = max(M010, v111);
+            M010 = max(M010, (v110 + v011 + v010) / 3.0);
+            M010 = max(M010, (v110 + v011 + v111) / 3.0);
+
+            M100 = max(M100, v101);
+            M100 = max(M100, v111);
+            M100 = max(M100, (v110 + v101 + v100) / 3.0);
+            M100 = max(M100, (v110 + v101 + v111) / 3.0);
+
+            M110 = max(M110, v111);
+
+            bool occlusion =
+                m000 >= M000 &&
+                m010 >= M010 &&
+                m100 >= M100 &&
+                m110 >= M110;
+
+            setOutput(float(occlusion));
+        }
+        `
+    }
+}
+
+class GPGPUFrontOcclusionMap implements GPGPUProgram 
+{
+    variableNames = ['A', 'B']
+    outputShape: number[]
+    userCode: string
+    packedInputs = false
+    packedOutput = false
+
+    constructor
+    (
+        inputShape: [number, number, number], 
+    ) 
+    {
+        const [inDepth, inHeight, inWidth] = inputShape
+        const [outDepth, outHeight, outWidth] = [inDepth, inHeight, inWidth].map((x: number) => x + 1)
+        this.outputShape = [outDepth, outHeight, outWidth]     
+        this.userCode = `
+
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
         ivec3 getCellCoords()
         {
@@ -142,141 +259,137 @@ class GPGPUOcclusionMap implements GPGPUProgram
             return ivec3(outCoords.z, outCoords.y, outCoords.x);
         }
 
-        vec4 getVoxelValues(ivec3 voxelCoords)
+        float getVoxelValue(ivec3 voxelCoords)
         {
             ivec3 safeCoords = clamp(voxelCoords, minCoords, maxCoords);
-            return getA(safeCoords.z, safeCoords.y, safeCoords.x, 0, 0);
+            return getA(safeCoords.z, safeCoords.y, safeCoords.x);
         }
+
+        float getPropagatedValue(ivec3 voxelCoords)
+        {
+            ivec3 safeCoords = clamp(voxelCoords, minCoords, maxCoords);
+            return getB(safeCoords.z, safeCoords.y, safeCoords.x);
+        }    
 
         void main()
         {
             ivec3 cellCoords = getCellCoords();
             ivec3 voxelCoords = cellCoords - 1;
             
-            vec4 C000 = getVoxelValues(voxelCoords + ivec3(0,0,0));
-            vec4 C100 = getVoxelValues(voxelCoords + ivec3(1,0,0));
-            vec4 C010 = getVoxelValues(voxelCoords + ivec3(0,1,0));
-            vec4 C001 = getVoxelValues(voxelCoords + ivec3(0,0,1));
-            vec4 C011 = getVoxelValues(voxelCoords + ivec3(0,1,1));
-            vec4 C101 = getVoxelValues(voxelCoords + ivec3(1,0,1));
-            vec4 C110 = getVoxelValues(voxelCoords + ivec3(1,1,0));
-            vec4 C111 = getVoxelValues(voxelCoords + ivec3(1,1,1));
+            float v000 = getVoxelValue(voxelCoords + ivec3(0,0,0));
+            float v100 = getVoxelValue(voxelCoords + ivec3(1,0,0));
+            float v010 = getVoxelValue(voxelCoords + ivec3(0,1,0));
+            float v001 = getVoxelValue(voxelCoords + ivec3(0,0,1));
+            float v011 = getVoxelValue(voxelCoords + ivec3(0,1,1));
+            float v101 = getVoxelValue(voxelCoords + ivec3(1,0,1));
+            float v110 = getVoxelValue(voxelCoords + ivec3(1,1,0));
+            float v111 = getVoxelValue(voxelCoords + ivec3(1,1,1));
 
+            float m111 = getPropagatedValue(voxelCoords + ivec3(1,1,1));
+            float m101 = getPropagatedValue(voxelCoords + ivec3(1,0,1));
+            float m011 = getPropagatedValue(voxelCoords + ivec3(0,1,1));
+            float m001 = getPropagatedValue(voxelCoords + ivec3(0,0,1));
 
-            // POSITIVE DIRECTION
-            //________________________________________________________
+            float M111 = 0.0;
+            float M101 = 0.0;
+            float M011 = 0.0;
+            float M001 = 0.0;
 
-            float U000 = 0.0;
-            float U010 = 0.0;
-            float U001 = 0.0;
-            float U011 = 0.0;
-   
-            U000 = max(U000, C100.r);
-            U000 = max(U000, C110.r);
-            U000 = max(U000, C101.r);
-            U000 = max(U000, C111.r);
-            U000 = max(U000, (C000.r + C001.r + C100.r) / 3.0);
-            U000 = max(U000, (C000.r + C010.r + C100.r) / 3.0);
-            U000 = max(U000, (C001.r + C010.r + C100.r) / 3.0);
-            U000 = max(U000, (C001.r + C100.r + C101.r) / 3.0);
-            U000 = max(U000, (C010.r + C100.r + C110.r) / 3.0);
-            U000 = max(U000, (C011.r + C101.r + C110.r) / 3.0);
+            M111 = max(M111, v110);
+            M111 = max(M111, v100);
+            M111 = max(M111, v010);
+            M111 = max(M111, v000);
+            M111 = max(M111, (v111 + v011 + v110) / 3.0);
+            M111 = max(M111, (v111 + v101 + v110) / 3.0);
+            M111 = max(M111, (v011 + v101 + v110) / 3.0);
+            M111 = max(M111, (v011 + v110 + v010) / 3.0);
+            M111 = max(M111, (v101 + v110 + v100) / 3.0);
+            M111 = max(M111, (v001 + v010 + v100) / 3.0);
 
-            U010 = max(U010, C110.r);
-            U010 = max(U010, C111.r);
-            U010 = max(U010, (C011.r + C110.r + C010.r) / 3.0);
-            U010 = max(U010, (C011.r + C110.r + C111.r) / 3.0);
+            M101 = max(M101, v100);
+            M101 = max(M101, v000);
+            M101 = max(M101, (v001 + v100 + v101) / 3.0);
+            M101 = max(M101, (v001 + v100 + v000) / 3.0);
 
-            U001 = max(U001, C101.r);
-            U001 = max(U001, C111.r);
-            U001 = max(U001, (C011.r + C101.r + C001.r) / 3.0);
-            U001 = max(U001, (C011.r + C101.r + C111.r) / 3.0);
+            M011 = max(M011, v010);
+            M011 = max(M011, v000);
+            M011 = max(M011, (v001 + v010 + v011) / 3.0);
+            M011 = max(M011, (v001 + v010 + v000) / 3.0);
 
-            U011 = max(U011, C111.r);
+            M001 = max(M001, v000);
 
-            bool O000 = C000.g >= U000; 
-            bool O010 = C010.g >= U010; 
-            bool O001 = C001.g >= U001; 
-            bool O011 = C011.g >= U011;
+            bool occlusion =
+                m111 >= M111 &&
+                m101 >= M101 &&
+                m011 >= M011 &&
+                m001 >= M001;
 
-            bool O0 = O000 && O010 && O001 && O011;
-
-
-            // NEGATIVE DIRECTION
-            //________________________________________________________
-
-            float U111 = 0.0;
-            float U101 = 0.0;
-            float U110 = 0.0;
-            float U100 = 0.0;
-
-            U111 = max(U111, C011.r);
-            U111 = max(U111, C001.r);
-            U111 = max(U111, C010.r);
-            U111 = max(U111, C000.r);
-            U111 = max(U111, (C111.r + C110.r + C011.r) / 3.0);
-            U111 = max(U111, (C111.r + C101.r + C011.r) / 3.0);
-            U111 = max(U111, (C110.r + C101.r + C011.r) / 3.0);
-            U111 = max(U111, (C110.r + C011.r + C010.r) / 3.0);
-            U111 = max(U111, (C101.r + C011.r + C001.r) / 3.0);
-            U111 = max(U111, (C100.r + C010.r + C001.r) / 3.0);
-
-            U101 = max(U101, C001.r);
-            U101 = max(U101, C000.r);
-            U101 = max(U101, (C100.r + C001.r + C101.r) / 3.0);
-            U101 = max(U101, (C100.r + C001.r + C000.r) / 3.0);
-
-            U110 = max(U110, C010.r);
-            U110 = max(U110, C000.r);
-            U110 = max(U110, (C100.r + C010.r + C110.r) / 3.0);
-            U110 = max(U110, (C100.r + C010.r + C000.r) / 3.0);
-
-            U100 = max(U100, C000.r);
-
-            bool O111 = C111.b >= U111; 
-            bool O101 = C101.b >= U101; 
-            bool O110 = C110.b >= U110; 
-            bool O100 = C100.b >= U100;
-
-            bool O1 = O111 && O101 && O110 && O100;
-
-            
-            // COMBINED OCCLUSIONS
-
-            setOutput(float(O0 || O1));
+            setOutput(float(occlusion));
         }
         `
     }
 }
 
-function runProgram(prog: GPGPUProgram, inputs: tf.Tensor[]): tf.Tensor
+function runProgram(prog: GPGPUProgram, inputs: tf.Tensor[], outputDtype?: tf.DataType): tf.Tensor
 {
     const backend = tf.backend() as MathBackendWebGL
-    const info = backend.compileAndRun(prog, inputs)
+    const info = backend.compileAndRun(prog, inputs, outputDtype)
     return tf.engine().makeTensorFromTensorInfo(info) as tf.Tensor
 }
 
-export async function computeOcclusionMap(volumeMap: tf.Tensor3D) : Promise<tf.Tensor<tf.Rank>>
+async function computeBackOcclusionMap(volumeMap: tf.Tensor3D) : Promise<tf.Tensor<tf.Rank>>
 {
-    const startProgram = new GPGPUStartMap(volumeMap.shape)
-    const propagationProgram = new GPGPUPropagationMap(volumeMap.shape)
-    const occlusionProgram = new GPGPUOcclusionMap(volumeMap.shape)
+    const propagationProgram = new GPGPUBackPropagationMap(volumeMap.shape)
+    const occlusionProgram = new GPGPUBackOcclusionMap(volumeMap.shape)
 
-    let propagationMap = runProgram(startProgram, [volumeMap])
-    let maxPropagation = Math.ceil(Math.max(...volumeMap.shape) * 0.4)
+    let propagationMap = runProgram(propagationProgram, [volumeMap])
+    let maxPropagation = Math.max(...volumeMap.shape) / 2
 
     for (let i = 0; i < maxPropagation; i++) 
     {
-        console.log(i)
         const prev = propagationMap
         propagationMap = runProgram(propagationProgram, [prev])
         prev.dispose()
 
-        await tf.nextFrame()                     
+        if (i%10==0) await tf.nextFrame()                     
     }
 
-    const occlusionMap = runProgram(occlusionProgram, [propagationMap])
+    const occlusionMap = runProgram(occlusionProgram, [volumeMap, propagationMap], 'bool')
     propagationMap.dispose()
+
+    return occlusionMap as tf.Tensor
+}
+
+async function computeFrontOcclusionMap(volumeMap: tf.Tensor3D) : Promise<tf.Tensor<tf.Rank>>
+{
+    const propagationProgram = new GPGPUFrontPropagationMap(volumeMap.shape)
+    const occlusionProgram = new GPGPUFrontOcclusionMap(volumeMap.shape)
+
+    let propagationMap = runProgram(propagationProgram, [volumeMap])
+    let maxPropagation = Math.max(...volumeMap.shape) / 2
+
+    for (let i = 0; i < maxPropagation; i++) 
+    {
+        const prev = propagationMap
+        propagationMap = runProgram(propagationProgram, [prev])
+        prev.dispose()
+
+        if (i%10==0) await tf.nextFrame()                     
+    }
+
+    const occlusionMap = runProgram(occlusionProgram, [volumeMap, propagationMap], 'bool')
+    propagationMap.dispose()
+
+    return occlusionMap as tf.Tensor
+}
+
+export async function computeOcclusionMap(volumeMap: tf.Tensor3D) : Promise<tf.Tensor<tf.Rank>>
+{
+    const backOcclusionMap = await computeBackOcclusionMap(volumeMap)
+    const frontOcclusionMap = await computeFrontOcclusionMap(volumeMap)
+
+    const occlusionMap = tf.logicalOr(backOcclusionMap, frontOcclusionMap);
+    tf.dispose([backOcclusionMap, frontOcclusionMap]);
 
     return occlusionMap as tf.Tensor
 }
