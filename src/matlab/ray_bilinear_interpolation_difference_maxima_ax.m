@@ -1,7 +1,7 @@
 clc,clear
 
-pkg load symbolic % OCTAVE version
-pkg load optim % OCTAVE version
+%pkg load symbolic % OCTAVE version
+%pkg load optim % OCTAVE version
 
 %% --------------------------------------------------------------------
 %% Declare symbols
@@ -310,9 +310,9 @@ disp(maxima_reduced);
 %% --------------------------------------------------------------------
 %  Results
 %% --------------------------------------------------------------------
-v = max(
-    -f00 + f01/2 + f10/2,
-    -f00 + f10,
-    -f00 + f11,
-    -f01 + f11,
-);
+% v = max(
+%     -f00 + f01/2 + f10/2,
+%     -f00 + f10,
+%     -f00 + f11,
+%     -f01 + f11,
+% );
