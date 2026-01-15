@@ -1,7 +1,7 @@
 clc,clear
 
-pkg load symbolic % OCTAVE version
-pkg load optim % OCTAVE version
+%pkg load symbolic % OCTAVE version
+%pkg load optim % OCTAVE version
 
 %% --------------------------------------------------------------------
 %% Declare symbols
