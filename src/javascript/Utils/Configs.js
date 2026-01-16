@@ -8,10 +8,6 @@ export default class Configs extends EventEmitter
 {
     static Colormaps = Object.freeze([ 'parula', 'turbo', 'hsv', 'hot', 'cool', 'spring', 'summer', 'autumn', 'winter', 'gray', 'bone', 'copper', 'pink', 'jet', 'pasteljet', 'viridis', 'plasma', 'inferno', 'magma', 'cividis' ])
 
-    static InterpolationMethods = Object.freeze([
-        'trilinear',
-        'tricubicCsébfalvi',
-    ])
     static GradientsMethods = Object.freeze([
         'analytic',
         'trilinearSobel',
@@ -46,7 +42,6 @@ export default class Configs extends EventEmitter
         this.downscaleFactor = 0.8
         this.isosurfaceValue = 0.4
         
-        this.interpolationMethod = 'tricubicCsébfalvi'
         this.gradientsMethod = 'triquadraticBspline'
         this.marchingMethod = 'digitalDifferentialAnalyzer'
         this.intersectionTest = 'uniformSamples'
@@ -85,12 +80,6 @@ export default class Configs extends EventEmitter
         if (key === 'colormap' && !Configs.Colormaps.includes(value)) 
         {
             console.warn(`Invalid Colormap: "${value}"`)
-            return
-        }
-
-        if (key === 'interpolationMethod' && !Configs.InterpolationMethods.includes(value)) 
-        {
-            console.warn(`Invalid InterpolationMethod: "${value}"`)
             return
         }
         if (key === 'gradientsMethod' && !Configs.GradientsMethods.includes(value)) 

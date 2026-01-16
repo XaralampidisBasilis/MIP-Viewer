@@ -16,8 +16,7 @@ export default class OccupancyMap
     {
         console.time('computeTensor') 
         this.isosurfaceValue = this.configs.isosurfaceValue
-        this.interpolationMethod = this.configs.interpolationMethod
-        this.tensor = computeOccupancyMap(this.extremaMap.tensor, this.interpolationMethod, this.isosurfaceValue)
+        this.tensor = computeOccupancyMap(this.extremaMap.tensor, 'trilinear', this.isosurfaceValue)
         this.dimensions = this.extremaMap.dimensions
         console.timeEnd('computeTensor') 
     }

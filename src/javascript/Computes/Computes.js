@@ -102,7 +102,6 @@ export default class Computes extends EventEmitter
         if      (event.key === 'isosurfaceValue'    ) await this.onChangeIsosurfaceValue(event)
         else if (event.key === 'blockSize'          ) await this.onChangeBlockSize(event)
         else if (event.key === 'downscaleFactor'    ) await this.onChangeDownscaleFactor(event)
-        else if (event.key === 'interpolationMethod') await this.onChangeInterpolationMethod(event)
         else if (event.key === 'skippingMethod'     ) await this.onChangeSkippingMethod(event)
     }
 
@@ -185,23 +184,6 @@ export default class Computes extends EventEmitter
         await tf.nextFrame()
 
         console.timeEnd('onChangeDownscaleFactor@Computes') 
-        this.printResources()
-    }
-
-    async onChangeInterpolationMethod(event)
-    {
-        console.time('onChangeInterpolationMethod@Computes') 
-
-        this.occupancyMap.computeTensor()
-        this.distanceMap.computeTensor()
-
-        this.occupancyMap.updateTexture()
-        this.occupancyMap.tensor.dispose()
-
-        this.distanceMap.updateTexture()
-        this.distanceMap.tensor.dispose()
-
-        console.timeEnd('onChangeInterpolationMethod@Computes') 
         this.printResources()
     }
 

@@ -12,12 +12,7 @@ trace.position = camera.position + ray.direction * trace.distance;
 #endif
 
 // start interpolant
-#if INTERPOLATION_METHOD == 0
 trace.residue = sample_residue_trilinear(trace.position);
-
-#elif INTERPOLATION_METHOD == 1
-trace.residue = sample_residue_tricubic(trace.position);
-#endif
 
 #if DEBUG_ENABLED == 1
 stats.num_texture_fetches += 1;

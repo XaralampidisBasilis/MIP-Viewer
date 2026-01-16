@@ -11,12 +11,5 @@
 #include "./colors/rgb2hsv"
 #include "./colors/hsv2rgb"
 #include "./colors/constants"
-
-#if INTERPOLATION_METHOD == 0
 #include "./solvers/cubic_roots"
-#include "./solvers/cubic_has_root"          
-
-#elif INTERPOLATION_METHOD == 1
-#include "./solvers/quintic_roots"
-#include "./solvers/quintic_has_root"       
-#endif
+#include "./solvers/cubic_has_root"  

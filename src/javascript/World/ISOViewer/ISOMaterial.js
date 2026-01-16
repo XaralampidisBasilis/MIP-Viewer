@@ -68,7 +68,6 @@ export default function()
     {           
     
         MARCHING_METHOD     : 1,
-        INTERPOLATION_METHOD: 2,
         SKIPPING_STRATEGY   : 2,
         SKIPPING_METHOD     : 2,
         GRADIENTS_METHOD    : 3,

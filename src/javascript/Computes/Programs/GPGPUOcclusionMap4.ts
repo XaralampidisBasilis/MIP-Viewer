@@ -2,6 +2,80 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 
+class GPGPUDualPropagationMap implements GPGPUProgram 
+{
+    variableNames = ['A']
+    outputShape: number[]
+    userCode: string
+    packedInputs = true
+    packedOutput = true
+
+    constructor
+    (
+        inputShape: [number, number, number], 
+    ) 
+    {
+        const [inDepth, inHeight, inWidth] = inputShape
+        this.outputShape = [inDepth, inHeight, inWidth]  
+        this.userCode = `
+
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
+
+        float mmin(float a, float b, float c, float d)
+        {
+            return min(min(min(a, b), c), d);
+        }
+
+        ivec3 getVoxelCoords()
+        {
+            ivec3 outCoords = getOutputCoords();
+            return ivec3(outCoords.z, outCoords.y, outCoords.x);
+        }
+
+        vec4 getPackedValues(ivec3 voxelCoords)
+        {
+            ivec3 safeCoords = clamp(voxelCoords, minCoords, maxCoords);
+
+            bool insideWidth  = safeCoords.x < ${inWidth-1};
+            bool insideHeight = safeCoords.y < ${inHeight-1};
+
+            vec4 packedValues = getA(safeCoords.z, safeCoords.y, safeCoords.x);
+            packedValues.ga = insideWidth ? packedValues.ga : packedValues.rb;
+            packedValues.ba = insideHeight ? packedValues.ba : packedValues.rg;
+
+            return packedValues;
+        }
+
+        void main()
+        {
+            ivec3 voxelCoords = getVoxelCoords();
+
+            vec4 v000 = getPackedValues(voxelCoords);
+            
+            vec4 n001 = getPackedValues(voxelCoords - ivec3(0,0,1));
+            vec4 n201 = getPackedValues(voxelCoords - ivec3(2,0,1));
+            vec4 n021 = getPackedValues(voxelCoords - ivec3(0,2,1));
+            vec4 n221 = getPackedValues(voxelCoords - ivec3(2,2,1));
+            vec4 p001 = getPackedValues(voxelCoords + ivec3(0,0,1));
+            vec4 p201 = getPackedValues(voxelCoords + ivec3(2,0,1));
+            vec4 p021 = getPackedValues(voxelCoords + ivec3(0,2,1));
+            vec4 p221 = getPackedValues(voxelCoords + ivec3(2,2,1));
+
+            v000.r = max(v000.r, mmin(n001.r, n201.g, n021.b, n221.a));
+            v000.g = max(v000.g, mmin(n001.r, n001.g, n021.b, n021.a));
+            v000.b = max(v000.b, mmin(n001.r, n201.g, n001.b, n201.a));
+            v000.a = max(v000.a, mmin(n001.r, n001.g, n001.b, n001.a));
+            v000.r = max(v000.r, mmin(p001.r, p001.g, p001.b, p001.a));
+            v000.g = max(v000.g, mmin(p201.r, p001.g, p201.b, p001.a));
+            v000.b = max(v000.b, mmin(p021.r, p021.g, p001.b, p001.a));
+            v000.a = max(v000.a, mmin(p221.r, p021.g, p201.b, p001.a));
+
+            setOutput(v000);
+        }
+        `
+    }
+}
 class GPGPUBackPropagationMap implements GPGPUProgram 
 {
     variableNames = ['A']
@@ -232,7 +306,7 @@ class GPGPUBackOcclusionMap implements GPGPUProgram
     }
 }
 
-class GPGPUFrontOcclusionMap implements GPGPUProgram 
+class GPGPUFrontOcclusionMap implements GPGPUProgram    
 {
     variableNames = ['A', 'B']
     outputShape: number[]
@@ -387,6 +461,34 @@ export async function computeOcclusionMap(volumeMap: tf.Tensor3D) : Promise<tf.T
 {
     const backOcclusionMap = await computeBackOcclusionMap(volumeMap)
     const frontOcclusionMap = await computeFrontOcclusionMap(volumeMap)
+
+    const occlusionMap = tf.logicalOr(backOcclusionMap, frontOcclusionMap);
+    tf.dispose([backOcclusionMap, frontOcclusionMap]);
+
+    return occlusionMap as tf.Tensor
+}
+
+export async function computeOcclusionMap2(volumeMap: tf.Tensor3D) : Promise<tf.Tensor<tf.Rank>>
+{
+    const dualPropagationProgram = new GPGPUDualPropagationMap(volumeMap.shape)
+    const backOcclusionProgram = new GPGPUBackOcclusionMap(volumeMap.shape)
+    const frontOcclusionProgram = new GPGPUFrontOcclusionMap(volumeMap.shape)
+
+    let dualPropagationMap = runProgram(dualPropagationProgram, [volumeMap])
+    let maxPropagation = Math.max(...volumeMap.shape) / 2
+
+    for (let i = 0; i < maxPropagation; i++) 
+    {
+        const prev = dualPropagationMap
+        dualPropagationMap = runProgram(dualPropagationProgram, [prev])
+        prev.dispose()
+
+        if (i%10==0) await tf.nextFrame()                     
+    }
+
+    const backOcclusionMap = runProgram(backOcclusionProgram, [volumeMap, dualPropagationMap], 'bool')
+    const frontOcclusionMap = runProgram(frontOcclusionProgram, [volumeMap, dualPropagationMap], 'bool')
+    dualPropagationMap.dispose()
 
     const occlusionMap = tf.logicalOr(backOcclusionMap, frontOcclusionMap);
     tf.dispose([backOcclusionMap, frontOcclusionMap]);

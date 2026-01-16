@@ -68,7 +68,6 @@ export default class GUI
             isosurfaceValue     : this.configs.isosurfaceValue,
             blockSize           : this.configs.blockSize,
             downscaleFactor     : this.configs.downscaleFactor,
-            interpolationMethod : this.configs.interpolationMethod,
             intersectionTest    : this.configs.intersectionTest,
             gradientsMethod     : this.configs.gradientsMethod,
             marchingMethod      : this.configs.marchingMethod,
@@ -103,12 +102,6 @@ export default class GUI
             .onFinishChange((option) => 
             { 
                 this.configs.set('marchingMethod', option) 
-            }),
-
-            interpolationMethod: folder.add(objects, 'interpolationMethod').options(Configs.InterpolationMethods)
-            .onFinishChange((option) => 
-            { 
-                this.configs.set('interpolationMethod', option) 
             }),
 
             // skippingStrategy: folder.add(objects, 'skippingStrategy').options(Configs.SkippingStrategies)

@@ -12,9 +12,4 @@
 #include "./modules/debug_stats"  
 #endif
 
-#if INTERPOLATION_METHOD == 0
 #include "./modules/debug_cubic"          
-
-#elif INTERPOLATION_METHOD == 1
-#include "./modules/debug_quintic"          
-#endif

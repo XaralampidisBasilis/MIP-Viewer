@@ -68,7 +68,6 @@ export default class ISOViewer extends EventEmitter
         const configs = this.configs
         const defines = this.material.defines
         defines.MARCHING_METHOD = Configs.MarchingMethods.findIndex((x) => x === configs.marchingMethod)
-        defines.INTERPOLATION_METHOD = Configs.InterpolationMethods.findIndex((x) => x === configs.interpolationMethod)
         defines.SKIPPING_STRATEGY = Configs.SkippingStrategies.findIndex((x) => x === configs.skippingStrategy)
         defines.SKIPPING_METHOD = Configs.SkippingMethods.findIndex((x) => x === configs.skippingMethod)
         defines.GRADIENTS_METHOD = Configs.GradientsMethods.findIndex((x) => x === configs.gradientsMethod)  
@@ -136,7 +135,6 @@ export default class ISOViewer extends EventEmitter
         if      (event.key === 'isosurfaceValue'    ) this.onChangeIsosurfaceValue(event)
         else if (event.key === 'blockSize'          ) this.onChangeBlockSize(event)
         else if (event.key === 'downscaleFactor'    ) this.onChangeDownscaleFactor(event)
-        else if (event.key === 'interpolationMethod') this.onChangeInterpolationMethod(event)
         else if (event.key === 'intersectionTest'   ) this.onChangeIntersectionTest(event)
         else if (event.key === 'skippingStrategy'   ) this.onChangeSkippingStrategy(event)
         else if (event.key === 'skippingMethod'     ) this.onChangeSkippingMethod(event)
@@ -176,16 +174,6 @@ export default class ISOViewer extends EventEmitter
 
         this.material.dispose()
         this.setMaterial()
-    }
-
-    onChangeInterpolationMethod(event)
-    {
-        const uniforms = this.material.uniforms
-        uniforms.u_textures.value.occupancy_map = this.computes.occupancyMap.texture
-        uniforms.u_textures.value.distance_map = this.computes.distanceMap.texture
-
-        this.material.defines.INTERPOLATION_METHOD = Configs.InterpolationMethods.findIndex((x) => x === this.configs.interpolationMethod)
-        this.material.needsUpdate = true
     }
 
     onChangeSkippingStrategy(event)
