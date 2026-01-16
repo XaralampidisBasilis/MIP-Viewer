@@ -1,7 +1,7 @@
 clc,clear
 
-pkg load symbolic % OCTAVE version
-pkg load optim % OCTAVE version
+%pkg load symbolic % OCTAVE version
+%pkg load optim % OCTAVE version
 
 %% --------------------------------------------------------------------
 %% Declare symbols
@@ -162,6 +162,11 @@ BDv_t_coeffs = simplify( subs(BDf_t_coeffs, F, F2V) );
 
 %% Subspace of ax = 0 and dy/dx <= 1
 
+% maxima_terms = [
+%     simplify(Bf_t_coeffs(2)), ...
+%     simplify(Bf_t_coeffs(3)), ...
+% ];
+
 maxima_terms = [
     simplify(Bf_t_coeffs(2) - Bf_t_coeffs(1)), ...
     simplify(Bf_t_coeffs(3) - Bf_t_coeffs(1)), ...
@@ -310,9 +315,9 @@ disp(maxima_reduced);
 %% --------------------------------------------------------------------
 %  Results
 %% --------------------------------------------------------------------
-v = max(
-    -f00 + f01/2 + f10/2,
-    -f00 + f10,
-    -f00 + f11,
-    -f01 + f11,
-);
+% v = max(
+%     -f00 + f01/2 + f10/2,
+%     -f00 + f10,
+%     -f00 + f11,
+%     -f01 + f11,
+% );

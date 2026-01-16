@@ -1,7 +1,7 @@
 clc,clear
 
-pkg load symbolic % OCTAVE version
-pkg load optim % OCTAVE version
+%pkg load symbolic % OCTAVE version
+%pkg load optim % OCTAVE version
 
 %% --------------------------------------------------------------------
 %% Declare symbols
@@ -183,10 +183,16 @@ disp(simplify(Df_t - BDf_t));
 %% Subspace of ax = 0 and dz/dx, dy/dx <= 1
 
 maxima_terms = [
-    simplify(Bf_t_coeffs(2) - Bf_t_coeffs(1)), ...
-    simplify(Bf_t_coeffs(3) - Bf_t_coeffs(1)), ...
-    simplify(Bf_t_coeffs(4) - Bf_t_coeffs(1)), ...
+    simplify(Bf_t_coeffs(2)), ...
+    simplify(Bf_t_coeffs(3)), ...
+    simplify(Bf_t_coeffs(4)), ...
 ];
+
+% maxima_terms = [
+%     simplify(Bf_t_coeffs(2) - Bf_t_coeffs(1)), ...
+%     simplify(Bf_t_coeffs(3) - Bf_t_coeffs(1)), ...
+%     simplify(Bf_t_coeffs(4) - Bf_t_coeffs(1)), ...
+% ];
 
 maxima_terms = simplify(subs(maxima_terms, [d], [b-a]));
 
@@ -352,27 +358,27 @@ disp(maxima_reduced);
 %% --------------------------------------------------------------------
 %  Results
 %% --------------------------------------------------------------------
-v = -1.0/0.0;
+% v = -1.0/0.0;
 
-v = max(v, (f_100 - f_000));
-v = max(v, (f_110 - f_000));
-v = max(v, (f_101 - f_000));
-v = max(v, (f_111 - f_000));
-v = max(v, (f_110 - f_010));
-v = max(v, (f_111 - f_010));
-v = max(v, (f_101 - f_001));
-v = max(v, (f_111 - f_001));
-v = max(v, (f_111 - f_011));
+% v = max(v, (f_100 - f_000));
+% v = max(v, (f_110 - f_000));
+% v = max(v, (f_101 - f_000));
+% v = max(v, (f_111 - f_000));
+% v = max(v, (f_110 - f_010));
+% v = max(v, (f_111 - f_010));
+% v = max(v, (f_101 - f_001));
+% v = max(v, (f_111 - f_001));
+% v = max(v, (f_111 - f_011));
 
-v = max(v, (f_000 + f_010 + f_100) / 3.0 - f_000);
-v = max(v, (f_000 + f_001 + f_100) / 3.0 - f_000);
-v = max(v, (f_010 + f_100 + f_110) / 3.0 - f_000);
-v = max(v, (f_001 + f_100 + f_101) / 3.0 - f_000);
-v = max(v, (f_001 + f_010 + f_100) / 3.0 - f_000);
-v = max(v, (f_011 + f_101 + f_110) / 3.0 - f_000);
-v = max(v, (f_011 + f_110 + f_111) / 3.0 - f_010);
-v = max(v, (f_011 + f_110 + f_010) / 3.0 - f_010);
-v = max(v, (f_011 + f_101 + f_111) / 3.0 - f_001);
-v = max(v, (f_011 + f_101 + f_001) / 3.0 - f_001);
+% v = max(v, (f_000 + f_010 + f_100) / 3.0 - f_000);
+% v = max(v, (f_000 + f_001 + f_100) / 3.0 - f_000);
+% v = max(v, (f_010 + f_100 + f_110) / 3.0 - f_000);
+% v = max(v, (f_001 + f_100 + f_101) / 3.0 - f_000);
+% v = max(v, (f_001 + f_010 + f_100) / 3.0 - f_000);
+% v = max(v, (f_011 + f_101 + f_110) / 3.0 - f_000);
+% v = max(v, (f_011 + f_110 + f_111) / 3.0 - f_010);
+% v = max(v, (f_011 + f_110 + f_010) / 3.0 - f_010);
+% v = max(v, (f_011 + f_101 + f_111) / 3.0 - f_001);
+% v = max(v, (f_011 + f_101 + f_001) / 3.0 - f_001);
 
-v = max(v, 0.0);
+% v = max(v, 0.0);
