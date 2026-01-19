@@ -2,7 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 
-class GPGPUDualPropagationMap implements GPGPUProgram 
+class GPGPUStartPropagationMap implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -16,7 +16,8 @@ class GPGPUDualPropagationMap implements GPGPUProgram
     ) 
     {
         const [inDepth, inHeight, inWidth] = inputShape
-        this.outputShape = [inDepth, inHeight, inWidth]  
+        const [outDepth, outHeight, outWidth] = [inDepth, inHeight, inWidth].map((x: number) => x + 1)
+        this.outputShape = [outDepth, outHeight, outWidth]     
         this.userCode = `
 
         const ivec3 minCoords = ivec3(0);
@@ -36,9 +37,8 @@ class GPGPUDualPropagationMap implements GPGPUProgram
         vec4 getPackedValues(ivec3 voxelCoords)
         {
             ivec3 safeCoords = clamp(voxelCoords, minCoords, maxCoords);
-
-            bool insideWidth  = safeCoords.x < ${inWidth-1};
-            bool insideHeight = safeCoords.y < ${inHeight-1};
+            bool insideWidth  = (safeCoords.x < maxCoords.x);
+            bool insideHeight = (safeCoords.y < maxCoords.y);
 
             vec4 packedValues = getA(safeCoords.z, safeCoords.y, safeCoords.x);
             packedValues.ga = insideWidth ? packedValues.ga : packedValues.rb;
@@ -51,31 +51,23 @@ class GPGPUDualPropagationMap implements GPGPUProgram
         {
             ivec3 voxelCoords = getVoxelCoords();
 
-            vec4 v000 = getPackedValues(voxelCoords);
-            
-            vec4 n001 = getPackedValues(voxelCoords - ivec3(0,0,1));
-            vec4 n201 = getPackedValues(voxelCoords - ivec3(2,0,1));
-            vec4 n021 = getPackedValues(voxelCoords - ivec3(0,2,1));
-            vec4 n221 = getPackedValues(voxelCoords - ivec3(2,2,1));
-            vec4 p001 = getPackedValues(voxelCoords + ivec3(0,0,1));
-            vec4 p201 = getPackedValues(voxelCoords + ivec3(2,0,1));
-            vec4 p021 = getPackedValues(voxelCoords + ivec3(0,2,1));
-            vec4 p221 = getPackedValues(voxelCoords + ivec3(2,2,1));
+            vec4 F000 = getPackedValues(voxelCoords + ivec3(0,0,0));
+            vec4 F100 = getPackedValues(voxelCoords + ivec3(2,0,0));
+            vec4 F010 = getPackedValues(voxelCoords + ivec3(0,2,0));
+            vec4 F110 = getPackedValues(voxelCoords + ivec3(2,2,0));
 
-            v000.r = max(v000.r, mmin(n001.r, n201.g, n021.b, n221.a));
-            v000.g = max(v000.g, mmin(n001.r, n001.g, n021.b, n021.a));
-            v000.b = max(v000.b, mmin(n001.r, n201.g, n001.b, n201.a));
-            v000.a = max(v000.a, mmin(n001.r, n001.g, n001.b, n001.a));
-            v000.r = max(v000.r, mmin(p001.r, p001.g, p001.b, p001.a));
-            v000.g = max(v000.g, mmin(p201.r, p001.g, p201.b, p001.a));
-            v000.b = max(v000.b, mmin(p021.r, p021.g, p001.b, p001.a));
-            v000.a = max(v000.a, mmin(p221.r, p021.g, p201.b, p001.a));
+            vec4 L000;
+            L000.r = mmin(F000.r, F000.g, F000.b, F000.a);
+            L000.g = mmin(F100.r, F000.g, F100.b, F000.a);
+            L000.b = mmin(F010.r, F010.g, F000.b, F000.a);
+            L000.a = mmin(F110.r, F010.g, F100.b, F000.a);
 
-            setOutput(v000);
+            setOutput(L000);
         }
         `
     }
 }
+
 class GPGPUBackPropagationMap implements GPGPUProgram 
 {
     variableNames = ['A']
@@ -94,7 +86,7 @@ class GPGPUBackPropagationMap implements GPGPUProgram
         this.userCode = `
 
         const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
+        const ivec3 maxCoords = ivec3(${inWidth}, ${inHeight}, ${inDepth});
 
         float mmin(float a, float b, float c, float d)
         {
@@ -110,9 +102,8 @@ class GPGPUBackPropagationMap implements GPGPUProgram
         vec4 getPackedValues(ivec3 voxelCoords)
         {
             ivec3 safeCoords = clamp(voxelCoords, minCoords, maxCoords);
-
-            bool insideWidth  = safeCoords.x < ${inWidth-1};
-            bool insideHeight = safeCoords.y < ${inHeight-1};
+            bool insideWidth  = (safeCoords.x < maxCoords.x);
+            bool insideHeight = (safeCoords.y < maxCoords.y);
 
             vec4 packedValues = getA(safeCoords.z, safeCoords.y, safeCoords.x);
             packedValues.ga = insideWidth ? packedValues.ga : packedValues.rb;
@@ -125,22 +116,23 @@ class GPGPUBackPropagationMap implements GPGPUProgram
         {
             ivec3 voxelCoords = getVoxelCoords();
 
-            vec4 f000 = getPackedValues(voxelCoords - ivec3(0,0,0));
-            vec4 f001 = getPackedValues(voxelCoords - ivec3(0,0,1));
-            vec4 v201 = getPackedValues(voxelCoords - ivec3(2,0,1));
-            vec4 v021 = getPackedValues(voxelCoords - ivec3(0,2,1));
-            vec4 v221 = getPackedValues(voxelCoords - ivec3(2,2,1));
+            vec4 L000 = getPackedValues(voxelCoords - ivec3(0,0,0));
+            vec4 L001 = getPackedValues(voxelCoords - ivec3(0,0,1));
+            vec4 L101 = getPackedValues(voxelCoords - ivec3(2,0,1));
+            vec4 L011 = getPackedValues(voxelCoords - ivec3(0,2,1));
+            vec4 L111 = getPackedValues(voxelCoords - ivec3(2,2,1));
 
-            f000.r = max(f000.r, mmin(f001.r, v201.g, v021.b, v221.a));
-            f000.g = max(f000.g, mmin(f001.r, f001.g, v021.b, v021.a));
-            f000.b = max(f000.b, mmin(f001.r, v201.g, f001.b, v201.a));
-            f000.a = max(f000.a, mmin(f001.r, f001.g, f001.b, f001.a));
+            L000.r = max(L000.r, mmin(L001.r, L101.g, L011.b, L111.a));
+            L000.g = max(L000.g, mmin(L001.r, L001.g, L011.b, L011.a));
+            L000.b = max(L000.b, mmin(L001.r, L101.g, L001.b, L101.a));
+            L000.a = max(L000.a, mmin(L001.r, L001.g, L001.b, L001.a));
 
-            setOutput(f000);
+            setOutput(L000);
         }
         `
     }
 }
+
 
 class GPGPUFrontPropagationMap implements GPGPUProgram 
 {
@@ -160,7 +152,7 @@ class GPGPUFrontPropagationMap implements GPGPUProgram
         this.userCode = `
 
         const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
+        const ivec3 maxCoords = ivec3(${inWidth}, ${inHeight}, ${inDepth});
 
         float mmin(float a, float b, float c, float d)
         {
@@ -176,9 +168,8 @@ class GPGPUFrontPropagationMap implements GPGPUProgram
         vec4 getPackedValues(ivec3 voxelCoords)
         {
             ivec3 safeCoords = clamp(voxelCoords, minCoords, maxCoords);
-
-            bool insideWidth  = safeCoords.x < ${inWidth-1};
-            bool insideHeight = safeCoords.y < ${inHeight-1};
+            bool insideWidth  = (safeCoords.x < maxCoords.x);
+            bool insideHeight = (safeCoords.y < maxCoords.y);
 
             vec4 packedValues = getA(safeCoords.z, safeCoords.y, safeCoords.x);
             packedValues.ga = insideWidth ? packedValues.ga : packedValues.rb;
@@ -191,18 +182,18 @@ class GPGPUFrontPropagationMap implements GPGPUProgram
         {
             ivec3 voxelCoords = getVoxelCoords();
 
-            vec4 f000 = getPackedValues(voxelCoords + ivec3(0,0,0));
-            vec4 f001 = getPackedValues(voxelCoords + ivec3(0,0,1));
-            vec4 v201 = getPackedValues(voxelCoords + ivec3(2,0,1));
-            vec4 v021 = getPackedValues(voxelCoords + ivec3(0,2,1));
-            vec4 v221 = getPackedValues(voxelCoords + ivec3(2,2,1));
+            vec4 L000 = getPackedValues(voxelCoords + ivec3(0,0,0));
+            vec4 L001 = getPackedValues(voxelCoords + ivec3(0,0,1));
+            vec4 L101 = getPackedValues(voxelCoords + ivec3(2,0,1));
+            vec4 L011 = getPackedValues(voxelCoords + ivec3(0,2,1));
+            vec4 L111 = getPackedValues(voxelCoords + ivec3(2,2,1));
 
-            f000.r = max(f000.r, mmin(f001.r, f001.g, f001.b, f001.a));
-            f000.g = max(f000.g, mmin(v201.r, f001.g, v201.b, f001.a));
-            f000.b = max(f000.b, mmin(v021.r, v021.g, f001.b, f001.a));
-            f000.a = max(f000.a, mmin(v221.r, v021.g, v201.b, f001.a));
+            L000.r = max(L000.r, mmin(L001.r, L001.g, L001.b, L001.a));
+            L000.g = max(L000.g, mmin(L101.r, L001.g, L101.b, L001.a));
+            L000.b = max(L000.b, mmin(L011.r, L011.g, L001.b, L001.a));
+            L000.a = max(L000.a, mmin(L111.r, L011.g, L101.b, L001.a));
 
-            setOutput(f000);
+            setOutput(L000);
         }
         `
     }

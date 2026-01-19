@@ -1,7 +1,7 @@
 clc,clear
 
-%pkg load symbolic % OCTAVE version
-%pkg load optim % OCTAVE version
+pkg load symbolic % OCTAVE version
+pkg load optim % OCTAVE version
 
 %% --------------------------------------------------------------------
 %% Declare symbols
@@ -52,7 +52,7 @@ f_xy = f00 * (1-x) * (1-y) ...
      + f11 *    x  *    y;
 
 %% --------------------------------------------------------------------
-%% Ray substitution r(t) 
+%% Ray substitution r(t)
 %% --------------------------------------------------------------------
 
 x_t = ax + dx*t;
@@ -67,7 +67,7 @@ y_t = ay + dy*t;
 r_t = [x_t, y_t];
 
 %% --------------------------------------------------------------------
-%% Trilinear function over ray  
+%% Trilinear function over ray
 %% --------------------------------------------------------------------
 
 f_t = simplify( subs(f_xy, r, r_t) );
@@ -77,7 +77,7 @@ f_t = collect(f_t, t);
 [f_t_coeffs, f_t_terms] = coeffs(f_t, t);
 
 %% --------------------------------------------------------------------
-%% Bernstein Trilinear function over ray 
+%% Bernstein Trilinear function over ray
 %% --------------------------------------------------------------------
 
 % Bernstein coefficients
@@ -101,7 +101,7 @@ disp("Sanity check f(t) - Bf_t(t), should be 0:");
 disp(simplify(f_t - Bf_t));
 
 %% --------------------------------------------------------------------
-%% Trilinear function derivative over ray  
+%% Trilinear function derivative over ray
 %% --------------------------------------------------------------------
 
 % Compute partial derivatives
@@ -122,7 +122,7 @@ Df_t = simplify( subs(Df_xy, r, r_t) );
 [Df_t_coeffs, Df_t_terms] = coeffs(Df_t, t);
 
 %% --------------------------------------------------------------------
-%% Bernstein trilinear function derivative over ray  
+%% Bernstein trilinear function derivative over ray
 %% --------------------------------------------------------------------
 
 % Bernstein coefficients
@@ -162,15 +162,17 @@ BDv_t_coeffs = simplify( subs(BDf_t_coeffs, F, F2V) );
 
 %% Subspace of ax = 0 and dy/dx <= 1
 
-% maxima_terms = [
-%     simplify(Bf_t_coeffs(2)), ...
-%     simplify(Bf_t_coeffs(3)), ...
-% ];
+maxima_terms = [
+    simplify(Bf_t_coeffs(2)), ...
+    simplify(Bf_t_coeffs(2)), ...
+];
 
+%{
 maxima_terms = [
     simplify(Bf_t_coeffs(2) - Bf_t_coeffs(1)), ...
     simplify(Bf_t_coeffs(3) - Bf_t_coeffs(1)), ...
 ];
+%}
 
 maxima_terms = simplify(subs(maxima_terms, [d], [b-a]));
 
