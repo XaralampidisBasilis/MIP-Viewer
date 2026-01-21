@@ -135,6 +135,61 @@ import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 //     }
 // }
 
+class GPGPUStartPropagationMap implements GPGPUProgram 
+{
+    variableNames = ['A']
+    outputShape: number[]
+    userCode: string
+    packedInputs = false
+    packedOutput = false
+
+    constructor
+    (
+        inputShape: [number, number, number], 
+    ) 
+    {
+        const [inDepth, inHeight, inWidth] = inputShape
+        const [outDepth, outHeight, outWidth] = [inDepth, inHeight, inWidth].map((x: number) => x + 1)
+        this.outputShape = [outDepth, outHeight, outWidth]     
+        this.userCode = `
+
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
+
+        float min4(float a, float b, float c, float d)
+        {
+            return min(min(min(a, b), c), d);
+        }
+
+        ivec3 getCellCoords()
+        {
+            ivec3 outCoords = getOutputCoords();
+            return ivec3(outCoords.z, outCoords.y, outCoords.x);
+        }
+
+        float getVoxelValue(ivec3 voxelCoords)
+        {
+            ivec3 safeCoords = clamp(voxelCoords, minCoords, maxCoords);
+            return getA(safeCoords.z, safeCoords.y, safeCoords.x);
+        }
+
+        void main()
+        {
+            ivec3 cellCoords = getCellCoords();
+
+            float f000 = getVoxelValue(cellCoords - ivec3(0,0,0));
+            float fN00 = getVoxelValue(cellCoords - ivec3(1,0,0));
+            float f0N0 = getVoxelValue(cellCoords - ivec3(0,1,0));
+            float fNN0 = getVoxelValue(cellCoords - ivec3(1,1,0));
+
+            float F000 = min4(f000, fN00, f0N0, fNN0);
+
+            setOutput(F000);
+        }
+        `
+    }
+}
+
 class GPGPUBackPropagationMap implements GPGPUProgram 
 {
     variableNames = ['A', 'B']
@@ -153,45 +208,45 @@ class GPGPUBackPropagationMap implements GPGPUProgram
         this.userCode = `
 
         const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
+        const ivec3 maxCoords = ivec3(${inWidth}, ${inHeight}, ${inDepth});
 
         float min4(float a, float b, float c, float d)
         {
             return min(min(min(a, b), c), d);
         }
 
-        ivec3 getVoxelCoords()
+        ivec3 getCellCoords()
         {
             ivec3 outCoords = getOutputCoords();
             return ivec3(outCoords.z, outCoords.y, outCoords.x);
         }
 
-        float getVoxelValue(ivec3 voxelCoords)
+        float getInitialCellValue(ivec3 cellCoords)
         {
-            ivec3 safeCoords = clamp(voxelCoords, minCoords, maxCoords);
+            ivec3 safeCoords = clamp(cellCoords, minCoords, maxCoords);
             return getA(safeCoords.z, safeCoords.y, safeCoords.x);
         }
 
-        float getMinVoxelValue(ivec3 voxelCoords)
+        float getPropagateCellValue(ivec3 cellCoords)
         {
-            ivec3 safeCoords = clamp(voxelCoords, minCoords, maxCoords);
+            ivec3 safeCoords = clamp(cellCoords, minCoords, maxCoords);
             return getB(safeCoords.z, safeCoords.y, safeCoords.x);
         }
 
         void main()
         {
-            ivec3 voxelCoords = getVoxelCoords();
+            ivec3 cellCoords = getCellCoords();
 
-            float f000 = getVoxelValue(voxelCoords);
+            float F000 = getInitialCellValue(cellCoords);
 
-            float mN00 = getMinVoxelValue(voxelCoords - ivec3(1,0,0));
-            float mNN0 = getMinVoxelValue(voxelCoords - ivec3(1,1,0));
-            float mN0N = getMinVoxelValue(voxelCoords - ivec3(1,0,1));
-            float mNNN = getMinVoxelValue(voxelCoords - ivec3(1,1,1));
+            float L00N = getPropagateCellValue(cellCoords - ivec3(0,0,1));
+            float LN0N = getPropagateCellValue(cellCoords - ivec3(1,0,1));
+            float L0NN = getPropagateCellValue(cellCoords - ivec3(0,1,1));
+            float LNNN = getPropagateCellValue(cellCoords - ivec3(1,1,1));
 
-            float m000 = max(f000, min4(mN00, mNN0, mN0N, mNNN));
+            F000 = max(F000, min4(L00N, LN0N, L0NN, LNNN));
 
-            setOutput(m000);
+            setOutput(F000);
         }
         `
     }
@@ -215,45 +270,45 @@ class GPGPUFrontPropagationMap implements GPGPUProgram
         this.userCode = `
 
         const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
+        const ivec3 maxCoords = ivec3(${inWidth}, ${inHeight}, ${inDepth});
 
         float min4(float a, float b, float c, float d)
         {
             return min(min(min(a, b), c), d);
         }
 
-        ivec3 getVoxelCoords()
+        ivec3 getCellCoords()
         {
             ivec3 outCoords = getOutputCoords();
             return ivec3(outCoords.z, outCoords.y, outCoords.x);
         }
 
-        float getVoxelValue(ivec3 voxelCoords)
+        float getInitialCellValue(ivec3 cellCoords)
         {
-            ivec3 safeCoords = clamp(voxelCoords, minCoords, maxCoords);
+            ivec3 safeCoords = clamp(cellCoords, minCoords, maxCoords);
             return getA(safeCoords.z, safeCoords.y, safeCoords.x);
         }
 
-        float getMinVoxelValue(ivec3 voxelCoords)
+        float getPropagateCellValue(ivec3 cellCoords)
         {
-            ivec3 safeCoords = clamp(voxelCoords, minCoords, maxCoords);
+            ivec3 safeCoords = clamp(cellCoords, minCoords, maxCoords);
             return getB(safeCoords.z, safeCoords.y, safeCoords.x);
         }
 
         void main()
         {
-            ivec3 voxelCoords = getVoxelCoords();
+            ivec3 cellCoords = getCellCoords();
 
-            float f000 = getVoxelValue(voxelCoords);
+            float F000 = getInitialCellValue(cellCoords);
 
-            float mP00 = getMinVoxelValue(voxelCoords + ivec3(1,0,0));
-            float mPP0 = getMinVoxelValue(voxelCoords + ivec3(1,1,0));
-            float mP0P = getMinVoxelValue(voxelCoords + ivec3(1,0,1));
-            float mPPP = getMinVoxelValue(voxelCoords + ivec3(1,1,1));
+            float L00P = getPropagateCellValue(cellCoords + ivec3(0,0,1));
+            float LP0P = getPropagateCellValue(cellCoords + ivec3(1,0,1));
+            float L0PP = getPropagateCellValue(cellCoords + ivec3(0,1,1));
+            float LPPP = getPropagateCellValue(cellCoords + ivec3(1,1,1));
 
-            float m000 = max(f000, min4(mP00, mPP0, mP0P, mPPP));
-
-            setOutput(m000);
+            F000 = max(F000, min4(L00P, LP0P, L0PP, LPPP));
+            
+            setOutput(F000);
         }
         `
     }
@@ -784,46 +839,60 @@ async function computeBackOcclusionMap(volumeMap: tf.Tensor3D) : Promise<tf.Tens
 {
     const propagationProgram = new GPGPUBackPropagationMap(volumeMap.shape)
     const occlusionProgram   = new GPGPUBackOcclusionMap(volumeMap.shape)
+    const startProgram       = new GPGPUStartPropagationMap(volumeMap.shape)
 
-    let propagationMap = runProgram(propagationProgram, [volumeMap, volumeMap])
-    let maxPropagation = Math.max(...volumeMap.shape) / 2
+    let maxPropagation = volumeMap.shape[0]
+    let propagationMap = runProgram(startProgram, [volumeMap])
+    let startMap = propagationMap.clone()
+
+    console.log(startMap.mean().dataSync())
 
     for (let i = 0; i < maxPropagation; i++) 
     {
         const prev = propagationMap
-        propagationMap = runProgram(propagationProgram, [volumeMap, prev])
+        propagationMap = runProgram(propagationProgram, [startMap, prev])
         prev.dispose()
 
         if (i%2==0) await tf.nextFrame()                     
     }
 
-    const occlusionMap = runProgram(occlusionProgram, [volumeMap, propagationMap], 'bool')
-    propagationMap.dispose()
+    console.log(propagationMap.mean().dataSync())
 
-    return occlusionMap as tf.Tensor
+    // const occlusionMap = runProgram(occlusionProgram, [volumeMap, propagationMap], 'bool')
+    // propagationMap.dispose()
+    startMap.dispose()
+
+    return propagationMap as tf.Tensor
 }
 
 async function computeFrontOcclusionMap(volumeMap: tf.Tensor3D) : Promise<tf.Tensor<tf.Rank>>
 {
     const propagationProgram = new GPGPUFrontPropagationMap(volumeMap.shape)
-    const occlusionProgram = new GPGPUFrontOcclusionMap(volumeMap.shape)
+    const occlusionProgram   = new GPGPUFrontOcclusionMap(volumeMap.shape)
+    const startProgram       = new GPGPUStartPropagationMap(volumeMap.shape)
 
-    let propagationMap = runProgram(propagationProgram, [volumeMap, volumeMap])
-    let maxPropagation = Math.max(...volumeMap.shape) / 2
+    let maxPropagation = volumeMap.shape[0]
+    let propagationMap = runProgram(startProgram, [volumeMap])
+    let startMap = propagationMap.clone()
+
+    console.log(startMap.mean().dataSync())
 
     for (let i = 0; i < maxPropagation; i++) 
     {
         const prev = propagationMap
-        propagationMap = runProgram(propagationProgram, [volumeMap, prev])
+        propagationMap = runProgram(propagationProgram, [startMap, prev])
         prev.dispose()
 
         if (i%2==0) await tf.nextFrame()                     
     }
 
-    const occlusionMap = runProgram(occlusionProgram, [volumeMap, propagationMap], 'bool')
-    propagationMap.dispose()
+    console.log(propagationMap.mean().dataSync())
 
-    return occlusionMap as tf.Tensor
+    // const occlusionMap = runProgram(occlusionProgram, [volumeMap, propagationMap], 'bool')
+    // propagationMap.dispose()
+    startMap.dispose()
+
+    return propagationMap as tf.Tensor
 }
 
 export async function computeOcclusionMap(volumeMap: tf.Tensor3D) : Promise<tf.Tensor<tf.Rank>>
