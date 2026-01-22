@@ -104,6 +104,7 @@
         "mmin",
         "mmix",
         "mult",
+        "multinomial",
         "multisampling",
         "nand",
         "NEUBAUER",
