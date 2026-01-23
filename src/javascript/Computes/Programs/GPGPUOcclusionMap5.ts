@@ -29,9 +29,9 @@ class GPGPUStartPropagationMap implements GPGPUProgram
         vec3 packVec3ToHalf2x16(vec3 u, vec3 v)
         {
             uvec3 p;
-            p.x = packHalf2x16(vec2(u.x, v.x));
-            p.y = packHalf2x16(vec2(u.y, v.y));
-            p.z = packHalf2x16(vec2(u.z, v.z));
+            p.r = packHalf2x16(vec2(u.r, v.r));
+            p.g = packHalf2x16(vec2(u.g, v.g));
+            p.b = packHalf2x16(vec2(u.b, v.b));
 
             return uintBitsToFloat(p);
         }
@@ -44,8 +44,8 @@ class GPGPUStartPropagationMap implements GPGPUProgram
 
         float getVoxelValue(ivec3 voxelCoords)
         {
-            ivec3 voxelCoordsSafe = clamp(voxelCoords, minVoxelCoords, maxVoxelCoords);
-            return getA(voxelCoordsSafe.z, voxelCoordsSafe.y, voxelCoordsSafe.x);
+            ivec3 safeCoords = clamp(voxelCoords, minVoxelCoords, maxVoxelCoords);
+            return getA(safeCoords.z, safeCoords.y, safeCoords.x);
         }
 
         struct CellValues 
@@ -82,67 +82,67 @@ class GPGPUStartPropagationMap implements GPGPUProgram
         //  - the entry face x=0 -> bilinear min
         //  - the interior surface x = min(1-y, 1-z) -> bounded via triangle Bernstein minima
         // Since the ray maximum is >= the value at each intersection, a guaranteed bound is:
-        // max(min_on_face,  min_on_surface).
+        // max(min_over_face,  min_over_surface).
      
-        float getMinOnRayMaxEnteringFaceX0(CellValues C)
+        float getMinOverRayMaxEnteringFaceX0(CellValues C)
         {
-            float minOnFace = min4(C.f100, C.f110, C.f101, C.f111);
-            float minOnSurf = min4(C.f010, C.f001, C.f011, C.f100);
+            float minOverFace = min4(C.f100, C.f110, C.f101, C.f111);
+            float minOverSurf = min4(C.f010, C.f001, C.f011, C.f100);
     
-            minOnSurf = min(minOnSurf, avg3(C.f000, C.f010, C.f110));
-            minOnSurf = min(minOnSurf, avg3(C.f000, C.f100, C.f110));
-            minOnSurf = min(minOnSurf, avg3(C.f000, C.f001, C.f101));
-            minOnSurf = min(minOnSurf, avg3(C.f000, C.f100, C.f101));
-            minOnSurf = min(minOnSurf, avg3(C.f001, C.f010, C.f111));
-            minOnSurf = min(minOnSurf, avg3(C.f000, C.f101, C.f110));
+            minOverSurf = min(minOverSurf, avg3(C.f000, C.f010, C.f110));
+            minOverSurf = min(minOverSurf, avg3(C.f000, C.f100, C.f110));
+            minOverSurf = min(minOverSurf, avg3(C.f000, C.f001, C.f101));
+            minOverSurf = min(minOverSurf, avg3(C.f000, C.f100, C.f101));
+            minOverSurf = min(minOverSurf, avg3(C.f001, C.f010, C.f111));
+            minOverSurf = min(minOverSurf, avg3(C.f000, C.f101, C.f110));
 
-            return max(minOnFace, minOnSurf);
+            return max(minOverFace, minOverSurf);
         }
 
-        float getMinOnRayMaxEnteringFaceY0(CellValues C)
+        float getMinOverRayMaxEnteringFaceY0(CellValues C)
         {   
             CellValues newC = CellValues(C.f000, C.f010, C.f100, C.f110, C.f001, C.f011, C.f101, C.f111); // transform (x,y,z) -> (y,x,z)
-            return getMinOnRayMaxEnteringFaceX0(newC);
+            return getMinOverRayMaxEnteringFaceX0(newC);
         }
 
-        float getMinOnRayMaxEnteringFaceZ0(in CellValues C)
+        float getMinOverRayMaxEnteringFaceZ0(in CellValues C)
         {
             CellValues newC = CellValues(C.f000, C.f001, C.f010, C.f011, C.f100, C.f101, C.f110, C.f111); // transform (x,y,z) -> (z,y,x)
-            return getMinOnRayMaxEnteringFaceX0(newC);
+            return getMinOverRayMaxEnteringFaceX0(newC);
         }
 
-        float getMinOnRayMaxExitingFaceX1(CellValues C)
+        float getMinOverRayMaxExitingFaceX1(CellValues C)
         {   
             CellValues newC = CellValues(C.f111, C.f011, C.f101, C.f001, C.f110, C.f010, C.f100, C.f000); // transform (x,y,z) -> (1-x,1-y,1-z)
-            return getMinOnRayMaxEnteringFaceX0(newC);
+            return getMinOverRayMaxEnteringFaceX0(newC);
         }
 
-        float getMinOnRayMaxExitingFaceY1(CellValues C)
+        float getMinOverRayMaxExitingFaceY1(CellValues C)
         {   
             CellValues newC = CellValues(C.f111, C.f101, C.f011, C.f001, C.f110, C.f100, C.f010, C.f000); // transform (x,y,z) -> (1-y,1-x,1-z)
-            return getMinOnRayMaxEnteringFaceX0(newC);
+            return getMinOverRayMaxEnteringFaceX0(newC);
         }
 
-        float getMinOnRayMaxExitingFaceZ1(CellValues C)
+        float getMinOverRayMaxExitingFaceZ1(CellValues C)
         {   
             CellValues newC = CellValues(C.f111, C.f110, C.f101, C.f100, C.f011, C.f010, C.f001, C.f000); // transform (x,y,z) -> (1-z,1-y,1-x)
-            return getMinOnRayMaxEnteringFaceX0(newC);
+            return getMinOverRayMaxEnteringFaceX0(newC);
         }
 
-        vec3 getMinOnRayMaxEnteringFaces(CellValues C)
+        vec3 getMinOverRayMaxEnteringFaces(CellValues C)
         {
-            float xMinMax = getMinOnRayMaxEnteringFaceX0(C);
-            float yMinMax = getMinOnRayMaxEnteringFaceY0(C);
-            float zMinMax = getMinOnRayMaxEnteringFaceZ0(C);
+            float xMinMax = getMinOverRayMaxEnteringFaceX0(C);
+            float yMinMax = getMinOverRayMaxEnteringFaceY0(C);
+            float zMinMax = getMinOverRayMaxEnteringFaceZ0(C);
 
             return vec3(xMinMax, yMinMax, zMinMax);
         }
 
-        vec3 getMinOnRayMaxExitingFaces(CellValues C)
+        vec3 getMinOverRayMaxExitingFaces(CellValues C)
         {
-            float xMinMax = getMinOnRayMaxExitingFaceX1(C);
-            float yMinMax = getMinOnRayMaxExitingFaceY1(C);
-            float zMinMax = getMinOnRayMaxExitingFaceZ1(C);
+            float xMinMax = getMinOverRayMaxExitingFaceX1(C);
+            float yMinMax = getMinOverRayMaxExitingFaceY1(C);
+            float zMinMax = getMinOverRayMaxExitingFaceZ1(C);
 
             return vec3(xMinMax, yMinMax, zMinMax);
         }
@@ -152,17 +152,17 @@ class GPGPUStartPropagationMap implements GPGPUProgram
             ivec3 cellCoords = getCellCoords();
             CellValues cellValues = getCellValues(cellCoords);
 
-            vec3 minOnRayMaxEnteringFaces = getMinOnRayMaxEnteringFaces(cellValues);
-            vec3 minOnRayMaxExitingFaces = getMinOnRayMaxExitingFaces(cellValues);
+            vec3 minOverRayMaxEnteringFaces = getMinOverRayMaxEnteringFaces(cellValues);
+            vec3 minOverRayMaxExitingFaces = getMinOverRayMaxExitingFaces(cellValues);
 
-            vec3 minOnRayMaxEnteringExitingFaces = packVec3ToHalf2x16(minOnRayMaxEnteringFaces, minOnRayMaxExitingFaces);
-            setOutput(vec4(minOnRayMaxEnteringExitingFaces, 0.0));
+            vec3 minOverRayMaxEnteringExitingFaces = packVec3ToHalf2x16(minOverRayMaxEnteringFaces, minOverRayMaxExitingFaces);
+            setOutput(vec4(minOverRayMaxEnteringExitingFaces, 0.0));
         }
         `
     }
 }
 
-class GPGPUUpdatePropagationSlice implements GPGPUProgram 
+class GPGPUStartPropagationSlice implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -269,7 +269,7 @@ class GPGPUUpdatePropagationSlice implements GPGPUProgram
     }
 }
 
-class GPGPUUpdateOcclusionMap implements GPGPUProgram 
+class GPGPUUpdatePropagationSliceHorizontally implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -376,13 +376,13 @@ class GPGPUUpdateOcclusionMap implements GPGPUProgram
     }
 }
 
-class GPGPUEndOcclusionMap implements GPGPUProgram 
+class GPGPUUpdatePropagationSliceVertically implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
     userCode: string
     packedInputs = true
-    packedOutput = false
+    packedOutput = true
 
     constructor
     (
@@ -391,28 +391,242 @@ class GPGPUEndOcclusionMap implements GPGPUProgram
     {
         const [inDepth, inHeight, inWidth] = inputShape
         const [outDepth, outHeight, outWidth] = [inDepth, inHeight, inWidth].map((x: number) => x + 1)
-        this.outputShape = [outDepth, outHeight, outWidth]     
+        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]     
         this.userCode = `
+
+        const ivec3 cellMinCoords = ivec3(0);
+        const ivec3 cellMaxCoords = ivec3(${outDepth-1}, ${outDepth-1}, ${outDepth-1});
+
+        float unpackHalfFloatLow(float a)
+        {
+            return unpackHalf2x16(floatBitsToUint(a)).x;
+        }
+
+        float unpackHalfFloatHigh(float a)
+        {
+            return unpackHalf2x16(floatBitsToUint(a)).y;
+        }
+
+        vec3 packVec3ToHalf2x16(vec3 a, vec3 b)
+        {
+            uvec3 p;
+            p.x = packHalf2x16(vec2(a.x, b.x));
+            p.y = packHalf2x16(vec2(a.y, b.y));
+            p.z = packHalf2x16(vec2(a.z, b.z));
+
+            return uintBitsToFloat(p);
+        }
+
         ivec3 getCellCoords()
         {
-            ivec3 outputCoords = getOutputCoords();
+            ivec5 outputCoords = getOutputCoords();
             return ivec3(outputCoords.z, outputCoords.y, outputCoords.x);
         }
 
-        float getCellOcclusion(ivec3 cellCoords)
+        vec4 getCellData(ivec3 cellCoords)
         {
-            return getA(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).w;
+            ivec3 cellCoordsSafe = clamp(cellCoords, cellMinCoords, cellMaxCoords);
+            return getA(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0);
+        }
+
+        vec3 getCellMinInputs(ivec3 cellCoords)
+        {
+            float xMinInput = unpackHalfFloatLow(getCellData(cellCoords - ivec3(1,0,0)).x);
+            float yMinInput = unpackHalfFloatLow(getCellData(cellCoords - ivec3(0,1,0)).y);
+            float zMinInput = unpackHalfFloatLow(getCellData(cellCoords - ivec3(0,0,1)).z);
+            return vec3(xMinInput, yMinInput, zMinInput);
+        }
+
+        vec3 getCellMinOutputs(vec3 cellMinMaxOutputs)
+        {
+            float xMinOutput = unpackHalfFloatLow(cellMinMaxOutputs.x);
+            float yMinOutput = unpackHalfFloatLow(cellMinMaxOutputs.y);
+            float zMinOutput = unpackHalfFloatLow(cellMinMaxOutputs.z);
+            return vec3(xMinOutput, yMinOutput, zMinOutput);
+        }
+
+        vec3 getCellMaxOutputs(vec3 cellMinMaxOutputs)
+        {
+            float xMaxOutput = unpackHalfFloatHigh(cellMinMaxOutputs.x);
+            float yMaxOutput = unpackHalfFloatHigh(cellMinMaxOutputs.y);
+            float zMaxOutput = unpackHalfFloatHigh(cellMinMaxOutputs.z);
+            return vec3(xMaxOutput, yMaxOutput, zMaxOutput);
+        }
+
+        void updateCellMinOutputs(vec3 cellMinInputs, inout vec3 cellMinOutputs)
+        {
+            cellMinOutputs.x = max(cellMinOutputs.x, min(min(cellMinInputs.x, cellMinInputs.y), cellMinInputs.z));
+            cellMinOutputs.y = max(cellMinOutputs.x, min(cellMinInputs.x, cellMinInputs.z));
+            cellMinOutputs.z = max(cellMinOutputs.x, min(cellMinInputs.x, cellMinInputs.y));
         }
 
         void main()
         {
             ivec3 cellCoords = getCellCoords();
+            vec4 cellData = getCellData(cellCoords);
 
-            setOutput(getCellOcclusion(cellCoords));
+            vec3 cellMinMaxOutputs = cellData.xyz;
+            bool cellOccluded = bool(cellData.w);
+
+            vec3 cellMinInputs = getCellMinInputs(cellCoords);
+            vec3 cellMinOutputs = getCellMinOutputs(cellMinMaxOutputs);
+            vec3 cellMaxOutputs = getCellMaxOutputs(cellMinMaxOutputs);
+
+            cellOccluded = cellOccluded || all(greaterThanEqual(cellMinInputs, cellMaxOutputs));
+            
+            updateCellMinOutputs(cellMinInputs, cellMinOutputs);
+            cellMinMaxOutputs = packVec3ToHalf2x16(cellMinOutputs, cellMaxOutputs);
+
+            setOutput(vec4(cellMinMaxOutputs, cellOccluded));
         }
         `
     }
 }
+
+// class GPGPUUpdateOcclusionMap implements GPGPUProgram 
+// {
+//     variableNames = ['A']
+//     outputShape: number[]
+//     userCode: string
+//     packedInputs = true
+//     packedOutput = true
+
+//     constructor
+//     (
+//         inputShape: [number, number, number], 
+//     ) 
+//     {
+//         const [inDepth, inHeight, inWidth] = inputShape
+//         const [outDepth, outHeight, outWidth] = [inDepth, inHeight, inWidth].map((x: number) => x + 1)
+//         this.outputShape = [outDepth, outHeight, outWidth, 2, 2]     
+//         this.userCode = `
+
+//         const ivec3 cellMinCoords = ivec3(0);
+//         const ivec3 cellMaxCoords = ivec3(${outDepth-1}, ${outDepth-1}, ${outDepth-1});
+
+//         float unpackHalfFloatLow(float a)
+//         {
+//             return unpackHalf2x16(floatBitsToUint(a)).x;
+//         }
+
+//         float unpackHalfFloatHigh(float a)
+//         {
+//             return unpackHalf2x16(floatBitsToUint(a)).y;
+//         }
+
+//         vec3 packVec3ToHalf2x16(vec3 a, vec3 b)
+//         {
+//             uvec3 p;
+//             p.x = packHalf2x16(vec2(a.x, b.x));
+//             p.y = packHalf2x16(vec2(a.y, b.y));
+//             p.z = packHalf2x16(vec2(a.z, b.z));
+
+//             return uintBitsToFloat(p);
+//         }
+
+//         ivec3 getCellCoords()
+//         {
+//             ivec5 outputCoords = getOutputCoords();
+//             return ivec3(outputCoords.z, outputCoords.y, outputCoords.x);
+//         }
+
+//         vec4 getCellData(ivec3 cellCoords)
+//         {
+//             ivec3 cellCoordsSafe = clamp(cellCoords, cellMinCoords, cellMaxCoords);
+//             return getA(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0);
+//         }
+
+//         vec3 getCellMinInputs(ivec3 cellCoords)
+//         {
+//             float xMinInput = unpackHalfFloatLow(getCellData(cellCoords - ivec3(1,0,0)).x);
+//             float yMinInput = unpackHalfFloatLow(getCellData(cellCoords - ivec3(0,1,0)).y);
+//             float zMinInput = unpackHalfFloatLow(getCellData(cellCoords - ivec3(0,0,1)).z);
+//             return vec3(xMinInput, yMinInput, zMinInput);
+//         }
+
+//         vec3 getCellMinOutputs(vec3 cellMinMaxOutputs)
+//         {
+//             float xMinOutput = unpackHalfFloatLow(cellMinMaxOutputs.x);
+//             float yMinOutput = unpackHalfFloatLow(cellMinMaxOutputs.y);
+//             float zMinOutput = unpackHalfFloatLow(cellMinMaxOutputs.z);
+//             return vec3(xMinOutput, yMinOutput, zMinOutput);
+//         }
+
+//         vec3 getCellMaxOutputs(vec3 cellMinMaxOutputs)
+//         {
+//             float xMaxOutput = unpackHalfFloatHigh(cellMinMaxOutputs.x);
+//             float yMaxOutput = unpackHalfFloatHigh(cellMinMaxOutputs.y);
+//             float zMaxOutput = unpackHalfFloatHigh(cellMinMaxOutputs.z);
+//             return vec3(xMaxOutput, yMaxOutput, zMaxOutput);
+//         }
+
+//         void updateCellMinOutputs(vec3 cellMinInputs, inout vec3 cellMinOutputs)
+//         {
+//             cellMinOutputs.x = max(cellMinOutputs.x, min(min(cellMinInputs.x, cellMinInputs.y), cellMinInputs.z));
+//             cellMinOutputs.y = max(cellMinOutputs.x, min(cellMinInputs.x, cellMinInputs.z));
+//             cellMinOutputs.z = max(cellMinOutputs.x, min(cellMinInputs.x, cellMinInputs.y));
+//         }
+
+//         void main()
+//         {
+//             ivec3 cellCoords = getCellCoords();
+//             vec4 cellData = getCellData(cellCoords);
+
+//             vec3 cellMinMaxOutputs = cellData.xyz;
+//             bool cellOccluded = bool(cellData.w);
+
+//             vec3 cellMinInputs = getCellMinInputs(cellCoords);
+//             vec3 cellMinOutputs = getCellMinOutputs(cellMinMaxOutputs);
+//             vec3 cellMaxOutputs = getCellMaxOutputs(cellMinMaxOutputs);
+
+//             cellOccluded = cellOccluded || all(greaterThanEqual(cellMinInputs, cellMaxOutputs));
+            
+//             updateCellMinOutputs(cellMinInputs, cellMinOutputs);
+//             cellMinMaxOutputs = packVec3ToHalf2x16(cellMinOutputs, cellMaxOutputs);
+
+//             setOutput(vec4(cellMinMaxOutputs, cellOccluded));
+//         }
+//         `
+//     }
+// }
+
+// class GPGPUEndOcclusionMap implements GPGPUProgram 
+// {
+//     variableNames = ['A']
+//     outputShape: number[]
+//     userCode: string
+//     packedInputs = true
+//     packedOutput = false
+
+//     constructor
+//     (
+//         inputShape: [number, number, number], 
+//     ) 
+//     {
+//         const [inDepth, inHeight, inWidth] = inputShape
+//         const [outDepth, outHeight, outWidth] = [inDepth, inHeight, inWidth].map((x: number) => x + 1)
+//         this.outputShape = [outDepth, outHeight, outWidth]     
+//         this.userCode = `
+//         ivec3 getCellCoords()
+//         {
+//             ivec3 outputCoords = getOutputCoords();
+//             return ivec3(outputCoords.z, outputCoords.y, outputCoords.x);
+//         }
+
+//         float getCellOcclusion(ivec3 cellCoords)
+//         {
+//             return getA(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).w;
+//         }
+
+//         void main()
+//         {
+//             ivec3 cellCoords = getCellCoords();
+
+//             setOutput(getCellOcclusion(cellCoords));
+//         }
+//         `
+//     }
+// }
 
 function runProgram(prog: GPGPUProgram, inputs: tf.Tensor[]): tf.Tensor
 {
@@ -421,25 +635,24 @@ function runProgram(prog: GPGPUProgram, inputs: tf.Tensor[]): tf.Tensor
     return tf.engine().makeTensorFromTensorInfo(info) as tf.Tensor
 }
 
-export async function computeExtendedAnisotropicOcclusionMap(interpolationMap: tf.Tensor3D) : Promise<tf.Tensor<tf.Rank>>
+export async function computeExtendedAnisotropicOcclusionMap(volumeMap: tf.Tensor3D) : Promise<tf.Tensor<tf.Rank>>
 {
-    const startProgram  = new GPGPUStartOcclusionMap(interpolationMap.shape)
-    const updateProgram = new GPGPUUpdateOcclusionMap(interpolationMap.shape)
-    const endProgram    = new GPGPUEndOcclusionMap(interpolationMap.shape)
+    const startPropagationMap = new GPGPUStartPropagationMap(volumeMap.shape)
+    const startPropagationSlice = new GPGPUStartPropagationSlice(volumeMap.shape)
+    const updatePropagationSliceHorizontally = new GPGPUUpdatePropagationSliceHorizontally(volumeMap.shape)
+    const updatePropagationSliceVertically = new GPGPUUpdatePropagationSliceVertically(volumeMap.shape)
 
-    let updateMap = runProgram(startProgram, [interpolationMap])
+    const propagationMap = runProgram(startPropagationMap, [volumeMap])
+    const propagationSlices = tf.split(propagationMap, -1, 0)
 
-    for (let i = 0; i < 100; i++) 
+    let prevSlice = runProgram(startPropagationSlice, [propagationSlices[0]])
+
+    for (let i = 0; i < propagationSlices.length; i++)
     {
-        const prev = updateMap
-        updateMap = runProgram(updateProgram, [prev])
-        prev.dispose()
-
-        await tf.nextFrame()                     
+        const propagationSlice = runProgram(updatePropagationSliceHorizontally, [propagationSlices[i]])
+        propagationSlices[i] = runProgram(updatePropagationSliceVertically, [propagationSlice, prevSlice])
+        prevSlice = propagationSlices[i]
     }
 
-    const endMap = runProgram(endProgram, [updateMap])
-    tf.dispose(updateMap)
-
-    return endMap as tf.Tensor
+    return propagationMap as tf.Tensor
 }
