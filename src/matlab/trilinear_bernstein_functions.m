@@ -1,4 +1,3 @@
-clear,clc
 
 pkg load symbolic % OCTAVE version
 pkg load optim % OCTAVE version
@@ -6,6 +5,111 @@ pkg load optim % OCTAVE version
 %% --------------------------------------------------------------------
 %% Declare functions
 %% --------------------------------------------------------------------
+
+
+function [cB, ij] = quadrilateralBernsteinCoeffsFromTrilinearInterpolation(F, p1, p2, p3, p4)
+% quadrilateralBernsteinCoeffsFromTrilinearInterpolation
+% Computes bicubic (3x3) tensor-product Bernstein coefficients of the
+% composition of trilinear interpolation f(x,y,z) with the bilinear quad map.
+%
+% Inputs:
+%   F  : trilinear corner values. Either:
+%        - 2x2x2 array with F(i+1,j+1,k+1) = f_ijk   (i,j,k in {0,1})
+%        - 1x8 vector in order [f000 f100 f010 f001 f011 f101 f110 f111]
+%   p1,p2,p3,p4 : 1x3 quad corners in (x,y,z) inside the unit cube.
+%        Parameterization corners:
+%          (u,v)=(0,0)->p1, (1,0)->p2, (0,1)->p3, (1,1)->p4
+%        (Must be consistent—this is the bilinear surface convention.)
+%
+% Outputs:
+%   cB : 1x16 bicubic tensor-product Bernstein coefficients, ordered as in ij
+%   ij : 16x2 pairs (i,j), with i,j in {0,1,2,3} matching cB entries
+%
+% Notes:
+%   - The resulting surface is bicubic in (u,v) in general.
+
+    % ---- normalize F to 8 values in standard order ----
+    if isequal(size(F), [2 2 2])
+        f000 = F(1,1,1); f100 = F(2,1,1); f010 = F(1,2,1); f001 = F(1,1,2);
+        f011 = F(1,2,2); f101 = F(2,1,2); f110 = F(2,2,1); f111 = F(2,2,2);
+        F8 = [f000 f100 f010 f001 f011 f101 f110 f111];
+    else
+        F8 = F(:).';
+        if numel(F8) ~= 8
+            error('F must be 2x2x2 or a 1x8 (or 8x1) vector.');
+        end
+    end
+
+    % ---- ensure points are 1x3 ----
+    p1 = p1(:).'; p2 = p2(:).'; p3 = p3(:).'; p4 = p4(:).';
+    if any([numel(p1) numel(p2) numel(p3) numel(p4)] ~= 3)
+        error('p1,p2,p3,p4 must each be length-3 vectors.');
+    end
+
+    % ---- decide numeric vs symbolic ----
+    useSym = isa(F8,'sym') || isa(p1,'sym') || isa(p2,'sym') || isa(p3,'sym') || isa(p4,'sym');
+    if useSym
+        F8 = sym(F8);
+        p1 = sym(p1); p2 = sym(p2); p3 = sym(p3); p4 = sym(p4);
+    end
+
+    % ---- bicubic index set (16 terms) ----
+    % Order: i varies fastest or j varies fastest—choose one and stick to it.
+    % Here: i runs 0..3 inside, then j increments (row-major in (j,i)).
+    ij = zeros(16,2);
+    idx = 1;
+    for j = 0:3
+        for i = 0:3
+            ij(idx,:) = [i j];
+            idx = idx + 1;
+        end
+    end
+    n = 3;  % bicubic degree in u and v
+
+    % ---- lattice points (u,v) = (i/3, j/3) ----
+    if useSym
+        U = sym(ij(:,1)) / n;
+        V = sym(ij(:,2)) / n;
+        M = sym(zeros(16,16));
+        rhs = sym(zeros(16,1));
+    else
+        U = ij(:,1) / n;
+        V = ij(:,2) / n;
+        M = zeros(16,16);
+        rhs = zeros(16,1);
+    end
+
+    % ---- build 16x16 matrix M: tensor Bernstein basis at lattice points ----
+    % Basis term for column c: B_i^3(u) * B_j^3(v)
+    % with B_i^3(u)=C(3,i) u^i (1-u)^(3-i)
+    for r = 1:16
+        u = U(r); v = V(r);
+        for c = 1:16
+            i = ij(c,1); j = ij(c,2);
+            M(r,c) = bern1(n,i,u) * bern1(n,j,v);
+        end
+    end
+
+    % ---- rhs: sample f at mapped lattice points ----
+    for r = 1:16
+        u = U(r); v = V(r);
+
+        % bilinear quad map p(u,v)
+        p = bilinearQuadPoint(p1,p2,p3,p4,u,v);
+        x = p(1); y = p(2); z = p(3);
+
+        rhs(r) = evaluateTrilinearInterpolation(F8, x, y, z);
+    end
+
+    % ---- solve for Bernstein coefficients ----
+    cB = (M \ rhs).';   % 1x16
+    if useSym
+        cB = simplify(cB);
+    end
+end
+
+
+
 function [cB, ijk] = triangleBernsteinCoeffsFromTrilinearInterpolation(F, p1, p2, p3)
 % triangleBernsteinCoeffsFromTrilinearInterpolation
 % Inputs:
@@ -108,6 +212,8 @@ function [cB, ijk] = triangleBernsteinCoeffsFromTrilinearInterpolation(F, p1, p2
 
 end
 
+
+
 % === helper: trilinear eval from 8 corners in standard order ===
 function val = evaluateTrilinearInterpolation(F8, x, y, z)
 % F8 order: [f000 f100 f010 f001 f011 f101 f110 f111]
@@ -123,6 +229,22 @@ function val = evaluateTrilinearInterpolation(F8, x, y, z)
           f110*(  x)*(  y)*(1-z) + ...
           f111*(  x)*(  y)*(  z);
 end
+
+
+
+% === helper: bilinear quad map from (u,v) in [0,1]^2 ===
+function p = bilinearQuadPoint(p1,p2,p3,p4,u,v)
+    p = (1-u)*(1-v)*p1 + u*(1-v)*p2 + (1-u)*v*p3 + u*v*p4;
+end
+
+
+
+% === helper: 1D Bernstein basis ===
+function val = bern1(n, i, t)
+    val = nchoosek(n,i) * (t^i) * ((1-t)^(n-i));
+end
+
+
 
 function [maxima_reduced, keep] = reduceMaximaSubconvex(maxima, F, tol, verbose)
 %reduceMaximaSubconvex Remove redundant maxima via subconvex combination test.
@@ -277,93 +399,3 @@ function [maxima_reduced, keep] = reduceMaximaSubconvex(maxima, F, tol, verbose)
         disp(maxima_reduced);
     end
 end
-
-%% --------------------------------------------------------------------
-%% Declare scenario surface x = min(1-y, 1-z) x,y,z in [0,1]
-%% --------------------------------------------------------------------
-syms f000 f100 f010 f001 f011 f101 f110 f111 real
-F8 = [f000 f100 f010 f001 f011 f101 f110 f111];
-
-p1 = [0, 1, 0];
-p2 = [0, 1, 1];
-p3 = [1, 0, 0];
-p4 = [0, 0, 1];
-
-[cB_A, ijk_A] = triangleBernsteinCoeffsFromTrilinearInterpolation(F8, p1, p2, p3);
-[cB_B, ijk_B] = triangleBernsteinCoeffsFromTrilinearInterpolation(F8, p4, p2, p3);
-
-
-for m=1:length(cB_A)
-    fprintf("c_A(%d,%d,%d) = %s\n", ijk_A(m,1), ijk_A(m,2), ijk_A(m,3), char(cB_A(m)));
-end
-
-for m=1:length(cB_B)
-    fprintf("c_B(%d,%d,%d) = %s\n", ijk_B(m,1), ijk_B(m,2), ijk_B(m,3), char(cB_B(m)));
-end
-
-cB_inv_max = reduceMaximaSubconvex([-cB_A(:); -cB_B(:)], F8, 1e-8, false);
-cB_min = -cB_inv_max;
-
-fprintf('\nReduced symbolic total minima:\n');
-disp(cB_min);
-
-% cB_min(1)  = (f000 + f010 + f110)/3;
-% cB_min(2)  = (f000 + f100 + f110)/3;
-% cB_min(3)  = (f000 + f001 + f101)/3;
-% cB_min(4)  = (f000 + f100 + f101)/3;
-% cB_min(5)  = (f001 + f010 + f111)/3;
-% cB_min(6)  = (f000 + f101 + f110)/3;
-% cB_min(7)  = f010;
-% cB_min(8)  = f001;
-% cB_min(9)  = f011;
-% cB_min(10) = f100;
-
-%% --------------------------------------------------------------------
-%% Declare scenario x = min(1-y, 1-z) y,z in [0,1], x in [0, y]
-%% --------------------------------------------------------------------
-% syms f000 f100 f010 f001 f011 f101 f110 f111 real
-% F8 = [f000 f100 f010 f001 f011 f101 f110 f111];
-
-% p1 = [0, 1, 0];
-% p2 = [0, 1, 1];
-% p3 = [1, 0, 0];
-% p4 = [0, 0, 1];
-% p5 = [0.5, 0.5, 0];
-% p6 = [0.5, 0.5, 0.5];
-
-% [cB_A, ijk_A] = triangleBernsteinCoeffsFromTrilinearInterpolation(F8, p1, p6, p5);
-% [cB_B, ijk_B] = triangleBernsteinCoeffsFromTrilinearInterpolation(F8, p1, p6, p2);
-% [cB_C, ijk_C] = triangleBernsteinCoeffsFromTrilinearInterpolation(F8, p2, p6, p4);
-
-
-% for m=1:length(cB_A)
-%     fprintf("c_A(%d,%d,%d) = %s\n", ijk_A(m,1), ijk_A(m,2), ijk_A(m,3), char(cB_A(m)));
-% end
-
-% for m=1:length(cB_B)
-%     fprintf("c_B(%d,%d,%d) = %s\n", ijk_B(m,1), ijk_B(m,2), ijk_B(m,3), char(cB_B(m)));
-% end
-
-% for m=1:length(cB_C)
-%     fprintf("c_C(%d,%d,%d) = %s\n", ijk_C(m,1), ijk_C(m,2), ijk_C(m,3), char(cB_C(m)));
-% end
-
-% cB_inv_max = reduceMaximaSubconvex([-cB_A(:); -cB_B(:); -cB_C(:)], F8, 1e-8, false);
-% cB_min = -cB_inv_max;
-
-% fprintf('\nReduced symbolic total minima:\n');
-% disp(cB_min);
-
-% % cB_min(1)  = (f000 + f001 + f010 + f011 + f100 + f101 + f110 + f111)/8;
-% % cB_min(2)  =  f000/6  + f001/12 + f010/4  + f011/6  + f100/12 + f110/6  + f111/12;
-% % cB_min(3)  =  f000/12 + f001/6  + f010/6  + f011/4  + f101/12 + f110/12 + f111/6;
-% % cB_min(4)  =  f000/6  + f001/4  + f010/12 + f011/6  + f100/12 + f101/6  + f111/12;
-% % cB_min(5)  =  f000/4  + (5*f010)/12 + f100/12 + f110/4;
-% % cB_min(6)  = (f000 + f010 + f100 + f110)/4;
-% % cB_min(7)  =  f000/6  + f010/2 + f011/6 + f110/6;
-% % cB_min(8)  =  f001/6  + f010/6 + f011/2 + f111/6;
-% % cB_min(9)  =  f000/6  + f001/2 + f011/6 + f101/6;
-% % cB_min(10) =  f000/6  + (2*f010)/3 + f110/6;
-% % cB_min(11) = f010;
-% % cB_min(12) = f011;
-% % cB_min(13) = f001;
