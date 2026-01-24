@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import { maxPooling3d } from '../Programs/GPGPUMaxPooling'
-import { computeOcclusionMap } from '../Programs/GPGPUOcclusionMap4'
+import { computeOcclusionMap } from '../Programs/GPGPUOcclusionMap6'
 
 export default class OcclusionMap
 {
@@ -18,7 +18,6 @@ export default class OcclusionMap
         console.time('computeTensor') 
         this.tensor = await computeOcclusionMap(this.volumeMap.tensor)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.slice(0,3).toReversed())
-        console.log(this.tensor.mean().dataSync())
         console.timeEnd('computeTensor') 
     }
 

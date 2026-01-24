@@ -27,128 +27,129 @@ class GPGPUStartPropagationMap implements GPGPUProgram
         float max3(float a, float b, float c) { return max(max(a, b), c); }
         float min4(float a, float b, float c, float d) { return min(min(min(a, b), c), d); }
 
-        float getVoxelValue(ivec3 voxelCoords)
-        {
-            ivec3 safeCoords = clamp(voxelCoords, minVoxelCoords, maxVoxelCoords);
-            return getA(safeCoords.z, safeCoords.y, safeCoords.x);
-        }
+        struct CellValues 
+        { 
+            float v000; 
+            float v100; 
+            float v010; 
+            float v001; 
+            float v011; 
+            float v101; 
+            float v110; 
+            float v111; 
+        }; 
 
         ivec3 getCellCoords()
         {
-            ivec5 outputCoords = getOutputCoords();
-            return ivec3(outputCoords.z, outputCoords.y, outputCoords.x);
+            ivec5 coords = getOutputCoords();
+            return ivec3(coords.z, coords.y, coords.x);
         }
 
-        struct CellValues 
-        { 
-            float f000; 
-            float f100; 
-            float f010; 
-            float f001; 
-            float f011; 
-            float f101; 
-            float f110; 
-            float f111; 
-        };
+        float getVoxelValue(ivec3 voxelCoords)
+        {
+            ivec3 coords = clamp(voxelCoords, minVoxelCoords, maxVoxelCoords);
+            return getA(coords.z, coords.y, coords.x);
+        }
 
-        CellValues getCurrentSliceCellOutputs(in ivec3 cellCoords)
+        CellValues getCellValues(in ivec3 cellCoords)
         {
             ivec3 coords = cellCoords - 1;
             
-            CellValues C;
-            C.f000 = getVoxelValue(coords + ivec3(0,0,0));
-            C.f100 = getVoxelValue(coords + ivec3(1,0,0));
-            C.f010 = getVoxelValue(coords + ivec3(0,1,0));
-            C.f001 = getVoxelValue(coords + ivec3(0,0,1));
-            C.f011 = getVoxelValue(coords + ivec3(0,1,1));
-            C.f101 = getVoxelValue(coords + ivec3(1,0,1));
-            C.f110 = getVoxelValue(coords + ivec3(1,1,0));
-            C.f111 = getVoxelValue(coords + ivec3(1,1,1));
-            return C;
+            CellValues c;
+            c.v000 = getVoxelValue(coords + ivec3(0,0,0));
+            c.v100 = getVoxelValue(coords + ivec3(1,0,0));
+            c.v010 = getVoxelValue(coords + ivec3(0,1,0));
+            c.v001 = getVoxelValue(coords + ivec3(0,0,1));
+            c.v011 = getVoxelValue(coords + ivec3(0,1,1));
+            c.v101 = getVoxelValue(coords + ivec3(1,0,1));
+            c.v110 = getVoxelValue(coords + ivec3(1,1,0));
+            c.v111 = getVoxelValue(coords + ivec3(1,1,1));
+            return c;
         }
 
-        float getMinOnRayMaxExitingFaceX(CellValues C000, CellValues C100)
+        float getMinOnRayMaxExitingFaceX(CellValues c000, CellValues c100)
         {
-            float minOnFace       = min4(C000.f100, C000.f110, C000.f101, C000.f111);
-            float minOnBeforeFace = min4(C000.f100, C000.f110, C000.f101, C000.f011);
-            float minOnAfterFace  = min4(C100.f001, C100.f010, C100.f100, C100.f011);
+            float v0 = min4(c000.v100, c000.v110, c000.v101, c000.v111);
+            float v1 = min4(c000.v100, c000.v110, c000.v101, c000.v011);
+            float v2 = min4(c100.v001, c100.v010, c100.v100, c100.v011);
 
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f001, C000.f101, C000.f111));
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f001, C000.f011, C000.f111));
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f000, C000.f110, C000.f101));
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f010, C000.f001, C000.f111));
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f010, C000.f011, C000.f111));
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f010, C000.f110, C000.f111));
+            v1 = min(v1, avg3(c000.v001, c000.v101, c000.v111));
+            v1 = min(v1, avg3(c000.v001, c000.v011, c000.v111));
+            v1 = min(v1, avg3(c000.v000, c000.v110, c000.v101));
+            v1 = min(v1, avg3(c000.v010, c000.v001, c000.v111));
+            v1 = min(v1, avg3(c000.v010, c000.v011, c000.v111));
+            v1 = min(v1, avg3(c000.v010, c000.v110, c000.v111));
 
-            minOnAfterFace = min(minOnAfterFace, avg3(C100.f000, C100.f001, C100.f101));
-            minOnAfterFace = min(minOnAfterFace, avg3(C100.f000, C100.f100, C100.f101));
-            minOnAfterFace = min(minOnAfterFace, avg3(C100.f000, C100.f010, C100.f110));
-            minOnAfterFace = min(minOnAfterFace, avg3(C100.f000, C100.f100, C100.f110));
-            minOnAfterFace = min(minOnAfterFace, avg3(C100.f010, C100.f001, C100.f111));
-            minOnAfterFace = min(minOnAfterFace, avg3(C100.f000, C100.f110, C100.f101));
+            v2 = min(v2, avg3(c100.v000, c100.v001, c100.v101));
+            v2 = min(v2, avg3(c100.v000, c100.v100, c100.v101));
+            v2 = min(v2, avg3(c100.v000, c100.v010, c100.v110));
+            v2 = min(v2, avg3(c100.v000, c100.v100, c100.v110));
+            v2 = min(v2, avg3(c100.v010, c100.v001, c100.v111));
+            v2 = min(v2, avg3(c100.v000, c100.v110, c100.v101));
 
-            return max3(minOnAfterFace, minOnFace, minOnBeforeFace);
+            return max3(v0, v1, v2);
         }
     
-        float getMinOnRayMaxExitingFaceY(CellValues C000, CellValues C010)
+        float getMinOnRayMaxExitingFaceY(CellValues c000, CellValues c010)
         {
-            float minOnFace       = min4(C000.f010, C000.f011, C000.f110, C000.f111);
-            float minOnBeforeFace = min4(C000.f010, C000.f011, C000.f110, C000.f101);
-            float minOnAfterFace  = min4(C010.f100, C010.f001, C010.f010, C010.f101);
+            float v0 = min4(c000.v010, c000.v011, c000.v110, c000.v111);
+            float v1 = min4(c000.v010, c000.v011, c000.v110, c000.v101);
+            float v2 = min4(c010.v100, c010.v001, c010.v010, c010.v101);
 
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f100, C000.f110, C000.f111));
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f100, C000.f101, C000.f111));
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f000, C000.f011, C000.f110));
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f001, C000.f100, C000.f111));
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f001, C000.f101, C000.f111));
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f001, C000.f011, C000.f111));
+            v1 = min(v1, avg3(c000.v100, c000.v110, c000.v111));
+            v1 = min(v1, avg3(c000.v100, c000.v101, c000.v111));
+            v1 = min(v1, avg3(c000.v000, c000.v011, c000.v110));
+            v1 = min(v1, avg3(c000.v001, c000.v100, c000.v111));
+            v1 = min(v1, avg3(c000.v001, c000.v101, c000.v111));
+            v1 = min(v1, avg3(c000.v001, c000.v011, c000.v111));
 
-            minOnAfterFace = min(minOnAfterFace, avg3(C010.f000, C010.f100, C010.f110));
-            minOnAfterFace = min(minOnAfterFace, avg3(C010.f000, C010.f010, C010.f110));
-            minOnAfterFace = min(minOnAfterFace, avg3(C010.f000, C010.f001, C010.f011));
-            minOnAfterFace = min(minOnAfterFace, avg3(C010.f000, C010.f010, C010.f011));
-            minOnAfterFace = min(minOnAfterFace, avg3(C010.f001, C010.f100, C010.f111));
-            minOnAfterFace = min(minOnAfterFace, avg3(C010.f000, C010.f011, C010.f110));
+            v2 = min(v2, avg3(c010.v000, c010.v100, c010.v110));
+            v2 = min(v2, avg3(c010.v000, c010.v010, c010.v110));
+            v2 = min(v2, avg3(c010.v000, c010.v001, c010.v011));
+            v2 = min(v2, avg3(c010.v000, c010.v010, c010.v011));
+            v2 = min(v2, avg3(c010.v001, c010.v100, c010.v111));
+            v2 = min(v2, avg3(c010.v000, c010.v011, c010.v110));
 
-            return max3(minOnAfterFace, minOnFace, minOnBeforeFace);
+            return max3(v0, v1, v2);
         }
 
-        float getMinOnRayMaxExitingFaceZ(CellValues C000, CellValues C001)
+        float getMinOnRayMaxExitingFaceZ(CellValues c000, CellValues c001)
         {
-            float minOnFace       = min4(C000.f001, C000.f011, C000.f101, C000.f111);
-            float minOnBeforeFace = min4(C000.f001, C000.f011, C000.f101, C000.f110);
-            float minOnAfterFace  = min4(C001.f100, C001.f010, C001.f001, C001.f110);
+            float v0 = min4(c000.v001, c000.v011, c000.v101, c000.v111);
+            float v1 = min4(c000.v001, c000.v011, c000.v101, c000.v110);
+            float v2 = min4(c001.v100, c001.v010, c001.v001, c001.v110);
 
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f100, C000.f101, C000.f111));
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f100, C000.f110, C000.f111));
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f000, C000.f011, C000.f101));
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f010, C000.f100, C000.f111));
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f010, C000.f110, C000.f111));
-            minOnBeforeFace = min(minOnBeforeFace, avg3(C000.f010, C000.f011, C000.f111));
+            v1 = min(v1, avg3(c000.v100, c000.v101, c000.v111));
+            v1 = min(v1, avg3(c000.v100, c000.v110, c000.v111));
+            v1 = min(v1, avg3(c000.v000, c000.v011, c000.v101));
+            v1 = min(v1, avg3(c000.v010, c000.v100, c000.v111));
+            v1 = min(v1, avg3(c000.v010, c000.v110, c000.v111));
+            v1 = min(v1, avg3(c000.v010, c000.v011, c000.v111));
 
-            minOnAfterFace = min(minOnAfterFace, avg3(C001.f000, C001.f100, C001.f101));
-            minOnAfterFace = min(minOnAfterFace, avg3(C001.f000, C001.f001, C001.f101));
-            minOnAfterFace = min(minOnAfterFace, avg3(C001.f000, C001.f010, C001.f011));
-            minOnAfterFace = min(minOnAfterFace, avg3(C001.f000, C001.f001, C001.f011));
-            minOnAfterFace = min(minOnAfterFace, avg3(C001.f010, C001.f100, C001.f111));
-            minOnAfterFace = min(minOnAfterFace, avg3(C001.f000, C001.f011, C001.f101));
+            v2 = min(v2, avg3(c001.v000, c001.v100, c001.v101));
+            v2 = min(v2, avg3(c001.v000, c001.v001, c001.v101));
+            v2 = min(v2, avg3(c001.v000, c001.v010, c001.v011));
+            v2 = min(v2, avg3(c001.v000, c001.v001, c001.v011));
+            v2 = min(v2, avg3(c001.v010, c001.v100, c001.v111));
+            v2 = min(v2, avg3(c001.v000, c001.v011, c001.v101));
 
-            return max3(minOnAfterFace, minOnFace, minOnBeforeFace);
+            return max3(v0, v1, v2);
         }
 
         void main()
         {
             ivec3 cellCoords = getCellCoords();
-            CellValues C000 = getCurrentSliceCellOutputs(cellCoords + ivec3(0,0,0));
-            CellValues C100 = getCurrentSliceCellOutputs(cellCoords + ivec3(1,0,0));
-            CellValues C010 = getCurrentSliceCellOutputs(cellCoords + ivec3(0,1,0));
-            CellValues C001 = getCurrentSliceCellOutputs(cellCoords + ivec3(0,0,1));
 
-            float xMinMax = getMinOnRayMaxExitingFaceX(C000, C100);
-            float yMinMax = getMinOnRayMaxExitingFaceY(C000, C010);
-            float zMinMax = getMinOnRayMaxExitingFaceZ(C000, C001);
+            CellValues c000 = getCellValues(cellCoords + ivec3(0,0,0));
+            CellValues c100 = getCellValues(cellCoords + ivec3(1,0,0));
+            CellValues c010 = getCellValues(cellCoords + ivec3(0,1,0));
+            CellValues c001 = getCellValues(cellCoords + ivec3(0,0,1));
 
-            setOutput(vec4(xMinMax, yMinMax, zMinMax, 0.0));
+            float xMin = getMinOnRayMaxExitingFaceX(c000, c100);
+            float yMin = getMinOnRayMaxExitingFaceY(c000, c010);
+            float zMin = getMinOnRayMaxExitingFaceZ(c000, c001);
+
+            setOutput(vec4(xMin, yMin, zMin, 0.0));
         }
         `
     }
@@ -168,58 +169,56 @@ class GPGPUUpdatePropagationSlice implements GPGPUProgram
     ) 
     {
         const [outDepth, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
-        this.outputShape = [1, outHeight, outWidth, 2, 2]     
+        this.outputShape = [outHeight, outWidth, 2, 2]     
         this.userCode = `
 
-        const ivec3 minCellCoords = ivec3(0);
-        const ivec3 maxCellCoords = ivec3(${outDepth-1}, ${outDepth-1}, ${outDepth-1});
+        const ivec2 minCellCoords = ivec2(0);
+        const ivec2 maxCellCoords = ivec2(${outWidth-1}, ${outHeight-1});
 
         float min3(float a, float b, float c) { return min(min(a, b), c); }
 
-        ivec3 getCellCoords()
+        ivec2 getCellCoords()
         {
-            ivec5 outputCoords = getOutputCoords();
-            return ivec3(outputCoords.z, outputCoords.y, outputCoords.x);
+            ivec4 outputCoords = getOutputCoords();
+            return ivec2(outputCoords.y, outputCoords.x);
         }
 
-        vec4 getA(ivec3 cellCoords)
+        vec4 getCellValues(ivec2 cellCoords)
         {
-            ivec3 safeCoords = clamp(cellCoords, minCellCoords, maxCellCoords);
-            return getA(safeCoords.z, safeCoords.y, safeCoords.x, 0, 0);
+            ivec2 coords = clamp(cellCoords, minCellCoords, maxCellCoords);
+            return getA(coords.y, coords.x, 0, 0);
         }
 
-        vec4 getB(ivec3 cellCoords)
+        vec4 getPrevCellValues(ivec2 cellCoords)
         {
-            ivec3 safeCoords = clamp(cellCoords, minCellCoords, maxCellCoords);
-            return getB(safeCoords.z, safeCoords.y, safeCoords.x, 0, 0);
+            ivec2 coords = clamp(cellCoords, minCellCoords, maxCellCoords);
+            return getB(coords.y, coords.x, 0, 0);
         }
                 
-        vec3 getMinOnRayMaxEnteringCell(ivec3 cellCoords) 
-        { 
-            float xMin = getA(cellCoords - ivec3(1,0,0)).x; 
-            float yMin = getA(cellCoords - ivec3(0,1,0)).y; 
-            float zMin = getB(cellCoords).z; 
-
-            return vec3(xMin, yMin, zMin);
-        }
-
-        vec3 getMinOnRayMaxExitingCell(ivec3 cellCoords) 
-        { 
-            return getA(cellCoords).xyz; 
-        }
-
         void main()
         {
-            ivec3 cellCoords = getCellCoords();
+            ivec2 coords = getCellCoords();
 
-            vec3 minOutputs = getMinOnRayMaxExitingCell(cellCoords);
-            vec3 minInputs = getMinOnRayMaxEnteringCell(cellCoords);
+            vec4 c111 = getCellValues(coords - ivec2(0,0));
+            vec4 c011 = getCellValues(coords - ivec2(1,0));
+            vec4 c101 = getCellValues(coords - ivec2(0,1));
+            vec4 c001 = getCellValues(coords - ivec2(1,1));
 
-            minOutputs.x = max(minOutputs.x, min(minInputs.y, minInputs.z));
-            minOutputs.y = max(minOutputs.y, min(minInputs.x, minInputs.z));
-            minOutputs.z = max(minOutputs.z, min3(minInputs.x, minInputs.y, minInputs.z));
+            vec4 c110 = getPrevCellValues(coords - ivec2(0,0));
+            vec4 c010 = getPrevCellValues(coords - ivec2(1,0));
+            vec4 c100 = getPrevCellValues(coords - ivec2(0,1));
+            vec4 c000 = getPrevCellValues(coords - ivec2(1,1));
 
-            setOutput(vec4(minOutputs, 0.0));
+            float c001x = max(c001.x, c000.z);
+            float c001y = max(c001.y, c000.z);
+            float c011x = max(c011.x, min(c001y, c010.z));
+            float c101y = max(c101.y, min(c001x, c100.z));
+
+            c111.x = max(c111.x, min(c110.z, max(c101.y, c100.z)));
+            c111.y = max(c111.y, min(c110.z, max(c011.x, c010.z)));
+            c111.z = max(c111.z, min3(c011x, c101y, c110.z));
+
+            setOutput(c111);
         }
         `
     }
@@ -232,26 +231,26 @@ function runProgram(prog: GPGPUProgram, inputs: tf.Tensor[]): tf.Tensor
     return tf.engine().makeTensorFromTensorInfo(info) as tf.Tensor
 }
 
-export async function computeExtendedAnisotropicOcclusionMap(volumeMap: tf.Tensor3D) : Promise<tf.Tensor<tf.Rank>>
+export async function computeOcclusionMap(volumeMap: tf.Tensor3D) : Promise<tf.Tensor<tf.Rank>>
 {
     const startPropagationMap = new GPGPUStartPropagationMap(volumeMap.shape)
     const updatePropagationSlice = new GPGPUUpdatePropagationSlice(volumeMap.shape)
 
     const propagationMap = runProgram(startPropagationMap, [volumeMap])
-    const propagationSlices = tf.split(propagationMap, propagationMap.shape[0], 0)
+    console.log(propagationMap.mean().dataSync())
+    const propagationSlices = tf.unstack(propagationMap, 0)
+    propagationMap.dispose()
 
-    let previousSlice = propagationSlices[0]
-
-    for (let i = 0; i < propagationSlices.length; i++)
+    for (let i = 1; i < propagationSlices.length; i++)
     {
-        let propagationSlice = propagationSlices[i]
-        propagationSlice = runProgram(updatePropagationSlice, [propagationSlice, previousSlice])
-        propagationSlice = runProgram(updatePropagationSlice, [propagationSlice, previousSlice])
-        
-        previousSlice = propagationSlice
-        propagationSlices[i] = propagationSlice
-       
+        const updatedSlice = runProgram(updatePropagationSlice, [propagationSlices[i], propagationSlices[i-1]])
+        propagationSlices[i].dispose()
+        propagationSlices[i] = updatedSlice
     }
 
-    return propagationMap as tf.Tensor
+    const propagatedMap = tf.stack(propagationSlices, 0)
+    console.log(propagatedMap.mean().dataSync())
+    tf.dispose(propagationSlices)
+
+    return propagatedMap as tf.Tensor
 }
