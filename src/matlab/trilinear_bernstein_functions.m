@@ -1,11 +1,10 @@
 
-pkg load symbolic % OCTAVE version
-pkg load optim % OCTAVE version
+% pkg load symbolic % OCTAVE version
+% pkg load optim % OCTAVE version
 
 %% --------------------------------------------------------------------
 %% Declare functions
 %% --------------------------------------------------------------------
-
 
 function [cB, ij] = quadrilateralBernsteinCoeffsFromTrilinearInterpolation(F, p1, p2, p3, p4)
 % quadrilateralBernsteinCoeffsFromTrilinearInterpolation

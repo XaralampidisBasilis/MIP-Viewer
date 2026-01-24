@@ -224,6 +224,223 @@ class GPGPUUpdatePropagationSlice implements GPGPUProgram
     }
 }
 
+class GPGPUMaximaMap implements GPGPUProgram 
+{
+    variableNames = ['A']
+    outputShape: number[]
+    userCode: string
+    packedInputs = false
+    packedOutput = true
+
+    constructor
+    (
+        inputShape: [number, number, number], 
+    ) 
+    {
+        const [inDepth, inHeight, inWidth] = inputShape
+        const [outDepth, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
+        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]     
+        this.userCode = `
+
+        const ivec3 minVoxelCoords = ivec3(0);
+        const ivec3 maxVoxelCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
+
+        float avg3(float a, float b, float c) { return (a + b + c) * (1.0 / 3.0); }
+
+        struct CellValues 
+        { 
+            float v000; 
+            float v100; 
+            float v010; 
+            float v001; 
+            float v011; 
+            float v101; 
+            float v110; 
+            float v111; 
+        }; 
+
+        ivec3 getCellCoords()
+        {
+            ivec5 coords = getOutputCoords();
+            return ivec3(coords.z, coords.y, coords.x);
+        }
+
+        float getVoxelValue(ivec3 voxelCoords)
+        {
+            ivec3 coords = clamp(voxelCoords, minVoxelCoords, maxVoxelCoords);
+            return getA(coords.z, coords.y, coords.x);
+        }
+
+        CellValues getCellValues(in ivec3 cellCoords)
+        {
+            ivec3 coords = cellCoords - 1;
+            
+            CellValues c;
+            c.v000 = getVoxelValue(coords + ivec3(0,0,0));
+            c.v100 = getVoxelValue(coords + ivec3(1,0,0));
+            c.v010 = getVoxelValue(coords + ivec3(0,1,0));
+            c.v001 = getVoxelValue(coords + ivec3(0,0,1));
+            c.v011 = getVoxelValue(coords + ivec3(0,1,1));
+            c.v101 = getVoxelValue(coords + ivec3(1,0,1));
+            c.v110 = getVoxelValue(coords + ivec3(1,1,0));
+            c.v111 = getVoxelValue(coords + ivec3(1,1,1));
+            return c;
+        }
+
+        float getMaxOnRayMaxEnterFaceX(CellValues c)
+        {
+            float v = -1.0;
+
+            v = max(v, avg3(c.v000, c.v001, c.v100));
+            v = max(v, avg3(c.v001, c.v010, c.v100));
+            v = max(v, avg3(c.v010, c.v011, c.v110));
+            v = max(v, avg3(c.v001, c.v100, c.v101));
+            v = max(v, avg3(c.v011, c.v101, c.v110));
+            v = max(v, avg3(c.v011, c.v110, c.v111));
+            v = max(v, c.v000);
+            v = max(v, c.v001);
+            v = max(v, c.v010);
+            v = max(v, c.v011);
+            v = max(v, c.v101);
+            v = max(v, c.v111);
+            
+            return v;
+        }
+    
+        float getMaxOnRayMaxEnterFaceY(CellValues c)
+        {
+            float v = -1.0;
+
+            v = max(v, avg3(c.v000, c.v001, c.v010));
+            v = max(v, avg3(c.v001, c.v010, c.v011));
+            v = max(v, avg3(c.v001, c.v010, c.v100));
+            v = max(v, avg3(c.v011, c.v101, c.v110));
+            v = max(v, avg3(c.v100, c.v101, c.v110));
+            v = max(v, avg3(c.v101, c.v110, c.v111));
+            v = max(v, c.v000);
+            v = max(v, c.v001);
+            v = max(v, c.v011);
+            v = max(v, c.v100);
+            v = max(v, c.v101);
+            v = max(v, c.v111);
+        
+            return v;
+        }
+
+        float getMaxOnRayMaxEnterFaceZ(CellValues c)
+        {
+            float v = -1.0;
+
+            v = max(v, c.v000);
+            v = max(v, c.v100);
+            v = max(v, c.v010);
+            v = max(v, c.v001);
+            v = max(v, c.v011);
+            v = max(v, c.v101);
+            v = max(v, c.v110);
+            v = max(v, c.v111);
+
+            return v;
+        }
+
+        float getMaxDiffs(CellValues c)
+        {
+            float v = -1.0;
+
+            v = max(v, avg3(c.v001, c.v010, c.v011) - c.v000);
+            v = max(v, avg3(c.v001, c.v010, c.v100) - c.v000);
+            v = max(v, avg3(c.v001, c.v100, c.v101) - c.v000);
+            v = max(v, avg3(c.v011, c.v101, c.v110) - c.v000);
+            v = max(v, avg3(c.v011, c.v110, c.v111) - c.v010);
+            v = max(v, avg3(c.v101, c.v110, c.v111) - c.v100);
+            v = max(v, avg3(c.v001, c.v010, c.v000) - c.v000);
+            v = max(v, avg3(c.v001, c.v100, c.v000) - c.v000);
+            v = max(v, avg3(c.v011, c.v110, c.v010) - c.v010);
+            v = max(v, avg3(c.v101, c.v110, c.v100) - c.v100);
+            v = max(v, c.v001 - c.v000);
+            v = max(v, c.v011 - c.v000);
+            v = max(v, c.v011 - c.v010);
+            v = max(v, c.v101 - c.v000);
+            v = max(v, c.v111 - c.v000);
+            v = max(v, c.v111 - c.v010);
+            v = max(v, c.v101 - c.v100);
+            v = max(v, c.v111 - c.v100);
+            v = max(v, c.v111 - c.v110);
+
+            return v;
+        }
+
+        void main()
+        {
+            ivec3 coords = getCellCoords();
+            CellValues c = getCellValues(coords);
+
+            float xMax = getMaxOnRayMaxEnterFaceX(c);
+            float yMax = getMaxOnRayMaxEnterFaceY(c);
+            float zMax = getMaxOnRayMaxEnterFaceZ(c);
+            float wMax = getMaxDiffs(c);
+
+            setOutput(vec4(xMax, yMax, zMax, wMax));
+        }
+        `
+    }
+}
+class GPGPUOcclusionMap implements GPGPUProgram 
+{
+    variableNames = ['A', 'B']
+    outputShape: number[]
+    userCode: string
+    packedInputs = true
+    packedOutput = false
+
+    constructor
+    (
+        inputShape: [number, number, number], 
+    ) 
+    {
+        const [outDepth, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
+        this.outputShape = [outDepth, outHeight, outWidth]     
+        this.userCode = `
+
+        const ivec3 minCellCoords = ivec3(0);
+        const ivec3 maxCellCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
+
+        float min3(float a, float b, float c) { return min(min(a, b), c); }
+
+        ivec3 getCellCoords()
+        {
+            ivec3 outputCoords = getOutputCoords();
+            return ivec3(outputCoords.z, outputCoords.y, outputCoords.x);
+        }
+
+        vec4 getMinValues(ivec3 cellCoords)
+        {
+            ivec3 coords = clamp(cellCoords, minCellCoords, maxCellCoords);
+            return getA(coords.z, coords.y, coords.x, 0, 0);
+        }
+
+        vec4 getMaxValues(ivec3 cellCoords)
+        {
+            ivec3 coords = clamp(cellCoords, minCellCoords, maxCellCoords);
+            return getB(coords.z, coords.y, coords.x, 0, 0);
+        }
+                
+        void main()
+        {
+            ivec3 coords = getCellCoords();
+
+            vec4 minValues = getMinValues(coords);
+            vec4 maxValues = getMaxValues(coords);
+
+            bvec4 b = greaterThanEqual(minValues, maxValues);
+            bool occ = all(b.xyz) || b.w;
+
+            setOutput(float(occ));
+        }
+        `
+    }
+}
+
 function runProgram(prog: GPGPUProgram, inputs: tf.Tensor[]): tf.Tensor
 {
     const backend = tf.backend() as MathBackendWebGL
@@ -235,9 +452,10 @@ export async function computeOcclusionMap(volumeMap: tf.Tensor3D) : Promise<tf.T
 {
     const startPropagationMap = new GPGPUStartPropagationMap(volumeMap.shape)
     const updatePropagationSlice = new GPGPUUpdatePropagationSlice(volumeMap.shape)
+    const maximaProgram = new GPGPUMaximaMap(volumeMap.shape)
+    const occlusionProgram = new GPGPUOcclusionMap(volumeMap.shape)
 
     const propagationMap = runProgram(startPropagationMap, [volumeMap])
-    console.log(propagationMap.mean().dataSync())
     const propagationSlices = tf.unstack(propagationMap, 0)
     propagationMap.dispose()
 
@@ -249,8 +467,12 @@ export async function computeOcclusionMap(volumeMap: tf.Tensor3D) : Promise<tf.T
     }
 
     const propagatedMap = tf.stack(propagationSlices, 0)
-    console.log(propagatedMap.mean().dataSync())
     tf.dispose(propagationSlices)
 
-    return propagatedMap as tf.Tensor
+    const maximaMap = runProgram(maximaProgram, [volumeMap])
+    const occlusionMap = runProgram(occlusionProgram, [propagatedMap, maximaMap])
+    console.log('occlusionMap', occlusionMap.mean().dataSync())
+    tf.dispose([propagatedMap, maximaMap])
+
+    return occlusionMap as tf.Tensor
 }
