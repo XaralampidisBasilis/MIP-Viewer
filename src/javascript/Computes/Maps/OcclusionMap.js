@@ -1,7 +1,6 @@
 import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
-import { maxPooling3d } from '../Programs/GPGPUMaxPooling'
 import { computeOcclusionMap } from '../Programs/GPGPUOcclusionMap6'
 
 export default class OcclusionMap
