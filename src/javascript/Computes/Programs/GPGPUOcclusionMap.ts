@@ -2,7 +2,35 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 
-class GPGPUOcclusionMap implements GPGPUProgram 
+/**
+ * Rewrite v variables (e.g. v011) by permuting the 3 digits.
+ * Digits are assumed to be in (x,y,z) order: v[x][y][z].
+ *
+ * @param {string} code
+ * @param {[number, number, number]} perm  e.g. [1,0,2] means (x,y,z)->(y,x,z)
+ * @returns {string}
+ */
+function transformCode(code: string, perm: [number, number, number]) : string
+{
+    // [vc][x][y][z]
+    code.replace(/\b([vc])([01])([01])([01])\b/g, (_, prefix, x, y, z) => 
+    {
+        const d = [x, y, z];
+        return prefix + d[perm[0]] + d[perm[1]] + d[perm[2]];
+    })
+
+    // ivec3([x],[y],[z])
+    code = code.replace(/\bivec3\s*\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^)]+?)\s*\)/g, (_, x, y, z) => 
+    {
+        const args = [x.trim(), y.trim(), z.trim()];
+        return `ivec3(${args[perm[0]]}, ${args[perm[1]]}, ${args[perm[2]]})`
+        }
+    )
+
+    return code 
+}
+
+class GPGPUMinimaMap implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -16,437 +44,464 @@ class GPGPUOcclusionMap implements GPGPUProgram
     ) 
     {
         const [inDepth, inHeight, inWidth] = inputShape
-        const [outDepth, outHeight, outWidth] = [inDepth, inHeight, inWidth].map((x: number) => x + 1)
-        this.outputShape = [outDepth, outHeight, outWidth]     
+        const [outDepth, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
+        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]     
         this.userCode = `
 
-        const float INFINITY = 100000000.0;
-        const ivec3 voxelMinCoords = ivec3(0);
-        const ivec3 voxelMaxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
-        struct CellSamples
+        float avg3(float a, float b, float c) { return (a + b + c) * (1.0/3.0); }
+        float max3(float a, float b, float c) { return max(max(a, b), c); }
+        float min4(float a, float b, float c, float d) { return min(min(min(a, b), c), d); }
+
+        struct CellValues 
+        { 
+            float v000; 
+            float v100; 
+            float v010; 
+            float v001; 
+            float v011; 
+            float v101; 
+            float v110; 
+            float v111; 
+        }; 
+
+        ivec3 getCoords()
         {
-            float f000;
-            float f100;
-            float f010;
-            float f001;
-            float f011;
-            float f101;
-            float f110;
-            float f111;
-        };
-
-        ivec3 getCellCoords()
-        {
-            ivec3 outputCoords = getOutputCoords();
-            ivec3 cellCoords = outputCoords.zyx;
-
-            return cellCoords;
+            ivec5 coords = getOutputCoords();
+            return ivec3(coords.z, coords.y, coords.x);
         }
 
-        float getVoxelSample(ivec3 voxelCoords)
+        float getA(ivec3 coords)
         {
-            ivec3 voxelCoordsSafe = clamp(voxelCoords, voxelMinCoords, voxelMaxCoords);
-            float voxelSample = getA(voxelCoordsSafe.z, voxelCoordsSafe.y, voxelCoordsSafe.x);
-
-            return voxelSample;
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.z, coords.y, coords.x);
         }
 
-        CellSamples getCellSamples(in ivec3 cellCoords)
+        CellValues getValues(ivec3 coords)
         {
-            ivec3 voxelCoords = cellCoords - 1;
+            CellValues c;
+
+            c.v000 = getA(coords - ivec3(1,1,1));
+            c.v100 = getA(coords - ivec3(0,1,1));
+            c.v010 = getA(coords - ivec3(1,0,1));
+            c.v001 = getA(coords - ivec3(1,1,0));
+            c.v011 = getA(coords - ivec3(1,0,0));
+            c.v101 = getA(coords - ivec3(0,1,0));
+            c.v110 = getA(coords - ivec3(0,0,1));
+            c.v111 = getA(coords - ivec3(0,0,0));
+
+            return c;
+        }
+
+        float getMinOnFaceX(CellValues c000, CellValues c100)
+        {
+            float m0 = min4(c000.v100, c000.v110, c000.v101, c000.v111);
+            float m1 = min4(c000.v100, c000.v110, c000.v101, c000.v011);
+            float m2 = min4(c100.v001, c100.v010, c100.v100, c100.v011);
+
+            m1 = min(m1, avg3(c000.v001, c000.v101, c000.v111));
+            m1 = min(m1, avg3(c000.v001, c000.v011, c000.v111));
+            m1 = min(m1, avg3(c000.v000, c000.v101, c000.v110));
+            m1 = min(m1, avg3(c000.v001, c000.v010, c000.v111));
+            m1 = min(m1, avg3(c000.v010, c000.v110, c000.v111));
+            m1 = min(m1, avg3(c000.v010, c000.v011, c000.v111));
+
+            m2 = min(m2, avg3(c100.v000, c100.v010, c100.v110));
+            m2 = min(m2, avg3(c100.v000, c100.v100, c100.v110));
+            m2 = min(m2, avg3(c100.v000, c100.v001, c100.v101));
+            m2 = min(m2, avg3(c100.v000, c100.v100, c100.v101));
+            m2 = min(m2, avg3(c100.v001, c100.v010, c100.v111));
+            m2 = min(m2, avg3(c100.v000, c100.v101, c100.v110));
+
+            return max3(m0, m1, m2);
+        }
+
+        float getMinOnFaceY(CellValues c000, CellValues c010)
+        {
+            float m0 = min4(c000.v010, c000.v110, c000.v011, c000.v111);
+            float m1 = min4(c000.v010, c000.v110, c000.v011, c000.v101);
+            float m2 = min4(c010.v001, c010.v100, c010.v010, c010.v101);
+
+            m1 = min(m1, avg3(c000.v001, c000.v011, c000.v111));
+            m1 = min(m1, avg3(c000.v001, c000.v101, c000.v111));
+            m1 = min(m1, avg3(c000.v000, c000.v011, c000.v110));
+            m1 = min(m1, avg3(c000.v001, c000.v100, c000.v111));
+            m1 = min(m1, avg3(c000.v100, c000.v110, c000.v111));
+            m1 = min(m1, avg3(c000.v100, c000.v101, c000.v111));
+
+            m2 = min(m2, avg3(c010.v000, c010.v100, c010.v110));
+            m2 = min(m2, avg3(c010.v000, c010.v010, c010.v110));
+            m2 = min(m2, avg3(c010.v000, c010.v001, c010.v011));
+            m2 = min(m2, avg3(c010.v000, c010.v010, c010.v011));
+            m2 = min(m2, avg3(c010.v001, c010.v100, c010.v111));
+            m2 = min(m2, avg3(c010.v000, c010.v011, c010.v110));
+
+            return max3(m0, m1, m2);
+        }
             
-            CellSamples s;
-            s.f000 = getVoxelSample(voxelCoords + ivec3(0,0,0));
-            s.f100 = getVoxelSample(voxelCoords + ivec3(1,0,0));
-            s.f010 = getVoxelSample(voxelCoords + ivec3(0,1,0));
-            s.f001 = getVoxelSample(voxelCoords + ivec3(0,0,1));
-            s.f011 = getVoxelSample(voxelCoords + ivec3(0,1,1));
-            s.f101 = getVoxelSample(voxelCoords + ivec3(1,0,1));
-            s.f110 = getVoxelSample(voxelCoords + ivec3(1,1,0));
-            s.f111 = getVoxelSample(voxelCoords + ivec3(1,1,1));
-            return s;
-        }
-
-        bool getCellOcclusion(ivec3 cellCoords)
+        float getMinOnFaceZ(CellValues c000, CellValues c001)
         {
-            ivec3 voxelCoords = cellCoords - 1;
+            float m0 = min4(c000.v001, c000.v011, c000.v101, c000.v111);
+            float m1 = min4(c000.v001, c000.v011, c000.v101, c000.v110);
+            float m2 = min4(c001.v100, c001.v010, c001.v001, c001.v110);
 
-            float f000 = getVoxelSample(voxelCoords + ivec3(0, 0, 0));
-            float f100 = getVoxelSample(voxelCoords + ivec3(1, 0, 0));
-            float f010 = getVoxelSample(voxelCoords + ivec3(0, 1, 0));
-            float f001 = getVoxelSample(voxelCoords + ivec3(0, 0, 1));
-            float f011 = getVoxelSample(voxelCoords + ivec3(0, 1, 1));
-            float f101 = getVoxelSample(voxelCoords + ivec3(1, 0, 1));
-            float f110 = getVoxelSample(voxelCoords + ivec3(1, 1, 0));
-            float f111 = getVoxelSample(voxelCoords + ivec3(1, 1, 1));
+            m1 = min(m1, avg3(c000.v100, c000.v101, c000.v111));
+            m1 = min(m1, avg3(c000.v100, c000.v110, c000.v111));
+            m1 = min(m1, avg3(c000.v000, c000.v011, c000.v101));
+            m1 = min(m1, avg3(c000.v010, c000.v100, c000.v111));
+            m1 = min(m1, avg3(c000.v010, c000.v110, c000.v111));
+            m1 = min(m1, avg3(c000.v010, c000.v011, c000.v111));
 
-            // Solve for fx * dx + fy * dy + fz * fz <= 0 for dx, dy, dz in [0,1]
+            m2 = min(m2, avg3(c001.v000, c001.v100, c001.v101));
+            m2 = min(m2, avg3(c001.v000, c001.v001, c001.v101));
+            m2 = min(m2, avg3(c001.v000, c001.v010, c001.v011));
+            m2 = min(m2, avg3(c001.v000, c001.v001, c001.v011));
+            m2 = min(m2, avg3(c001.v010, c001.v100, c001.v111));
+            m2 = min(m2, avg3(c001.v000, c001.v011, c001.v101));
 
-            // fx + fz + fz <= 0 for monotonicity along xyz diagonal
-            bool xyzMonotone = 
-                f000 >= (f100 + f010 + f001)/3.0 &&
-                f111 <= (f011 + f101 + f110)/3.0 &&
-                f000 + f100 >= f101 + f110 && 
-                f000 + f010 >= f011 + f110 && 
-                f000 + f001 >= f011 + f101 && 
-                f111 + f011 <= f010 + f001 && 
-                f111 + f101 <= f100 + f001 && 
-                f111 + f110 <= f100 + f010;
-
-            // fx + fy <= 0 for monotonicity along xy diagonal
-            bool xyMonotone =
-                f101 <= (f100 + f001)/2.0 &&
-                f110 <= (f100 + f010)/2.0 &&
-                f111 <= (f101 + f011)/2.0 &&
-                f111 <= (f110 + f011)/2.0;
-
-            // fx + fz <= 0 for monotonicity along xz plane
-            bool xzMonotone =
-                f000 >= (f001 + f100)/2.0 &&
-                f000 >= (f010 + f100)/2.0 &&
-                f001 >= (f011 + f101)/2.0 &&
-                f010 >= (f011 + f110)/2.0;
-
-            // fy + fz <= 0 for monotonicity along yz plane
-            bool yzMonotone = 
-                f001 <= (f000 + f010) / 2.0 &&
-                f011 <= (f010 + f110) / 2.0 &&
-                f011 <= (f010 + f110) / 2.0 &&
-                f001 <= (f000 + f110) / 2.0;
-
-            // fx <= 0 for monotonicity along x axis
-            bool xMonotone =
-                f100 <= f000 &&
-                f110 <= f010 && 
-                f101 <= f001 && 
-                f111 <= f011;
-
-            // fy <= 0 for monotonicity along y axis
-            bool yMonotone = 
-                f010 <= f000 && 
-                f110 <= f100 && 
-                f011 <= f001 && 
-                f111 <= f101;
-
-            // fz <= 0 for monotonicity along z axis
-            bool zMonotone = 
-                f001 <= f000 && 
-                f101 <= f100 && 
-                f011 <= f010 && 
-                f111 <= f110;
-              
-            bool xDominantMonotone = xMonotone && xyMonotone && xzMonotone && xyzMonotone;
-            bool yDominantMonotone = yMonotone && xyMonotone && yzMonotone && xyzMonotone;
-            bool zDominantMonotone = zMonotone && xzMonotone && yzMonotone && xyzMonotone;
-
-            return xDominantMonotone;
-        } 
-
-        bool getCellOcclusion2(ivec3 cellCoords)
-        {
-            ivec3 voxelCoords = cellCoords - 1;
-
-            float f000 = getVoxelSample(voxelCoords + ivec3(0, 0, 0));
-            float f100 = getVoxelSample(voxelCoords + ivec3(1, 0, 0));
-            float f010 = getVoxelSample(voxelCoords + ivec3(0, 1, 0));
-            float f001 = getVoxelSample(voxelCoords + ivec3(0, 0, 1));
-            float f011 = getVoxelSample(voxelCoords + ivec3(0, 1, 1));
-            float f101 = getVoxelSample(voxelCoords + ivec3(1, 0, 1));
-            float f110 = getVoxelSample(voxelCoords + ivec3(1, 1, 0));
-            float f111 = getVoxelSample(voxelCoords + ivec3(1, 1, 1));
-
-            bool xMonotone =
-                f100 <= f000 &&
-                f110 <= f010 && 
-                f101 <= f001 && 
-                f111 <= f011;
-
-            bool yMonotone =
-                f010 <= f000 &&
-                f110 <= f100 &&
-                f011 <= f001 &&
-                f111 <= f101;
-
-            bool zMonotone =
-                f001 <= f000 &&
-                f101 <= f100 &&
-                f011 <= f010 &&
-                f111 <= f110;
-
-            bool monotone = xMonotone && yMonotone && zMonotone;
-
-            // If not monotone, the cell may create interior maxima 
-            return monotone;
+            return max3(m0, m1, m2);
         }
-
-
-        float getCellMinOutputIncrementX(ivec3 cellCoords)
-        {
-            ivec3 voxelCoords = cellCoords - 1;
-
-            float f000 = getVoxelSample(voxelCoords + ivec3(0,0,0));
-            float f100 = getVoxelSample(voxelCoords + ivec3(1,0,0));
-            float f010 = getVoxelSample(voxelCoords + ivec3(0,1,0));
-            float f001 = getVoxelSample(voxelCoords + ivec3(0,0,1));
-            float f011 = getVoxelSample(voxelCoords + ivec3(0,1,1));
-            float f101 = getVoxelSample(voxelCoords + ivec3(1,0,1));
-            float f110 = getVoxelSample(voxelCoords + ivec3(1,1,0));
-            float f111 = getVoxelSample(voxelCoords + ivec3(1,1,1));
-
-            float v = INFINITY;
-
-            v = min(v, (f000 - f111));
-            v = min(v, (f010 - f111));
-            v = min(v, (f001 - f111));
-            v = min(v, (f011 - f111));
-            v = min(v, (f000 - f101));
-            v = min(v, (f001 - f101));
-            v = min(v, (f000 - f110));
-            v = min(v, (f010 - f110));
-            v = min(v, (f000 - f100));
-
-            v = max(v, 0.0);
-
-            return v;
-        }
-
-        float getCellMinOutputIncrementY(ivec3 cellCoords)
-        {
-            ivec3 voxelCoords = cellCoords - 1;
-
-            float f000 = getVoxelSample(voxelCoords + ivec3(0,0,0));
-            float f100 = getVoxelSample(voxelCoords + ivec3(1,0,0));
-            float f010 = getVoxelSample(voxelCoords + ivec3(0,1,0));
-            float f001 = getVoxelSample(voxelCoords + ivec3(0,0,1));
-            float f011 = getVoxelSample(voxelCoords + ivec3(0,1,1));
-            float f101 = getVoxelSample(voxelCoords + ivec3(1,0,1));
-            float f110 = getVoxelSample(voxelCoords + ivec3(1,1,0));
-            float f111 = getVoxelSample(voxelCoords + ivec3(1,1,1));
-
-            float v = INFINITY;
-
-            v = min(v, (f000 - f111));
-            v = min(v, (f010 - f111));
-            v = min(v, (f001 - f111));
-            v = min(v, (f011 - f111));
-            v = min(v, (f000 - f110));
-            v = min(v, (f010 - f110));
-
-            v = max(v, 0.0);
-
-            return v;
-        }
-
-        float getCellMinOutputIncrementZ(ivec3 cellCoords)
-        {
-            ivec3 voxelCoords = cellCoords - 1;
-
-            float f000 = getVoxelSample(voxelCoords + ivec3(0,0,0));
-            float f100 = getVoxelSample(voxelCoords + ivec3(1,0,0));
-            float f010 = getVoxelSample(voxelCoords + ivec3(0,1,0));
-            float f001 = getVoxelSample(voxelCoords + ivec3(0,0,1));
-            float f011 = getVoxelSample(voxelCoords + ivec3(0,1,1));
-            float f101 = getVoxelSample(voxelCoords + ivec3(1,0,1));
-            float f110 = getVoxelSample(voxelCoords + ivec3(1,1,0));
-            float f111 = getVoxelSample(voxelCoords + ivec3(1,1,1));
-
-            float v = INFINITY;
-
-            v = min(v, (f000 - f111));
-            v = min(v, (f010 - f111));
-            v = min(v, (f001 - f111));
-            v = min(v, (f011 - f111));
-            v = min(v, (f000 - f101));
-            v = min(v, (f001 - f101));
-
-            v = max(v, 0.0);
-
-            return v;
-        }
-
-        float getCellMaxInputIncrementX(ivec3 cellCoords)
-        {
-            ivec3 voxelCoords = cellCoords-1;
-
-            float f000 = getVoxelSample(voxelCoords + ivec3(0,0,0));
-            float f100 = getVoxelSample(voxelCoords + ivec3(1,0,0));
-            float f010 = getVoxelSample(voxelCoords + ivec3(0,1,0));
-            float f001 = getVoxelSample(voxelCoords + ivec3(0,0,1));
-            float f011 = getVoxelSample(voxelCoords + ivec3(0,1,1));
-            float f101 = getVoxelSample(voxelCoords + ivec3(1,0,1));
-            float f110 = getVoxelSample(voxelCoords + ivec3(1,1,0));
-            float f111 = getVoxelSample(voxelCoords + ivec3(1,1,1));
-
-            float v = -INFINITY;
-
-            v = max(v, (f100 - f000));
-            v = max(v, (f110 - f000));
-            v = max(v, (f101 - f000));
-            v = max(v, (f111 - f000));
-            v = max(v, (f110 - f010));
-            v = max(v, (f111 - f010));
-            v = max(v, (f101 - f001));
-            v = max(v, (f111 - f001));
-            v = max(v, (f111 - f011));
-            v = max(v, (f000 + f010 + f100) / 3.0 - f000);
-            v = max(v, (f000 + f001 + f100) / 3.0 - f000);
-            v = max(v, (f010 + f100 + f110) / 3.0 - f000);
-            v = max(v, (f001 + f100 + f101) / 3.0 - f000);
-            v = max(v, (f001 + f010 + f100) / 3.0 - f000);
-            v = max(v, (f011 + f101 + f110) / 3.0 - f000);
-            v = max(v, (f011 + f110 + f111) / 3.0 - f010);
-            v = max(v, (f011 + f110 + f010) / 3.0 - f010);
-            v = max(v, (f011 + f101 + f111) / 3.0 - f001);
-            v = max(v, (f011 + f101 + f001) / 3.0 - f001);
-            v = max(v, 0.0);
-
-            return v;
-        }
-
-        float getCellMaxInputIncrementY(ivec3 cellCoords)
-        {
-            ivec3 voxelCoords = cellCoords-1;
-
-            float f000 = getVoxelSample(voxelCoords + ivec3(0,0,0));
-            float f100 = getVoxelSample(voxelCoords + ivec3(1,0,0));
-            float f010 = getVoxelSample(voxelCoords + ivec3(0,1,0));
-            float f001 = getVoxelSample(voxelCoords + ivec3(0,0,1));
-            float f011 = getVoxelSample(voxelCoords + ivec3(0,1,1));
-            float f101 = getVoxelSample(voxelCoords + ivec3(1,0,1));
-            float f110 = getVoxelSample(voxelCoords + ivec3(1,1,0));
-            float f111 = getVoxelSample(voxelCoords + ivec3(1,1,1));
-
-            float v = -INFINITY;
-
-            v = max(v, (f100 - f000));
-            v = max(v, (f110 - f000));
-            v = max(v, (f101 - f000));
-            v = max(v, (f111 - f000));
-            v = max(v, (f101 - f001));
-            v = max(v, (f111 - f001));
-            v = max(v, (f001 + f010 + f100) / 3.0 - f000);
-            v = max(v, (f010 + f100 + f000) / 3.0 - f000);
-            v = max(v, (f001 + f100 + f000) / 3.0 - f000);
-            v = max(v, (f010 + f100 + f110) / 3.0 - f000);
-            v = max(v, (f001 + f100 + f101) / 3.0 - f000);
-            v = max(v, (f011 + f101 + f110) / 3.0 - f000);
-            v = max(v, (f011 + f101 + f111) / 3.0 - f001);
-            v = max(v, (f011 + f101 + f001) / 3.0 - f001);
-
-            v = max(v, 0.0);
-
-            return v;
-        }
-
-        float getCellMaxInputIncrementZ(ivec3 cellCoords)
-        {
-            ivec3 voxelCoords = cellCoords-1;
-
-            float f000 = getVoxelSample(voxelCoords + ivec3(0,0,0));
-            float f100 = getVoxelSample(voxelCoords + ivec3(1,0,0));
-            float f010 = getVoxelSample(voxelCoords + ivec3(0,1,0));
-            float f001 = getVoxelSample(voxelCoords + ivec3(0,0,1));
-            float f011 = getVoxelSample(voxelCoords + ivec3(0,1,1));
-            float f101 = getVoxelSample(voxelCoords + ivec3(1,0,1));
-            float f110 = getVoxelSample(voxelCoords + ivec3(1,1,0));
-            float f111 = getVoxelSample(voxelCoords + ivec3(1,1,1));
-
-            float v = -INFINITY;
-
-            v = max(v, (f100 - f000));
-            v = max(v, (f110 - f000));
-            v = max(v, (f101 - f000));
-            v = max(v, (f111 - f000));
-            v = max(v, (f110 - f010));
-            v = max(v, (f111 - f010));
-            v = max(v, (f001 + f010 + f100) / 3.0 - f000);
-            v = max(v, (f010 + f100 + f110) / 3.0 - f000);
-            v = max(v, (f001 + f100 + f101) / 3.0 - f000);
-            v = max(v, (f011 + f101 + f110) / 3.0 - f000);
-            v = max(v, (f010 + f100 + f000) / 3.0 - f000);
-            v = max(v, (f001 + f100 + f000) / 3.0 - f000);
-            v = max(v, (f011 + f110 + f111) / 3.0 - f010);
-            v = max(v, (f011 + f110 + f010) / 3.0 - f010);
-
-            v = max(v, 0.0);
-
-            return v;
-        }
-
-        vec3 getCellMaxInputIncrements(ivec3 cellCoords)
-        {
-            CellSamples C = getCellSamples(cellCoords);
-
-            vec3 V = vec3(-INFINITY);
-
-            V.x = max(V.x, (C.f100 - C.f000));
-            V.x = max(V.x, (C.f110 - C.f000));
-            V.x = max(V.x, (C.f101 - C.f000));
-            V.x = max(V.x, (C.f111 - C.f000));
-            V.x = max(V.x, (C.f110 - C.f010));
-            V.x = max(V.x, (C.f111 - C.f010));
-            V.x = max(V.x, (C.f101 - C.f001));
-            V.x = max(V.x, (C.f111 - C.f001));
-            V.x = max(V.x, (C.f111 - C.f011));
-            V.x = max(V.x, (C.f000 + C.f010 + C.f100) / 3.0 - C.f000);
-            V.x = max(V.x, (C.f000 + C.f001 + C.f100) / 3.0 - C.f000);
-            V.x = max(V.x, (C.f010 + C.f100 + C.f110) / 3.0 - C.f000);
-            V.x = max(V.x, (C.f001 + C.f100 + C.f101) / 3.0 - C.f000);
-            V.x = max(V.x, (C.f001 + C.f010 + C.f100) / 3.0 - C.f000);
-            V.x = max(V.x, (C.f011 + C.f101 + C.f110) / 3.0 - C.f000);
-            V.x = max(V.x, (C.f011 + C.f110 + C.f111) / 3.0 - C.f010);
-            V.x = max(V.x, (C.f011 + C.f110 + C.f010) / 3.0 - C.f010);
-            V.x = max(V.x, (C.f011 + C.f101 + C.f111) / 3.0 - C.f001);
-            V.x = max(V.x, (C.f011 + C.f101 + C.f001) / 3.0 - C.f001);
-
-            V.y = max(V.y, (C.f100 - C.f000));
-            V.y = max(V.y, (C.f110 - C.f000));
-            V.y = max(V.y, (C.f101 - C.f000));
-            V.y = max(V.y, (C.f111 - C.f000));
-            V.y = max(V.y, (C.f101 - C.f001));
-            V.y = max(V.y, (C.f111 - C.f001));
-            V.y = max(V.y, (C.f001 + C.f010 + C.f100) / 3.0 - C.f000);
-            V.y = max(V.y, (C.f010 + C.f100 + C.f000) / 3.0 - C.f000);
-            V.y = max(V.y, (C.f001 + C.f100 + C.f000) / 3.0 - C.f000);
-            V.y = max(V.y, (C.f010 + C.f100 + C.f110) / 3.0 - C.f000);
-            V.y = max(V.y, (C.f001 + C.f100 + C.f101) / 3.0 - C.f000);
-            V.y = max(V.y, (C.f011 + C.f101 + C.f110) / 3.0 - C.f000);
-            V.y = max(V.y, (C.f011 + C.f101 + C.f111) / 3.0 - C.f001);
-            V.y = max(V.y, (C.f011 + C.f101 + C.f001) / 3.0 - C.f001);
-
-            V.z = max(V.z, (C.f100 - C.f000));
-            V.z = max(V.z, (C.f110 - C.f000));
-            V.z = max(V.z, (C.f101 - C.f000));
-            V.z = max(V.z, (C.f111 - C.f000));
-            V.z = max(V.z, (C.f110 - C.f010));
-            V.z = max(V.z, (C.f111 - C.f010));
-            V.z = max(V.z, (C.f001 + C.f010 + C.f100) / 3.0 - C.f000);
-            V.z = max(V.z, (C.f010 + C.f100 + C.f110) / 3.0 - C.f000);
-            V.z = max(V.z, (C.f001 + C.f100 + C.f101) / 3.0 - C.f000);
-            V.z = max(V.z, (C.f011 + C.f101 + C.f110) / 3.0 - C.f000);
-            V.z = max(V.z, (C.f010 + C.f100 + C.f000) / 3.0 - C.f000);
-            V.z = max(V.z, (C.f001 + C.f100 + C.f000) / 3.0 - C.f000);
-            V.z = max(V.z, (C.f011 + C.f110 + C.f111) / 3.0 - C.f010);
-            V.z = max(V.z, (C.f011 + C.f110 + C.f010) / 3.0 - C.f010);
-
-            V = max(V, 0.0);
-
-            return V;
-        }
-
 
         void main()
         {
-            ivec3 outputCoords = getOutputCoords();
-            ivec3 cellCoords = outputCoords.zyx;
-            
-            bool occluded = 
-                getCellMaxInputIncrementX(cellCoords) <= 0.0 &&
-                getCellMaxInputIncrementY(cellCoords) <= 0.0 &&
-                getCellMaxInputIncrementZ(cellCoords) <= 0.0;
+            ivec3 coord = getCoords();
 
-            setOutput(vec4(occluded));
+            CellValues c000 = getValues(coord + ivec3(0,0,0));
+            CellValues c100 = getValues(coord + ivec3(1,0,0));
+            CellValues c010 = getValues(coord + ivec3(0,1,0));
+            CellValues c001 = getValues(coord + ivec3(0,0,1));
+
+            float xMin = getMinOnFaceX(c000, c100);
+            float yMin = getMinOnFaceY(c000, c010);
+            float zMin = getMinOnFaceZ(c000, c001);
+
+            setOutput(vec4(xMin, yMin, zMin, 0.0));
+        }
+        `
+    }
+}
+
+class GPGPUUpdateSlice implements GPGPUProgram 
+{
+    variableNames = ['A', 'B']
+    outputShape: number[]
+    userCode: string
+    packedInputs = true
+    packedOutput = true
+
+    constructor
+    (
+        inputShape: [number, number, number], 
+    ) 
+    {
+        const [, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
+        this.outputShape = [outHeight, outWidth, 2, 2]     
+        this.userCode = `
+
+        const ivec2 minCoords = ivec2(0);
+        const ivec2 maxCoords = ivec2(${outWidth-1}, ${outHeight-1});
+
+        float min3(float a, float b, float c) { return min(min(a, b), c); }
+
+        ivec2 getCoords()
+        {
+            ivec4 coords = getOutputCoords();
+            return ivec2(coords.y, coords.x);
+        }
+
+        vec4 getA(ivec2 coords)
+        {
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.y, coords.x, 0, 0);
+        }
+
+        vec4 getB(ivec2 coords)
+        {
+            coords = clamp(coords, minCoords, maxCoords);
+            return getB(coords.y, coords.x, 0, 0);
+        }
+
+        float getMinOnFaceX(vec4 c111, vec4 c110, vec4 c101, vec4 c100)
+        {
+            float t10 = c100.z;
+            t10 = max(c101.y, t10);
+            t10 = min(c110.z, t10);
+            t10 = max(c111.x, t10);
+
+            return t10;
+        }
+
+        float getMinOnFaceY(vec4 c111, vec4 c110, vec4 c011, vec4 c010)
+        {
+            float t01 = c010.z;
+            t01 = max(c011.x, t01);
+            t01 = min(c110.z, t01);
+            t01 = max(c111.y, t01);
+
+            return t01;
+        }
+
+        float getMinOnFaceZ(vec4 c111, vec4 c011, vec4 c101, vec4 c001, vec4 c110, vec4 c010, vec4 c100, vec4 c000)
+        {
+            float t00 = c000.z;
+
+            float t01;
+            t01 = max(c001.y, t00);
+            t01 = min(c010.z, t01);
+            t01 = max(c011.x, t01);
+
+            float t10; 
+            t10 = max(c001.x, t10);
+            t10 = min(c100.z, t10);
+            t10 = max(c101.y, t10);
+
+            float t11;
+            t11 = min3(c110.z, t10, t01);
+            t11 = min(c110.z, t11);
+            t11 = max(c111.z, t11);
+
+            return t11;
+        }
+                
+        void main()
+        {
+            ivec2 coords = getCoords();
+
+            vec4 c111 = getA(coords - ivec2(0,0));
+            vec4 c011 = getA(coords - ivec2(1,0));
+            vec4 c101 = getA(coords - ivec2(0,1));
+            vec4 c001 = getA(coords - ivec2(1,1));
+
+            vec4 c110 = getB(coords - ivec2(0,0));
+            vec4 c010 = getB(coords - ivec2(1,0));
+            vec4 c100 = getB(coords - ivec2(0,1));
+            vec4 c000 = getB(coords - ivec2(1,1));
+
+            float c011_x = max(c011.x, min(c010.z, max(c001.y, c000.z)));
+            float c101_y = max(c101.y, min(c100.z, max(c001.x, c000.z)));
+
+            c111.x = max(c111.x, min(c110.z, max(c101.y, c100.z)));
+            c111.y = max(c111.y, min(c110.z, max(c011.x, c010.z)));
+            c111.z = max(c111.z, min(c110.z, min(c011_x, c101_y)));
+
+            setOutput(c111);
+        }
+        `
+    }
+}
+
+class GPGPUMaximaMap implements GPGPUProgram 
+{
+    variableNames = ['A']
+    outputShape: number[]
+    userCode: string
+    packedInputs = false
+    packedOutput = true
+
+    constructor
+    (
+        inputShape: [number, number, number], 
+    ) 
+    {
+        const [inDepth, inHeight, inWidth] = inputShape
+        const [outDepth, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
+        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]     
+        this.userCode = `
+
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
+
+        float avg3(float a, float b, float c) { return (a + b + c) * (1.0 / 3.0); }
+
+        struct CellValues 
+        { 
+            float v000; 
+            float v100; 
+            float v010; 
+            float v001; 
+            float v011; 
+            float v101; 
+            float v110; 
+            float v111; 
+        }; 
+
+        ivec3 getCoords()
+        {
+            ivec5 coords = getOutputCoords();
+            return ivec3(coords.z, coords.y, coords.x);
+        }
+
+        float getA(ivec3 coords)
+        {
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.z, coords.y, coords.x);
+        }
+
+        CellValues getValues(ivec3 coords)
+        {
+            CellValues c;
+
+            c.v000 = getA(coords - ivec3(1,1,1));
+            c.v100 = getA(coords - ivec3(0,1,1));
+            c.v010 = getA(coords - ivec3(1,0,1));
+            c.v001 = getA(coords - ivec3(1,1,0));
+            c.v011 = getA(coords - ivec3(1,0,0));
+            c.v101 = getA(coords - ivec3(0,1,0));
+            c.v110 = getA(coords - ivec3(0,0,1));
+            c.v111 = getA(coords - ivec3(0,0,0));
+
+            return c;
+        }
+
+        float getMaxOnFaceX(CellValues c)
+        {
+            float m = -1.0;
+
+            m = max(m, avg3(c.v000, c.v001, c.v100));
+            m = max(m, avg3(c.v001, c.v010, c.v100));
+            m = max(m, avg3(c.v010, c.v011, c.v110));
+            m = max(m, avg3(c.v001, c.v100, c.v101));
+            m = max(m, avg3(c.v011, c.v101, c.v110));
+            m = max(m, avg3(c.v011, c.v110, c.v111));
+            m = max(m, c.v000);
+            m = max(m, c.v001);
+            m = max(m, c.v010);
+            m = max(m, c.v011);
+            m = max(m, c.v101);
+            m = max(m, c.v111);
+            
+            return m;
+        }
+    
+        float getMaxOnFaceY(CellValues c)
+        {
+            float m = -1.0;
+
+            m = max(m, avg3(c.v000, c.v001, c.v010));
+            m = max(m, avg3(c.v001, c.v010, c.v011));
+            m = max(m, avg3(c.v001, c.v010, c.v100));
+            m = max(m, avg3(c.v011, c.v101, c.v110));
+            m = max(m, avg3(c.v100, c.v101, c.v110));
+            m = max(m, avg3(c.v101, c.v110, c.v111));
+            m = max(m, c.v000);
+            m = max(m, c.v001);
+            m = max(m, c.v011);
+            m = max(m, c.v100);
+            m = max(m, c.v101);
+            m = max(m, c.v111);
+        
+            return m;
+        }
+
+        float getMaxOnFaceZ(CellValues c)
+        {
+            float m = -1.0;
+
+            m = max(m, c.v000);
+            m = max(m, c.v100);
+            m = max(m, c.v010);
+            m = max(m, c.v001);
+            m = max(m, c.v011);
+            m = max(m, c.v101);
+            m = max(m, c.v110);
+            m = max(m, c.v111);
+
+            return m;
+        }
+
+        float getMaxOnCell(CellValues c)
+        {
+            float m = -1.0;
+
+            m = max(m, avg3(c.v001, c.v010, c.v011) - c.v000);
+            m = max(m, avg3(c.v001, c.v010, c.v100) - c.v000);
+            m = max(m, avg3(c.v001, c.v100, c.v101) - c.v000);
+            m = max(m, avg3(c.v011, c.v101, c.v110) - c.v000);
+            m = max(m, avg3(c.v011, c.v110, c.v111) - c.v010);
+            m = max(m, avg3(c.v101, c.v110, c.v111) - c.v100);
+            m = max(m, avg3(c.v001, c.v010, c.v000) - c.v000);
+            m = max(m, avg3(c.v001, c.v100, c.v000) - c.v000);
+            m = max(m, avg3(c.v011, c.v110, c.v010) - c.v010);
+            m = max(m, avg3(c.v101, c.v110, c.v100) - c.v100);
+            m = max(m, c.v001 - c.v000);
+            m = max(m, c.v011 - c.v000);
+            m = max(m, c.v011 - c.v010);
+            m = max(m, c.v101 - c.v000);
+            m = max(m, c.v111 - c.v000);
+            m = max(m, c.v111 - c.v010);
+            m = max(m, c.v101 - c.v100);
+            m = max(m, c.v111 - c.v100);
+            m = max(m, c.v111 - c.v110);
+
+            return m;
+        }
+
+        void main()
+        {
+            ivec3 coords = getCoords();
+            CellValues c = getValues(coords);
+
+            float xMax = getMaxOnFaceX(c);
+            float yMax = getMaxOnFaceY(c);
+            float zMax = getMaxOnFaceZ(c);
+            float wMax = getMaxOnCell(c);
+
+            setOutput(vec4(xMax, yMax, zMax, wMax));
+        }
+        `
+    }
+}
+
+class GPGPUOcclusionMap implements GPGPUProgram 
+{
+    variableNames = ['A', 'B']
+    outputShape: number[]
+    userCode: string
+    packedInputs = true
+    packedOutput = false
+
+    constructor
+    (
+        inputShape: [number, number, number], 
+    ) 
+    {
+        const [outDepth, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
+        this.outputShape = [outDepth, outHeight, outWidth]     
+        this.userCode = `
+
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
+
+        ivec3 getCoords()
+        {
+            ivec3 coords = getOutputCoords();
+            return ivec3(coords.z, coords.y, coords.x);
+        }
+
+        vec4 getA(ivec3 coords)
+        {
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.z, coords.y, coords.x, 0, 0);
+        }
+
+        vec4 getB(ivec3 coords)
+        {
+            coords = clamp(coords, minCoords, maxCoords);
+            return getB(coords.z, coords.y, coords.x, 0, 0);
+        }
+                
+        void main()
+        {
+            ivec3 coords = getCoords();
+            vec4 minValues = getA(coords);
+            vec4 maxValues = getB(coords);
+
+            bvec4 occlusion = greaterThanEqual(minValues, maxValues);
+            occlusion.w = all(occlusion.xyz) || occlusion.w;
+
+            setOutput(float(occlusion.w));
         }
         `
     }
@@ -459,8 +514,50 @@ function runProgram(prog: GPGPUProgram, inputs: tf.Tensor[]): tf.Tensor
     return tf.engine().makeTensorFromTensorInfo(info) as tf.Tensor
 }
 
-export function computeOcclusionMap(interpolationMap: tf.Tensor3D) : tf.Tensor
+export function computeOcclusionMap(volumeMap: tf.Tensor3D) : tf.Tensor<tf.Rank>
 {
-    const program = new GPGPUOcclusionMap(interpolationMap.shape)
-    return runProgram(program, [interpolationMap]) as tf.Tensor3D
+    const minimaProgram = new GPGPUMinimaMap(volumeMap.shape)
+    const maximaProgram = new GPGPUMaximaMap(volumeMap.shape)
+    const updateProgram = new GPGPUUpdateSlice(volumeMap.shape)
+    const occlusionProgram = new GPGPUOcclusionMap(volumeMap.shape)
+
+    let minimaMap = runProgram(minimaProgram, [volumeMap])
+    // console.log('minimaMap0', minimaMap.mean().dataSync())
+    let slices = tf.unstack(minimaMap, 0)
+    minimaMap.dispose()
+
+    for (let i = 1; i < slices.length; i++)
+    {
+        const updatedSlice = runProgram(updateProgram, [slices[i], slices[i-1]])
+        tf.dispose(slices[i])
+        slices[i] = updatedSlice
+    }
+
+    minimaMap = tf.stack(slices, 0)
+    tf.dispose(slices)
+    // console.log('minimaMap', minimaMap.mean().dataSync())
+
+    const maximaMap = runProgram(maximaProgram, [volumeMap])
+    const occlusionMap = runProgram(occlusionProgram, [minimaMap, maximaMap])
+    tf.dispose([minimaMap, maximaMap])
+
+    console.log('occlusionMap', occlusionMap.mean().dataSync())
+
+    return occlusionMap as tf.Tensor
+}
+
+export function computeOmniOcclusionMap(volumeMap: tf.Tensor3D) : tf.Tensor<tf.Rank>
+{
+    const map = tf.transpose(volumeMap, [0, 1, 2])
+
+    const posOcclusion = computeOcclusionMap(map)
+    const negOcclusion = tf.tidy(() => tf.reverse(computeOcclusionMap(tf.reverse(map))))
+    tf.dispose(map)
+
+    const occlusionMap = tf.maximum(posOcclusion, negOcclusion)
+    tf.dispose([posOcclusion, negOcclusion])
+
+    console.log('occlusionMap', occlusionMap.mean().dataSync())
+
+    return occlusionMap as tf.Tensor
 }
