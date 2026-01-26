@@ -1,9 +1,7 @@
 clear,clc
 
-% pkg load symbolic % OCTAVE version
-% pkg load optim % OCTAVE version
-
-% run("trilinear_bernstein_functions.m")
+pkg load symbolic % OCTAVE version
+pkg load optim % OCTAVE version
 
 %% --------------------------------------------------------------------
 %% Declare functions
@@ -33,13 +31,8 @@ fprintf('\nReduced symbolic total minima:\n');
 disp(cB_min);
 
 % Results
-% cB_min(1)  = (f000 + f010 + f110)/3;
-% cB_min(2)  = (f000 + f100 + f110)/3;
-% cB_min(3)  = (f000 + f001 + f101)/3;
-% cB_min(4)  = (f000 + f100 + f101)/3;
-% cB_min(5)  = (f001 + f010 + f111)/3;
-% cB_min(6)  = (f000 + f101 + f110)/3;
-% cB_min(7)  = f010;
-% cB_min(8)  = f001;
-% cB_min(9)  = f011;
-% cB_min(10) = f100;
+% cB_min(1)  = (f010 + f011 + f110)/3;
+% cB_min(2)  = (f011 + f110 + f111)/3;
+% cB_min(3)  = f010;
+% cB_min(4)  = f011;
+% cB_min(5)  = f111;
