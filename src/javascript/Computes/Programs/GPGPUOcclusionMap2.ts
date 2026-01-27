@@ -63,14 +63,7 @@ class GPGPUMinimaMap implements GPGPUProgram
             float v110; 
             float v111; 
         }; 
-
-        vec4 getFaceX0(CellValues c){ return vec4(c.v000, c.v010, c.v001, c.v011); }
-        vec4 getFaceY0(CellValues c){ return vec4(c.v000, c.v100, c.v001, c.v101); }
-        vec4 getFaceZ0(CellValues c){ return vec4(c.v000, c.v100, c.v010, c.v110); }
-        vec4 getFaceX1(CellValues c){ return vec4(c.v100, c.v110, c.v101, c.v111); }
-        vec4 getFaceY1(CellValues c){ return vec4(c.v010, c.v110, c.v011, c.v111); }
-        vec4 getFaceZ1(CellValues c){ return vec4(c.v001, c.v101, c.v011, c.v111); }
-
+        
         ivec3 getCoords()
         {
             ivec5 coords = getOutputCoords();
