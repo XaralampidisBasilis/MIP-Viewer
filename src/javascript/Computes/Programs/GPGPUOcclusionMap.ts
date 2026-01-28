@@ -199,6 +199,7 @@ class GPGPUUpdateSlice implements GPGPUProgram
         float getMinOnFaceX(vec4 c111, vec4 c110, vec4 c101, vec4 c100)
         {
             float t10 = c100.z;
+            
             t10 = max(c101.y, t10);
             t10 = min(c110.z, t10);
             t10 = max(c111.x, t10);
@@ -209,6 +210,7 @@ class GPGPUUpdateSlice implements GPGPUProgram
         float getMinOnFaceY(vec4 c111, vec4 c110, vec4 c011, vec4 c010)
         {
             float t01 = c010.z;
+
             t01 = max(c011.x, t01);
             t01 = min(c110.z, t01);
             t01 = max(c111.y, t01);
@@ -218,19 +220,18 @@ class GPGPUUpdateSlice implements GPGPUProgram
 
         float getMinOnFaceZ(vec4 c111, vec4 c110, vec4 c101, vec4 c011, vec4 c100, vec4 c010, vec4 c001, vec4 c000)
         {
-            float t00 = c000.z;
+            float t00, t01, t10, t11;
 
-            float t01;
+            t00 = c000.z;
+
             t01 = max(c001.y, t00);
             t01 = min(c010.z, t01);
             t01 = max(c011.x, t01);
 
-            float t10;
             t10 = max(c001.x, t00);
             t10 = min(c100.z, t10);
             t10 = max(c101.y, t10);
 
-            float t11;
             t11 = min(t01, t10);
             t11 = min(c110.z, t11);
             t11 = max(c111.z, t11);
