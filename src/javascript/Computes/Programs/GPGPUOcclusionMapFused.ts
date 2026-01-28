@@ -2,7 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 
-class GPGPUMinimaMaps implements GPGPUProgram 
+class GPGPUMinimaMapsOld implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -104,7 +104,7 @@ class GPGPUMinimaMaps implements GPGPUProgram
         `
     }
 }
-class GPGPUMinimaMaps2 implements GPGPUProgram 
+class GPGPUMinimaMaps implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -673,9 +673,9 @@ function runProgram(prog: GPGPUProgram, inputs: tf.Tensor[]): tf.Tensor
 
 export function computeOneWayOcclusionMaps(volumeMap: tf.Tensor3D) : tf.Tensor5D
 {
-    const minimaProgram = new GPGPUMinimaMaps2(volumeMap.shape)
+    const minimaProgram = new GPGPUMinimaMaps(volumeMap.shape)
     const minimaStart = runProgram(minimaProgram, [volumeMap])
-    console.log('minimaStart', tf.tidy(() => minimaStart.unstack(0)[0].mean([0,1,2]).dataSync()))
+    // console.log('minimaStart', tf.tidy(() => minimaStart.unstack(0)[0].mean([0,1,2]).dataSync()))
 
     const updateProgram = new GPGPUUpdateSlices(volumeMap.shape)
     const slices = tf.unstack(minimaStart, 1)
@@ -690,31 +690,28 @@ export function computeOneWayOcclusionMaps(volumeMap: tf.Tensor3D) : tf.Tensor5D
 
     const minima = tf.stack(slices, 1); 
     tf.dispose(slices)
-    console.log('minima', tf.tidy(() => minima.unstack(0)[0].mean([0,1,2]).dataSync()))
+    // console.log('minima', tf.tidy(() => minima.unstack(0)[0].mean([0,1,2]).dataSync()))
 
     const maximaProgram = new GPGPUMaximaMaps(volumeMap.shape)
     const maxima = runProgram(maximaProgram, [volumeMap])
-    console.log('maxima', tf.tidy(() => maxima.unstack(0)[0].mean([0,1,2]).dataSync()))
+    // console.log('maxima', tf.tidy(() => maxima.unstack(0)[0].mean([0,1,2]).dataSync()))
 
     const occlusionProgram = new GPGPUOcclusionMaps(volumeMap.shape)
     const occlusion = runProgram(occlusionProgram, [minima, maxima])
     tf.dispose([minima, maxima])
-
-    console.log('occlusionMap', tf.tidy(() => occlusion.mean([0,1,2]).dataSync()))
+    // console.log('occlusionMap', tf.tidy(() => occlusion.mean([0,1,2]).dataSync()))
 
     return occlusion as tf.Tensor5D
 }
 
 export function computeOcclusionMaps(volumeMap: tf.Tensor3D): tf.Tensor3D
 {
-    const occlusionMapPos = tf.tidy(() => computeOneWayOcclusionMaps(volumeMap))
-
     const reverse5d = new GPGPUReverse5d(volumeMap.shape)
+    const occlusionMapPos = tf.tidy(() => computeOneWayOcclusionMaps(volumeMap))
     const occlusionMapNeg = tf.tidy(() => runProgram(reverse5d, [computeOneWayOcclusionMaps(tf.reverse(volumeMap))]))
 
     const occlusionMap = tf.maximum(occlusionMapPos, occlusionMapNeg)
     tf.dispose([occlusionMapPos, occlusionMapNeg])
-
     console.log('occlusionMap',  tf.tidy(() => occlusionMap.mean([0,1,2]).dataSync()))
 
     return occlusionMap as tf.Tensor3D
