@@ -187,71 +187,71 @@ class GPGPUMinimaMaps implements GPGPUProgram
 
         float getMinOnFaceX(CellValues c000, CellValues c100)
         {
-            float t0 = min4(c000.v100, c000.v110, c000.v101, c000.v111);
-            float t1 = min4(c000.v100, c000.v110, c000.v101, c000.v011);
-            float t2 = min4(c100.v001, c100.v010, c100.v100, c100.v011);
+            float m0 = min4(c000.v100, c000.v110, c000.v101, c000.v111);
+            float m1 = min4(c000.v100, c000.v110, c000.v101, c000.v011);
+            float m2 = min4(c100.v001, c100.v010, c100.v100, c100.v011);
 
-            t1 = min(t1, avg3(c000.v001, c000.v101, c000.v111));
-            t1 = min(t1, avg3(c000.v001, c000.v011, c000.v111));
-            t1 = min(t1, avg3(c000.v000, c000.v101, c000.v110));
-            t1 = min(t1, avg3(c000.v001, c000.v010, c000.v111));
-            t1 = min(t1, avg3(c000.v010, c000.v110, c000.v111));
-            t1 = min(t1, avg3(c000.v010, c000.v011, c000.v111));
+            m1 = min(m1, avg3(c000.v001, c000.v101, c000.v111));
+            m1 = min(m1, avg3(c000.v001, c000.v011, c000.v111));
+            m1 = min(m1, avg3(c000.v000, c000.v101, c000.v110));
+            m1 = min(m1, avg3(c000.v001, c000.v010, c000.v111));
+            m1 = min(m1, avg3(c000.v010, c000.v110, c000.v111));
+            m1 = min(m1, avg3(c000.v010, c000.v011, c000.v111));
 
-            t2 = min(t2, avg3(c100.v000, c100.v010, c100.v110));
-            t2 = min(t2, avg3(c100.v000, c100.v100, c100.v110));
-            t2 = min(t2, avg3(c100.v000, c100.v001, c100.v101));
-            t2 = min(t2, avg3(c100.v000, c100.v100, c100.v101));
-            t2 = min(t2, avg3(c100.v001, c100.v010, c100.v111));
-            t2 = min(t2, avg3(c100.v000, c100.v101, c100.v110));
+            m2 = min(m2, avg3(c100.v000, c100.v010, c100.v110));
+            m2 = min(m2, avg3(c100.v000, c100.v100, c100.v110));
+            m2 = min(m2, avg3(c100.v000, c100.v001, c100.v101));
+            m2 = min(m2, avg3(c100.v000, c100.v100, c100.v101));
+            m2 = min(m2, avg3(c100.v001, c100.v010, c100.v111));
+            m2 = min(m2, avg3(c100.v000, c100.v101, c100.v110));
 
-            return max3(t0, t1, t2);
+            return max3(m0, m1, m2);
         }
 
         float getMinOnFaceY(CellValues c000, CellValues c010)
         {
-            float t0 = min4(c000.v010, c000.v110, c000.v011, c000.v111);
-            float t1 = min4(c000.v010, c000.v110, c000.v011, c000.v101);
-            float t2 = min4(c010.v001, c010.v100, c010.v010, c010.v101);
+            float m0 = min4(c000.v010, c000.v110, c000.v011, c000.v111);
+            float m1 = min4(c000.v010, c000.v110, c000.v011, c000.v101);
+            float m2 = min4(c010.v001, c010.v100, c010.v010, c010.v101);
 
-            t1 = min(t1, avg3(c000.v001, c000.v011, c000.v111));
-            t1 = min(t1, avg3(c000.v001, c000.v101, c000.v111));
-            t1 = min(t1, avg3(c000.v000, c000.v011, c000.v110));
-            t1 = min(t1, avg3(c000.v001, c000.v100, c000.v111));
-            t1 = min(t1, avg3(c000.v100, c000.v110, c000.v111));
-            t1 = min(t1, avg3(c000.v100, c000.v101, c000.v111));
+            m1 = min(m1, avg3(c000.v001, c000.v011, c000.v111));
+            m1 = min(m1, avg3(c000.v001, c000.v101, c000.v111));
+            m1 = min(m1, avg3(c000.v000, c000.v011, c000.v110));
+            m1 = min(m1, avg3(c000.v001, c000.v100, c000.v111));
+            m1 = min(m1, avg3(c000.v100, c000.v110, c000.v111));
+            m1 = min(m1, avg3(c000.v100, c000.v101, c000.v111));
 
-            t2 = min(t2, avg3(c010.v000, c010.v100, c010.v110));
-            t2 = min(t2, avg3(c010.v000, c010.v010, c010.v110));
-            t2 = min(t2, avg3(c010.v000, c010.v001, c010.v011));
-            t2 = min(t2, avg3(c010.v000, c010.v010, c010.v011));
-            t2 = min(t2, avg3(c010.v001, c010.v100, c010.v111));
-            t2 = min(t2, avg3(c010.v000, c010.v011, c010.v110));
+            m2 = min(m2, avg3(c010.v000, c010.v100, c010.v110));
+            m2 = min(m2, avg3(c010.v000, c010.v010, c010.v110));
+            m2 = min(m2, avg3(c010.v000, c010.v001, c010.v011));
+            m2 = min(m2, avg3(c010.v000, c010.v010, c010.v011));
+            m2 = min(m2, avg3(c010.v001, c010.v100, c010.v111));
+            m2 = min(m2, avg3(c010.v000, c010.v011, c010.v110));
 
-            return max3(t0, t1, t2);
+            return max3(m0, m1, m2);
         }
             
         float getMinOnFaceZ(CellValues c000, CellValues c001)
         {
-            float t0 = min4(c000.v001, c000.v011, c000.v101, c000.v111);
-            float t1 = min4(c000.v001, c000.v011, c000.v101, c000.v110);
-            float t2 = min4(c001.v100, c001.v010, c001.v001, c001.v110);
+            float m0 = min4(c000.v001, c000.v011, c000.v101, c000.v111);
+            float m1 = min4(c000.v001, c000.v011, c000.v101, c000.v110);
+            float m2 = min4(c001.v100, c001.v010, c001.v001, c001.v110);
 
-            t1 = min(t1, avg3(c000.v100, c000.v101, c000.v111));
-            t1 = min(t1, avg3(c000.v100, c000.v110, c000.v111));
-            t1 = min(t1, avg3(c000.v000, c000.v011, c000.v101));
-            t1 = min(t1, avg3(c000.v010, c000.v100, c000.v111));
-            t1 = min(t1, avg3(c000.v010, c000.v110, c000.v111));
-            t1 = min(t1, avg3(c000.v010, c000.v011, c000.v111));
+            m1 = min(m1, avg3(c000.v100, c000.v101, c000.v111));
+            m1 = min(m1, avg3(c000.v100, c000.v110, c000.v111));
+            m1 = min(m1, avg3(c000.v000, c000.v011, c000.v101));
+            m1 = min(m1, avg3(c000.v010, c000.v100, c000.v111));
+            m1 = min(m1, avg3(c000.v010, c000.v110, c000.v111));
+            m1 = min(m1, avg3(c000.v010, c000.v011, c000.v111));
 
-            t2 = min(t2, avg3(c001.v000, c001.v100, c001.v101));
-            t2 = min(t2, avg3(c001.v000, c001.v001, c001.v101));
-            t2 = min(t2, avg3(c001.v000, c001.v010, c001.v011));
-            t2 = min(t2, avg3(c001.v000, c001.v001, c001.v011));
-            t2 = min(t2, avg3(c001.v010, c001.v100, c001.v111));
-            t2 = min(t2, avg3(c001.v000, c001.v011, c001.v101));
+            m2 = min(m2, avg3(c001.v000, c001.v100, c001.v101));
+            m2 = min(m2, avg3(c001.v000, c001.v001, c001.v101));
+            m2 = min(m2, avg3(c001.v000, c001.v010, c001.v011));
+            m2 = min(m2, avg3(c001.v000, c001.v001, c001.v011));
+            m2 = min(m2, avg3(c001.v010, c001.v100, c001.v111));
+            m2 = min(m2, avg3(c001.v000, c001.v011, c001.v101));
 
-            return max3(t0, t1, t2);
+            return max3(m0, m1, m2);
         }
 
         void main()
@@ -493,45 +493,45 @@ class GPGPUUpdateSlices implements GPGPUProgram
 
         float getMinOnFaceX(vec4 c111, vec4 c110, vec4 c101, vec4 c100)
         {
-            float t10 = c100.z;
+            float m10 = c100.z;
 
-            t10 = max(c101.y, t10);
-            t10 = min(c110.z, t10);
-            t10 = max(c111.x, t10);
+            m10 = max(c101.y, m10);
+            m10 = min(c110.z, m10);
+            m10 = max(c111.x, m10);
 
-            return t10;
+            return m10;
         }
 
         float getMinOnFaceY(vec4 c111, vec4 c110, vec4 c011, vec4 c010)
         {
-            float t01 = c010.z;
+            float m01 = c010.z;
 
-            t01 = max(c011.x, t01);
-            t01 = min(c110.z, t01);
-            t01 = max(c111.y, t01);
+            m01 = max(c011.x, m01);
+            m01 = min(c110.z, m01);
+            m01 = max(c111.y, m01);
 
-            return t01;
+            return m01;
         }
 
         float getMinOnFaceZ(vec4 c111, vec4 c110, vec4 c101, vec4 c011, vec4 c100, vec4 c010, vec4 c001, vec4 c000)
         {
-            float t00, t01, t10, t11;
+            float m00, m01, m10, m11;
 
-            t00 = c000.z;
+            m00 = c000.z;
 
-            t01 = max(c001.y, t00);
-            t01 = min(c010.z, t01);
-            t01 = max(c011.x, t01);
+            m01 = max(c001.y, m00);
+            m01 = min(c010.z, m01);
+            m01 = max(c011.x, m01);
 
-            t10 = max(c001.x, t00);
-            t10 = min(c100.z, t10);
-            t10 = max(c101.y, t10);
+            m10 = max(c001.x, m00);
+            m10 = min(c100.z, m10);
+            m10 = max(c101.y, m10);
 
-            t11 = min(t01, t10);
-            t11 = min(c110.z, t11);
-            t11 = max(c111.z, t11);
+            m11 = min(m01, m10);
+            m11 = min(c110.z, m11);
+            m11 = max(c111.z, m11);
 
-            return t11;
+            return m11;
         }
                 
         void main()
