@@ -2,7 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 
-class GPGPUMinimaMap implements GPGPUProgram 
+class GPGPUMinimaMaps implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -12,27 +12,20 @@ class GPGPUMinimaMap implements GPGPUProgram
 
     constructor
     (
-        inputShape: [number, number, number], 
+        volumeShape: [number, number, number], 
     ) 
     {
-        const [inDepth, inHeight, inWidth] = inputShape
-        const [outDepth, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
+        const [inDepth, inHeight, inWidth] = volumeShape
+        const [outDepth, outHeight, outWidth] = volumeShape.map((x: number) => x + 1)
         this.outputShape = [4, outDepth, outHeight, outWidth, 2, 2]     
         this.userCode = `
 
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
-        float avg3(float a, float b, float c) { return (a + b + c) * (1.0/3.0); }
+        float avg3(float a, float b, float c) { return (1.0/3.0) * (a + b + c); }
         float max3(float a, float b, float c) { return max(max(a, b), c); }
         float min4(float a, float b, float c, float d) { return min(min(min(a, b), c), d); }
-
-        ivec3 flip(ivec3 v, int i)
-        {
-            v.x = (i / 2 == 0) ? v.x : 1 - v.x;
-            v.y = (i % 2 == 0) ? v.y : 1 - v.y;
-            return v;
-        }
 
         struct CellValues 
         { 
@@ -46,10 +39,18 @@ class GPGPUMinimaMap implements GPGPUProgram
             float v111; 
         }; 
 
-        ivec4 getCoords()
+        ivec4 getOutCoords()
         {
             ivec6 coords = getOutputCoords();
             return ivec4(coords.w, coords.z, coords.y, coords.x);
+        }
+
+        ivec3 getInCoords(ivec4 coords, int ox, int oy, int oz)
+        {
+            if (coords.w / 2 == 1) ox = 1-ox;
+            if (coords.w % 2 == 1) oy = 1-oy;
+
+            return coords.xyz - ivec3(ox, oy, oz);
         }
 
         float getA(ivec3 coords)
@@ -62,14 +63,14 @@ class GPGPUMinimaMap implements GPGPUProgram
         {
             CellValues c;
 
-            c.v000 = getA(coords.xyz - flip(ivec3(1,1,1), coords.w));
-            c.v100 = getA(coords.xyz - flip(ivec3(0,1,1), coords.w));
-            c.v010 = getA(coords.xyz - flip(ivec3(1,0,1), coords.w));
-            c.v001 = getA(coords.xyz - flip(ivec3(1,1,0), coords.w));
-            c.v011 = getA(coords.xyz - flip(ivec3(1,0,0), coords.w));
-            c.v101 = getA(coords.xyz - flip(ivec3(0,1,0), coords.w));
-            c.v110 = getA(coords.xyz - flip(ivec3(0,0,1), coords.w));
-            c.v111 = getA(coords.xyz - flip(ivec3(0,0,0), coords.w));
+            c.v000 = getA(getInCoords(coords, 1,1,1));
+            c.v100 = getA(getInCoords(coords, 0,1,1));
+            c.v010 = getA(getInCoords(coords, 1,0,1));
+            c.v001 = getA(getInCoords(coords, 1,1,0));
+            c.v011 = getA(getInCoords(coords, 1,0,0));
+            c.v101 = getA(getInCoords(coords, 0,1,0));
+            c.v110 = getA(getInCoords(coords, 0,0,1));
+            c.v111 = getA(getInCoords(coords, 0,0,0));
 
             return c;
         }
@@ -91,8 +92,8 @@ class GPGPUMinimaMap implements GPGPUProgram
 
         void main()
         {
-            ivec4 coord = getCoords();
-            CellValues c = getValues(coord);
+            ivec4 coords = getOutCoords();
+            CellValues c = getValues(coords);
 
             float xMin = getMinOnFaceX(c);
             float yMin = getMinOnFaceY(c);
@@ -103,8 +104,7 @@ class GPGPUMinimaMap implements GPGPUProgram
         `
     }
 }
-
-class GPGPUMaximaMap implements GPGPUProgram 
+class GPGPUMinimaMaps2 implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -114,25 +114,20 @@ class GPGPUMaximaMap implements GPGPUProgram
 
     constructor
     (
-        inputShape: [number, number, number], 
+        volumeShape: [number, number, number], 
     ) 
     {
-        const [inDepth, inHeight, inWidth] = inputShape
-        const [outDepth, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
+        const [inDepth, inHeight, inWidth] = volumeShape
+        const [outDepth, outHeight, outWidth] = volumeShape.map((x: number) => x + 1)
         this.outputShape = [4, outDepth, outHeight, outWidth, 2, 2]     
         this.userCode = `
 
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
-        float avg3(float a, float b, float c) { return (a + b + c) * (1.0 / 3.0); }
-
-        ivec3 flip(ivec3 v, int i)
-        {
-            v.x = (i / 2 == 0) ? v.x : 1 - v.x;
-            v.y = (i % 2 == 0) ? v.y : 1 - v.y;
-            return v;
-        }
+        float avg3(float a, float b, float c) { return (1.0/3.0) * (a + b + c); }
+        float max3(float a, float b, float c) { return max(max(a, b), c); }
+        float min4(float a, float b, float c, float d) { return min(min(min(a, b), c), d); }
 
         struct CellValues 
         { 
@@ -146,10 +141,26 @@ class GPGPUMaximaMap implements GPGPUProgram
             float v111; 
         }; 
 
-        ivec4 getCoords()
+        ivec4 getOutCoords()
         {
             ivec6 coords = getOutputCoords();
             return ivec4(coords.w, coords.z, coords.y, coords.x);
+        }
+
+        ivec3 getInCoords(ivec4 coords, int ox, int oy, int oz)
+        {
+            if (coords.w / 2 == 1) ox = 1-ox;
+            if (coords.w % 2 == 1) oy = 1-oy;
+
+            return coords.xyz - ivec3(ox, oy, oz);
+        }
+
+        ivec4 getCellCoords(ivec4 coords, int ox, int oy, int oz)
+        {
+            if (coords.w / 2 == 1) ox = -ox;
+            if (coords.w % 2 == 1) oy = -oy;
+            
+            return coords + ivec4(ox, oy, oz, 0);
         }
 
         float getA(ivec3 coords)
@@ -162,14 +173,173 @@ class GPGPUMaximaMap implements GPGPUProgram
         {
             CellValues c;
 
-            c.v000 = getA(coords.xyz - flip(ivec3(1,1,1), coords.w));
-            c.v100 = getA(coords.xyz - flip(ivec3(0,1,1), coords.w));
-            c.v010 = getA(coords.xyz - flip(ivec3(1,0,1), coords.w));
-            c.v001 = getA(coords.xyz - flip(ivec3(1,1,0), coords.w));
-            c.v011 = getA(coords.xyz - flip(ivec3(1,0,0), coords.w));
-            c.v101 = getA(coords.xyz - flip(ivec3(0,1,0), coords.w));
-            c.v110 = getA(coords.xyz - flip(ivec3(0,0,1), coords.w));
-            c.v111 = getA(coords.xyz - flip(ivec3(0,0,0), coords.w));
+            c.v000 =  getA(getInCoords(coords, 1,1,1));
+            c.v100 =  getA(getInCoords(coords, 0,1,1));
+            c.v010 =  getA(getInCoords(coords, 1,0,1));
+            c.v001 =  getA(getInCoords(coords, 1,1,0));
+            c.v011 =  getA(getInCoords(coords, 1,0,0));
+            c.v101 =  getA(getInCoords(coords, 0,1,0));
+            c.v110 =  getA(getInCoords(coords, 0,0,1));
+            c.v111 =  getA(getInCoords(coords, 0,0,0));
+
+            return c;
+        }
+
+        float getMinOnFaceX(CellValues c000, CellValues c100)
+        {
+            float t0 = min4(c000.v100, c000.v110, c000.v101, c000.v111);
+            float t1 = min4(c000.v100, c000.v110, c000.v101, c000.v011);
+            float t2 = min4(c100.v001, c100.v010, c100.v100, c100.v011);
+
+            t1 = min(t1, avg3(c000.v001, c000.v101, c000.v111));
+            t1 = min(t1, avg3(c000.v001, c000.v011, c000.v111));
+            t1 = min(t1, avg3(c000.v000, c000.v101, c000.v110));
+            t1 = min(t1, avg3(c000.v001, c000.v010, c000.v111));
+            t1 = min(t1, avg3(c000.v010, c000.v110, c000.v111));
+            t1 = min(t1, avg3(c000.v010, c000.v011, c000.v111));
+
+            t2 = min(t2, avg3(c100.v000, c100.v010, c100.v110));
+            t2 = min(t2, avg3(c100.v000, c100.v100, c100.v110));
+            t2 = min(t2, avg3(c100.v000, c100.v001, c100.v101));
+            t2 = min(t2, avg3(c100.v000, c100.v100, c100.v101));
+            t2 = min(t2, avg3(c100.v001, c100.v010, c100.v111));
+            t2 = min(t2, avg3(c100.v000, c100.v101, c100.v110));
+
+            return max3(t0, t1, t2);
+        }
+
+        float getMinOnFaceY(CellValues c000, CellValues c010)
+        {
+            float t0 = min4(c000.v010, c000.v110, c000.v011, c000.v111);
+            float t1 = min4(c000.v010, c000.v110, c000.v011, c000.v101);
+            float t2 = min4(c010.v001, c010.v100, c010.v010, c010.v101);
+
+            t1 = min(t1, avg3(c000.v001, c000.v011, c000.v111));
+            t1 = min(t1, avg3(c000.v001, c000.v101, c000.v111));
+            t1 = min(t1, avg3(c000.v000, c000.v011, c000.v110));
+            t1 = min(t1, avg3(c000.v001, c000.v100, c000.v111));
+            t1 = min(t1, avg3(c000.v100, c000.v110, c000.v111));
+            t1 = min(t1, avg3(c000.v100, c000.v101, c000.v111));
+
+            t2 = min(t2, avg3(c010.v000, c010.v100, c010.v110));
+            t2 = min(t2, avg3(c010.v000, c010.v010, c010.v110));
+            t2 = min(t2, avg3(c010.v000, c010.v001, c010.v011));
+            t2 = min(t2, avg3(c010.v000, c010.v010, c010.v011));
+            t2 = min(t2, avg3(c010.v001, c010.v100, c010.v111));
+            t2 = min(t2, avg3(c010.v000, c010.v011, c010.v110));
+
+            return max3(t0, t1, t2);
+        }
+            
+        float getMinOnFaceZ(CellValues c000, CellValues c001)
+        {
+            float t0 = min4(c000.v001, c000.v011, c000.v101, c000.v111);
+            float t1 = min4(c000.v001, c000.v011, c000.v101, c000.v110);
+            float t2 = min4(c001.v100, c001.v010, c001.v001, c001.v110);
+
+            t1 = min(t1, avg3(c000.v100, c000.v101, c000.v111));
+            t1 = min(t1, avg3(c000.v100, c000.v110, c000.v111));
+            t1 = min(t1, avg3(c000.v000, c000.v011, c000.v101));
+            t1 = min(t1, avg3(c000.v010, c000.v100, c000.v111));
+            t1 = min(t1, avg3(c000.v010, c000.v110, c000.v111));
+            t1 = min(t1, avg3(c000.v010, c000.v011, c000.v111));
+
+            t2 = min(t2, avg3(c001.v000, c001.v100, c001.v101));
+            t2 = min(t2, avg3(c001.v000, c001.v001, c001.v101));
+            t2 = min(t2, avg3(c001.v000, c001.v010, c001.v011));
+            t2 = min(t2, avg3(c001.v000, c001.v001, c001.v011));
+            t2 = min(t2, avg3(c001.v010, c001.v100, c001.v111));
+            t2 = min(t2, avg3(c001.v000, c001.v011, c001.v101));
+
+            return max3(t0, t1, t2);
+        }
+
+        void main()
+        {
+            ivec4 outCoords = getOutCoords();
+
+            CellValues c000 = getValues(getCellCoords(outCoords, 0,0,0));
+            CellValues c100 = getValues(getCellCoords(outCoords, 1,0,0));
+            CellValues c010 = getValues(getCellCoords(outCoords, 0,1,0));
+            CellValues c001 = getValues(getCellCoords(outCoords, 0,0,1));
+
+            float xMin = getMinOnFaceX(c000, c100);
+            float yMin = getMinOnFaceY(c000, c010);
+            float zMin = getMinOnFaceZ(c000, c001);
+
+            setOutput(vec4(xMin, yMin, zMin, 0.0));
+        }
+        `
+    }
+}
+
+class GPGPUMaximaMaps implements GPGPUProgram 
+{
+    variableNames = ['A']
+    outputShape: number[]
+    userCode: string
+    packedInputs = false
+    packedOutput = true
+
+    constructor
+    (
+        volumeShape: [number, number, number], 
+    ) 
+    {
+        const [inDepth, inHeight, inWidth] = volumeShape
+        const [outDepth, outHeight, outWidth] = volumeShape.map((x: number) => x + 1)
+        this.outputShape = [4, outDepth, outHeight, outWidth, 2, 2]     
+        this.userCode = `
+
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
+
+        float avg3(float a, float b, float c) { return (1.0/3.0) * (a + b + c); }
+
+        struct CellValues 
+        { 
+            float v000; 
+            float v100; 
+            float v010; 
+            float v001; 
+            float v011; 
+            float v101; 
+            float v110; 
+            float v111; 
+        }; 
+
+        ivec4 getOutCoords()
+        {
+            ivec6 coords = getOutputCoords();
+            return ivec4(coords.w, coords.z, coords.y, coords.x);
+        }
+
+        ivec3 getInCoords(ivec4 coords, int ox, int oy, int oz)
+        {
+            if (coords.w / 2 == 1) ox = 1-ox;
+            if (coords.w % 2 == 1) oy = 1-oy;
+
+            return coords.xyz - ivec3(ox, oy, oz);
+        }
+
+        float getA(ivec3 coords)
+        {
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.z, coords.y, coords.x);
+        }
+
+        CellValues getValues(ivec4 coords)
+        {
+            CellValues c;
+
+            c.v000 = getA(getInCoords(coords, 1,1,1));
+            c.v100 = getA(getInCoords(coords, 0,1,1));
+            c.v010 = getA(getInCoords(coords, 1,0,1));
+            c.v001 = getA(getInCoords(coords, 1,1,0));
+            c.v011 = getA(getInCoords(coords, 1,0,0));
+            c.v101 = getA(getInCoords(coords, 0,1,0));
+            c.v110 = getA(getInCoords(coords, 0,0,1));
+            c.v111 = getA(getInCoords(coords, 0,0,0));
 
             return c;
         }
@@ -259,7 +429,7 @@ class GPGPUMaximaMap implements GPGPUProgram
 
         void main()
         {
-            ivec4 coords = getCoords();
+            ivec4 coords = getOutCoords();
             CellValues c = getValues(coords);
 
             float xMax = getMaxOnFaceX(c);
@@ -273,7 +443,7 @@ class GPGPUMaximaMap implements GPGPUProgram
     }
 }
 
-class GPGPUUpdateSlice implements GPGPUProgram 
+class GPGPUUpdateSlices implements GPGPUProgram 
 {
     variableNames = ['A', 'B']
     outputShape: number[]
@@ -283,29 +453,30 @@ class GPGPUUpdateSlice implements GPGPUProgram
 
     constructor
     (
-        inputShape: [number, number, number], 
+        volumeShape: [number, number, number], 
     ) 
     {
-        const [, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
+        const [, outHeight, outWidth] = volumeShape.map((x: number) => x + 1)
         this.outputShape = [4, outHeight, outWidth, 2, 2]     
         this.userCode = `
 
         const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(3, ${outWidth-1}, ${outHeight-1});
+        const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, 3);
 
         float min3(float a, float b, float c) { return min(min(a, b), c); }
 
-        ivec3 flip(ivec3 v, int i)
-        {
-            v.x = (i / 2 == 0) ? v.x : 1 - v.x;
-            v.y = (i % 2 == 0) ? v.y : 1 - v.y;
-            return v;
-        }
-
-        ivec3 getCoords()
+        ivec3 getOutCoords()
         {
             ivec5 coords = getOutputCoords();
             return ivec3(coords.z, coords.y, coords.x);
+        }
+
+        ivec3 getInCoords(ivec3 coords, int ox, int oy)
+        {
+            if (coords.z / 2 == 1) ox = -ox;
+            if (coords.z % 2 == 1) oy = -oy;
+            
+            return coords - ivec3(ox, oy, 0);
         }
 
         vec4 getA(ivec3 coords)
@@ -365,17 +536,17 @@ class GPGPUUpdateSlice implements GPGPUProgram
                 
         void main()
         {
-            ivec3 coords = getCoords();
+            ivec3 coords = getOutCoords();
 
-            vec4 c111 = getA(coords - flip(ivec3(0,0,0), coords.z));
-            vec4 c011 = getA(coords - flip(ivec3(1,0,0), coords.z));
-            vec4 c101 = getA(coords - flip(ivec3(0,1,0), coords.z));
-            vec4 c001 = getA(coords - flip(ivec3(1,1,0), coords.z));
+            vec4 c111 = getA(getInCoords(coords, 0,0));
+            vec4 c011 = getA(getInCoords(coords, 1,0));
+            vec4 c101 = getA(getInCoords(coords, 0,1));
+            vec4 c001 = getA(getInCoords(coords, 1,1));
 
-            vec4 c110 = getB(coords - flip(ivec3(0,0,0), coords.z));
-            vec4 c010 = getB(coords - flip(ivec3(1,0,0), coords.z));
-            vec4 c100 = getB(coords - flip(ivec3(0,1,0), coords.z));
-            vec4 c000 = getB(coords - flip(ivec3(1,1,0), coords.z));
+            vec4 c110 = getB(getInCoords(coords, 0,0));
+            vec4 c010 = getB(getInCoords(coords, 1,0));
+            vec4 c100 = getB(getInCoords(coords, 0,1));
+            vec4 c000 = getB(getInCoords(coords, 1,1));
 
             c111.x = getMinOnFaceX(c111, c110, c101, c100);
             c111.y = getMinOnFaceY(c111, c110, c011, c010);
@@ -387,67 +558,107 @@ class GPGPUUpdateSlice implements GPGPUProgram
     }
 }
 
-class GPGPUOcclusionMap implements GPGPUProgram 
+class GPGPUOcclusionMaps implements GPGPUProgram 
 {
     variableNames = ['A', 'B']
     outputShape: number[]
     userCode: string
     packedInputs = true
-    packedOutput = false
+    packedOutput = true
 
     constructor
     (
-        inputShape: [number, number, number], 
+        volumeShape: [number, number, number], 
     ) 
     {
-        const [outDepth, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
-        this.outputShape = [outDepth, outHeight, outWidth]     
+        const [outDepth, outHeight, outWidth] = volumeShape.map((x: number) => x + 1)
+        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]     
         this.userCode = `
 
-        const ivec4 minCoords = ivec4(0);
-        const ivec4 maxCoords = ivec4(3, ${outWidth-1}, ${outHeight-1}, ${outDepth-1});
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
-        float max3(float a, float b, float c) { return max(max(a, b), c); }
-
-        ivec3 getCoords()
+        ivec3 getOutCoords()
         {
-            ivec3 coords = getOutputCoords();
+            ivec5 coords = getOutputCoords();
             return ivec3(coords.z, coords.y, coords.x);
         }
 
-        vec4 getA(ivec4 coords)
+        vec4 getA(ivec3 coords, int i)
         {
             coords = clamp(coords, minCoords, maxCoords);
-            return getA(coords.w, coords.z, coords.y, coords.x, 0, 0);
+            return getA(i, coords.z, coords.y, coords.x, 0, 0);
         }
 
-        vec4 getB(ivec4 coords)
+        vec4 getB(ivec3 coords, int i)
         {
             coords = clamp(coords, minCoords, maxCoords);
-            return getB(coords.w, coords.z, coords.y, coords.x, 0, 0);
+            return getB(i, coords.z, coords.y, coords.x, 0, 0);
         }
 
-        int getOcclusion(vec4 minValues, vec4 maxValues)
+        int getOcclusion(ivec3 coords, int i)
         {
-            bvec4 occ = greaterThanEqual(minValues, maxValues);
-            return int(all(occ.xyz) || occ.w);
+            vec4 minValues = getA(coords, i);
+            vec4 maxValues = getB(coords, i);
+
+            bvec4 tests = greaterThanEqual(minValues, maxValues);
+            bool occlusion = all(tests.xyz) || tests.w;
+
+            return int(occlusion);
         }
                 
         void main()
         {
-            ivec3 coords = getCoords();
-            int bitpack = 0;
+            ivec3 coords = getOutCoords();
+            
+            setOutput(vec4(
+                getOcclusion(coords, 0),
+                getOcclusion(coords, 1),
+                getOcclusion(coords, 2),
+                getOcclusion(coords, 3)
+            ));
+        }
+        `
+    }
+}
+class GPGPUReverse5d implements GPGPUProgram 
+{
+    variableNames = ['A']
+    outputShape: number[]
+    userCode: string
+    packedInputs = true
+    packedOutput = true
 
-            for (int i = 0; i < 4; i++)
-            {
-                vec4 minValues = getA(ivec4(coords, i));
-                vec4 maxValues = getB(ivec4(coords, i));
-                int occlusion = getOcclusion(minValues, maxValues);
+    constructor
+    (
+        volumeShape: [number, number, number], 
+    ) 
+    {
+        const [outDepth, outHeight, outWidth] = volumeShape.map((x: number) => x + 1)
+        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]     
+        this.userCode = `
+
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
+
+        ivec3 getOutCoords()
+        {
+            ivec5 coords = getOutputCoords();
+            return ivec3(coords.z, coords.y, coords.x);
+        }
+
+        vec4 getA(ivec3 coords)
+        {
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.z, coords.y, coords.x, 0, 0);
+        }
                 
-                bitpack += occlusion << i;
-            }
-
-            setOutput(float(bitpack));
+        void main()
+        {
+            ivec3 coords = getOutCoords();
+            ivec3 revCoords = maxCoords - coords;
+    
+            setOutput(getA(revCoords));    
         }
         `
     }
@@ -460,16 +671,15 @@ function runProgram(prog: GPGPUProgram, inputs: tf.Tensor[]): tf.Tensor
     return tf.engine().makeTensorFromTensorInfo(info) as tf.Tensor
 }
 
-export function computeOcclusionMap_(volumeMap: tf.Tensor3D) : tf.Tensor<tf.Rank>
+export function computeOneWayOcclusionMaps(volumeMap: tf.Tensor3D) : tf.Tensor5D
 {
-    const minimaProgram = new GPGPUMinimaMap(volumeMap.shape)
-    const maximaProgram = new GPGPUMaximaMap(volumeMap.shape)
-    const updateProgram = new GPGPUUpdateSlice(volumeMap.shape)
-    const occlusionProgram = new GPGPUOcclusionMap(volumeMap.shape)
+    const minimaProgram = new GPGPUMinimaMaps2(volumeMap.shape)
+    const minimaStart = runProgram(minimaProgram, [volumeMap])
+    console.log('minimaStart', tf.tidy(() => minimaStart.unstack(0)[0].mean([0,1,2]).dataSync()))
 
-    let minima = runProgram(minimaProgram, [volumeMap])
-    let slices = tf.unstack(minima, 1)
-    minima.dispose()
+    const updateProgram = new GPGPUUpdateSlices(volumeMap.shape)
+    const slices = tf.unstack(minimaStart, 1)
+    minimaStart.dispose()
 
     for (let i = 1; i < slices.length; i++)
     {
@@ -478,35 +688,34 @@ export function computeOcclusionMap_(volumeMap: tf.Tensor3D) : tf.Tensor<tf.Rank
         slices[i] = updatedSlice
     }
 
-    minima = tf.stack(slices, 1); 
+    const minima = tf.stack(slices, 1); 
     tf.dispose(slices)
+    console.log('minima', tf.tidy(() => minima.unstack(0)[0].mean([0,1,2]).dataSync()))
 
+    const maximaProgram = new GPGPUMaximaMaps(volumeMap.shape)
     const maxima = runProgram(maximaProgram, [volumeMap])
+    console.log('maxima', tf.tidy(() => maxima.unstack(0)[0].mean([0,1,2]).dataSync()))
+
+    const occlusionProgram = new GPGPUOcclusionMaps(volumeMap.shape)
     const occlusion = runProgram(occlusionProgram, [minima, maxima])
     tf.dispose([minima, maxima])
 
-    console.log('occlusionMap', tf.tidy(() => occlusion.floorDiv(1).mod(2).mean().dataSync()))
-    console.log('occlusionMap', tf.tidy(() => occlusion.floorDiv(2).mod(2).mean().dataSync()))
-    console.log('occlusionMap', tf.tidy(() => occlusion.floorDiv(4).mod(2).mean().dataSync()))
-    console.log('occlusionMap', tf.tidy(() => occlusion.floorDiv(8).mod(2).mean().dataSync()))
-    // console.log('occlusionMap', tf.tidy(() => occlusion.mean().dataSync()))
+    console.log('occlusionMap', tf.tidy(() => occlusion.mean([0,1,2]).dataSync()))
 
-    return occlusion as tf.Tensor
+    return occlusion as tf.Tensor5D
 }
 
-type Axis = 0 | 1 | 2;
-type Reverses =  Axis[];
-type Permutations = [Axis, Axis, Axis];
-
-export function computeOcclusionMap(volumeMap: tf.Tensor3D): tf.Tensor3D
+export function computeOcclusionMaps(volumeMap: tf.Tensor3D): tf.Tensor3D
 {
-    const occlusion0 = tf.tidy(() => computeOcclusionMap_(volumeMap))
-    const occlusion1 = tf.tidy(() => tf.reverse(computeOcclusionMap_(tf.reverse(volumeMap))))
+    const occlusionMapPos = tf.tidy(() => computeOneWayOcclusionMaps(volumeMap))
 
-    const occlusionMap = tf.maximum(occlusion0, occlusion1)
-    tf.dispose([occlusion0, occlusion1])
+    const reverse5d = new GPGPUReverse5d(volumeMap.shape)
+    const occlusionMapNeg = tf.tidy(() => runProgram(reverse5d, [computeOneWayOcclusionMaps(tf.reverse(volumeMap))]))
 
-    console.log('occlusionMap', occlusionMap.mean().dataSync())
+    const occlusionMap = tf.maximum(occlusionMapPos, occlusionMapNeg)
+    tf.dispose([occlusionMapPos, occlusionMapNeg])
+
+    console.log('occlusionMap',  tf.tidy(() => occlusionMap.mean([0,1,2]).dataSync()))
 
     return occlusionMap as tf.Tensor3D
 }
