@@ -2,7 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 
-class GPGPUMinimaMapsOld implements GPGPUProgram 
+class GPGPUMinimaMaps0 implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -50,7 +50,7 @@ class GPGPUMinimaMapsOld implements GPGPUProgram
             if (coords.w / 2 == 1) ox = 1-ox;
             if (coords.w % 2 == 1) oy = 1-oy;
 
-            return coords.xyz - ivec3(ox, oy, oz);
+            return coords.xyz + ivec3(ox, oy, oz);
         }
 
         float getA(ivec3 coords)
@@ -63,14 +63,16 @@ class GPGPUMinimaMapsOld implements GPGPUProgram
         {
             CellValues c;
 
-            c.v000 = getA(getInCoords(coords, 1,1,1));
-            c.v100 = getA(getInCoords(coords, 0,1,1));
-            c.v010 = getA(getInCoords(coords, 1,0,1));
-            c.v001 = getA(getInCoords(coords, 1,1,0));
-            c.v011 = getA(getInCoords(coords, 1,0,0));
-            c.v101 = getA(getInCoords(coords, 0,1,0));
-            c.v110 = getA(getInCoords(coords, 0,0,1));
-            c.v111 = getA(getInCoords(coords, 0,0,0));
+            coords = coords - 1;
+
+            c.v000 = getA(getInCoords(coords, 0,0,0));
+            c.v100 = getA(getInCoords(coords, 1,0,0));
+            c.v010 = getA(getInCoords(coords, 0,1,0));
+            c.v001 = getA(getInCoords(coords, 0,0,1));
+            c.v011 = getA(getInCoords(coords, 0,1,1));
+            c.v101 = getA(getInCoords(coords, 1,0,1));
+            c.v110 = getA(getInCoords(coords, 1,1,0));
+            c.v111 = getA(getInCoords(coords, 1,1,1));
 
             return c;
         }
@@ -152,7 +154,7 @@ class GPGPUMinimaMaps implements GPGPUProgram
             if (coords.w / 2 == 1) ox = 1-ox;
             if (coords.w % 2 == 1) oy = 1-oy;
 
-            return coords.xyz - ivec3(ox, oy, oz);
+            return coords.xyz + ivec3(ox, oy, oz);
         }
 
         ivec4 getCellCoords(ivec4 coords, int ox, int oy, int oz)
@@ -173,14 +175,16 @@ class GPGPUMinimaMaps implements GPGPUProgram
         {
             CellValues c;
 
-            c.v000 =  getA(getInCoords(coords, 1,1,1));
-            c.v100 =  getA(getInCoords(coords, 0,1,1));
-            c.v010 =  getA(getInCoords(coords, 1,0,1));
-            c.v001 =  getA(getInCoords(coords, 1,1,0));
-            c.v011 =  getA(getInCoords(coords, 1,0,0));
-            c.v101 =  getA(getInCoords(coords, 0,1,0));
-            c.v110 =  getA(getInCoords(coords, 0,0,1));
-            c.v111 =  getA(getInCoords(coords, 0,0,0));
+            coords = coords - 1;
+
+            c.v000 =  getA(getInCoords(coords, 0,0,0));
+            c.v100 =  getA(getInCoords(coords, 1,0,0));
+            c.v010 =  getA(getInCoords(coords, 0,1,0));
+            c.v001 =  getA(getInCoords(coords, 0,0,1));
+            c.v011 =  getA(getInCoords(coords, 0,1,1));
+            c.v101 =  getA(getInCoords(coords, 1,0,1));
+            c.v110 =  getA(getInCoords(coords, 1,1,0));
+            c.v111 =  getA(getInCoords(coords, 1,1,1));
 
             return c;
         }
@@ -319,7 +323,7 @@ class GPGPUMaximaMaps implements GPGPUProgram
             if (coords.w / 2 == 1) ox = 1-ox;
             if (coords.w % 2 == 1) oy = 1-oy;
 
-            return coords.xyz - ivec3(ox, oy, oz);
+            return coords.xyz + ivec3(ox, oy, oz);
         }
 
         float getA(ivec3 coords)
@@ -332,14 +336,16 @@ class GPGPUMaximaMaps implements GPGPUProgram
         {
             CellValues c;
 
-            c.v000 = getA(getInCoords(coords, 1,1,1));
-            c.v100 = getA(getInCoords(coords, 0,1,1));
-            c.v010 = getA(getInCoords(coords, 1,0,1));
-            c.v001 = getA(getInCoords(coords, 1,1,0));
-            c.v011 = getA(getInCoords(coords, 1,0,0));
-            c.v101 = getA(getInCoords(coords, 0,1,0));
-            c.v110 = getA(getInCoords(coords, 0,0,1));
-            c.v111 = getA(getInCoords(coords, 0,0,0));
+            coords = coords - 1;
+
+            c.v000 = getA(getInCoords(coords, 0,0,0));
+            c.v100 = getA(getInCoords(coords, 1,0,0));
+            c.v010 = getA(getInCoords(coords, 0,1,0));
+            c.v001 = getA(getInCoords(coords, 0,0,1));
+            c.v011 = getA(getInCoords(coords, 0,1,1));
+            c.v101 = getA(getInCoords(coords, 1,0,1));
+            c.v110 = getA(getInCoords(coords, 1,1,0));
+            c.v111 = getA(getInCoords(coords, 1,1,1));
 
             return c;
         }
@@ -443,7 +449,7 @@ class GPGPUMaximaMaps implements GPGPUProgram
     }
 }
 
-class GPGPUUpdateSlices implements GPGPUProgram 
+class GPGPUUpdateMinimaSlices implements GPGPUProgram 
 {
     variableNames = ['A', 'B']
     outputShape: number[]
@@ -476,7 +482,7 @@ class GPGPUUpdateSlices implements GPGPUProgram
             if (coords.z / 2 == 1) ox = -ox;
             if (coords.z % 2 == 1) oy = -oy;
             
-            return coords - ivec3(ox, oy, 0);
+            return coords + ivec3(ox, oy, 0);
         }
 
         vec4 getA(ivec3 coords)
@@ -538,15 +544,122 @@ class GPGPUUpdateSlices implements GPGPUProgram
         {
             ivec3 coords = getOutCoords();
 
-            vec4 c111 = getA(getInCoords(coords, 0,0));
-            vec4 c011 = getA(getInCoords(coords, 1,0));
-            vec4 c101 = getA(getInCoords(coords, 0,1));
-            vec4 c001 = getA(getInCoords(coords, 1,1));
+            vec4 c111 = getA(getInCoords(coords, -0,-0));
+            vec4 c011 = getA(getInCoords(coords, -1,-0));
+            vec4 c101 = getA(getInCoords(coords, -0,-1));
+            vec4 c001 = getA(getInCoords(coords, -1,-1));
+            vec4 c110 = getB(getInCoords(coords, -0,-0));
+            vec4 c010 = getB(getInCoords(coords, -1,-0));
+            vec4 c100 = getB(getInCoords(coords, -0,-1));
+            vec4 c000 = getB(getInCoords(coords, -1,-1));
 
-            vec4 c110 = getB(getInCoords(coords, 0,0));
-            vec4 c010 = getB(getInCoords(coords, 1,0));
-            vec4 c100 = getB(getInCoords(coords, 0,1));
-            vec4 c000 = getB(getInCoords(coords, 1,1));
+            c111.x = getMinOnFaceX(c111, c110, c101, c100);
+            c111.y = getMinOnFaceY(c111, c110, c011, c010);
+            c111.z = getMinOnFaceZ(c111, c110, c101, c011, c100, c010, c001, c000);
+
+            setOutput(c111);
+        }
+        `
+    }
+}
+
+class GPGPUUpdateMinimaMaps implements GPGPUProgram 
+{
+    variableNames = ['A']
+    outputShape: number[]
+    userCode: string
+    packedInputs = true
+    packedOutput = true
+
+    constructor
+    (
+        inputShape: [number, number, number], 
+    ) 
+    {
+        const [outDepth, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
+        this.outputShape = [4, outDepth, outHeight, outWidth, 2, 2]     
+        this.userCode = `
+
+        const ivec4 minCoords = ivec4(0);
+        const ivec4 maxCoords = ivec4(${outWidth-1}, ${outHeight-1}, ${outDepth-1}, 3);
+
+        float min3(float a, float b, float c) { return min(min(a, b), c); }
+
+        ivec4 getOutCoords()
+        {
+            ivec6 coords = getOutputCoords();
+            return ivec4(coords.w, coords.z, coords.y, coords.x);
+        }
+
+        ivec4 getInCoords(ivec4 coords, int ox, int oy, int oz)
+        {
+            if (coords.w / 2 == 1) ox = -ox;
+            if (coords.w % 2 == 1) oy = -oy;
+            
+            return coords + ivec4(ox, oy, oz, 0);
+        }
+
+        vec4 getA(ivec4 coords)
+        {
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.w, coords.z, coords.y, coords.x, 0, 0);
+        }
+
+        float getMinOnFaceX(vec4 c111, vec4 c110, vec4 c101, vec4 c100)
+        {
+            float t10 = c100.z;
+            
+            t10 = max(c101.y, t10);
+            t10 = min(c110.z, t10);
+            t10 = max(c111.x, t10);
+
+            return t10;
+        }
+
+        float getMinOnFaceY(vec4 c111, vec4 c110, vec4 c011, vec4 c010)
+        {
+            float t01 = c010.z;
+
+            t01 = max(c011.x, t01);
+            t01 = min(c110.z, t01);
+            t01 = max(c111.y, t01);
+
+            return t01;
+        }
+
+        float getMinOnFaceZ(vec4 c111, vec4 c110, vec4 c101, vec4 c011, vec4 c100, vec4 c010, vec4 c001, vec4 c000)
+        {
+            float t00, t01, t10, t11;
+
+            t00 = c000.z;
+
+            t01 = max(c001.y, t00);
+            t01 = min(c010.z, t01);
+            t01 = max(c011.x, t01);
+
+            t10 = max(c001.x, t00);
+            t10 = min(c100.z, t10);
+            t10 = max(c101.y, t10);
+
+            t11 = min(t01, t10);
+            t11 = min(c110.z, t11);
+            t11 = max(c111.z, t11);
+
+            return t11;
+        }
+                
+        void main()
+        {
+            ivec4 coords = getOutCoords();
+
+            vec4 c111 = getA(getInCoords(coords, -0,-0,-0));
+            vec4 c011 = getA(getInCoords(coords, -1,-0,-0));
+            vec4 c101 = getA(getInCoords(coords, -0,-1,-0));
+            vec4 c001 = getA(getInCoords(coords, -1,-1,-0));
+            vec4 c110 = getA(getInCoords(coords, -0,-0,-1));
+            vec4 c010 = getA(getInCoords(coords, -1,-0,-1));
+            vec4 c100 = getA(getInCoords(coords, -0,-1,-1));
+            vec4 c000 = getA(getInCoords(coords, -1,-1,-1));
 
             c111.x = getMinOnFaceX(c111, c110, c101, c100);
             c111.y = getMinOnFaceY(c111, c110, c011, c010);
@@ -675,9 +788,9 @@ export function computeOneWayOcclusionMaps(volumeMap: tf.Tensor3D) : tf.Tensor5D
 {
     const minimaProgram = new GPGPUMinimaMaps(volumeMap.shape)
     const minimaStart = runProgram(minimaProgram, [volumeMap])
-    // console.log('minimaStart', tf.tidy(() => minimaStart.unstack(0)[0].mean([0,1,2]).dataSync()))
+    console.log('minimaStart', tf.tidy(() => minimaStart.unstack(0)[0].mean([0,1,2]).dataSync()))
 
-    const updateProgram = new GPGPUUpdateSlices(volumeMap.shape)
+    const updateProgram = new GPGPUUpdateMinimaSlices(volumeMap.shape)
     const slices = tf.unstack(minimaStart, 1)
     minimaStart.dispose()
 
@@ -690,16 +803,46 @@ export function computeOneWayOcclusionMaps(volumeMap: tf.Tensor3D) : tf.Tensor5D
 
     const minima = tf.stack(slices, 1); 
     tf.dispose(slices)
-    // console.log('minima', tf.tidy(() => minima.unstack(0)[0].mean([0,1,2]).dataSync()))
+    console.log('minima', tf.tidy(() => minima.unstack(0)[0].mean([0,1,2]).dataSync()))
 
     const maximaProgram = new GPGPUMaximaMaps(volumeMap.shape)
     const maxima = runProgram(maximaProgram, [volumeMap])
-    // console.log('maxima', tf.tidy(() => maxima.unstack(0)[0].mean([0,1,2]).dataSync()))
+    console.log('maxima', tf.tidy(() => maxima.unstack(0)[0].mean([0,1,2]).dataSync()))
 
     const occlusionProgram = new GPGPUOcclusionMaps(volumeMap.shape)
     const occlusion = runProgram(occlusionProgram, [minima, maxima])
     tf.dispose([minima, maxima])
-    // console.log('occlusionMap', tf.tidy(() => occlusion.mean([0,1,2]).dataSync()))
+    console.log('occlusionMap', tf.tidy(() => occlusion.mean([0,1,2]).dataSync()))
+
+    return occlusion as tf.Tensor5D
+}
+
+export async function computeOneWayOcclusionMaps2(volumeMap: tf.Tensor3D) : Promise<tf.Tensor5D>
+{
+    const updateProgram = new GPGPUUpdateMinimaMaps(volumeMap.shape)
+    const minimaProgram = new GPGPUMinimaMaps(volumeMap.shape)
+    let minima = runProgram(minimaProgram, [volumeMap])
+    console.log('minima', tf.tidy(() => minima.unstack(0)[0].mean([0,1,2]).dataSync()))
+
+    for (let i = 0; i < volumeMap.shape[0]; i++)
+    {
+        const temp = runProgram(updateProgram, [minima])
+        tf.dispose(minima)
+        minima = temp
+
+        console.log(i, tf.memory())
+        await tf.nextFrame()
+    }
+    console.log('minima', tf.tidy(() => minima.unstack(0)[0].mean([0,1,2]).dataSync()))
+
+    const maximaProgram = new GPGPUMaximaMaps(volumeMap.shape)
+    const maxima = runProgram(maximaProgram, [volumeMap])
+    console.log('maxima', tf.tidy(() => maxima.unstack(0)[0].mean([0,1,2]).dataSync()))
+
+    const occlusionProgram = new GPGPUOcclusionMaps(volumeMap.shape)
+    const occlusion = runProgram(occlusionProgram, [minima, maxima])
+    tf.dispose([minima, maxima])
+    console.log('occlusionMap', tf.tidy(() => occlusion.mean([0,1,2]).dataSync()))
 
     return occlusion as tf.Tensor5D
 }
@@ -707,7 +850,7 @@ export function computeOneWayOcclusionMaps(volumeMap: tf.Tensor3D) : tf.Tensor5D
 export function computeOcclusionMaps(volumeMap: tf.Tensor3D): tf.Tensor3D
 {
     const reverse5d = new GPGPUReverse5d(volumeMap.shape)
-    const occlusionMapPos = tf.tidy(() => computeOneWayOcclusionMaps(volumeMap))
+    const occlusionMapPos = computeOneWayOcclusionMaps(volumeMap)
     const occlusionMapNeg = tf.tidy(() => runProgram(reverse5d, [computeOneWayOcclusionMaps(tf.reverse(volumeMap))]))
 
     const occlusionMap = tf.maximum(occlusionMapPos, occlusionMapNeg)

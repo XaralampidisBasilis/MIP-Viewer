@@ -36,8 +36,8 @@ export default class Computes extends EventEmitter
     setMaps()
     {
         this.volumeMap = new VolumeMap()
-        this.interpolationMap = new InterpolationMap()
         this.occlusionMap = new OcclusionMap()
+        this.interpolationMap = new InterpolationMap()
         this.extremaMap = new ExtremaMap()
         this.occupancyMap = new OccupancyMap()
         this.isotropicDistanceMap = new IsotropicDistanceMap()
@@ -67,31 +67,33 @@ export default class Computes extends EventEmitter
         console.time('start@Computes') 
 
         this.volumeMap.computeTensor()
+
         await this.occlusionMap.computeTensor()
         this.occlusionMap.computeTexture()
         this.occlusionMap.tensor.dispose()
+
         await tf.nextFrame()
 
-        this.interpolationMap.computeTensor()
-        this.volumeMap.tensor.dispose()
-        await tf.nextFrame()
+        // this.interpolationMap.computeTensor()
+        // this.volumeMap.tensor.dispose()
+        // await tf.nextFrame()
 
-        this.extremaMap.computeTensor()
-        this.interpolationMap.computeTexture()
-        this.interpolationMap.tensor.dispose()
-        await tf.nextFrame()
+        // this.extremaMap.computeTensor()
+        // this.interpolationMap.computeTexture()
+        // this.interpolationMap.tensor.dispose()
+        // await tf.nextFrame()
 
-        this.occupancyMap.computeTensor()
-        this.distanceMap.computeTensor()
-        await tf.nextFrame()
+        // this.occupancyMap.computeTensor()
+        // this.distanceMap.computeTensor()
+        // await tf.nextFrame()
 
-        this.occupancyMap.computeTexture()
-        this.occupancyMap.tensor.dispose()
-        await tf.nextFrame()
+        // this.occupancyMap.computeTexture()
+        // this.occupancyMap.tensor.dispose()
+        // await tf.nextFrame()
 
-        this.distanceMap.computeTexture()
-        this.distanceMap.tensor.dispose()
-        await tf.nextFrame()
+        // this.distanceMap.computeTexture()
+        // this.distanceMap.tensor.dispose()
+        // await tf.nextFrame()
 
         console.timeEnd('start@Computes') 
         this.printResources()
