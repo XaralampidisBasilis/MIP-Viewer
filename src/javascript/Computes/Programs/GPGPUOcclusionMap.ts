@@ -126,6 +126,7 @@ class GPGPUMaximaMap0 implements GPGPUProgram
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
         float avg3(float a, float b, float c) { return (a + b + c) * (1.0 / 3.0); }
+        float max4(float a, float b, float c, float d) { return max(max(max(a, b), c), d); }
 
         struct CellValues 
         { 
@@ -301,7 +302,7 @@ class GPGPUMinimaMap implements GPGPUProgram
             m2 = min(m2, avg3(c100.v001, c100.v010, c100.v111));
             m2 = min(m2, avg3(c100.v000, c100.v101, c100.v110));
 
-            return max3(m0, m1, m2);
+            return max3(m0, m1, m1);
         }
 
         float getMinOnFaceY(CellValues c000, CellValues c010)
@@ -324,7 +325,7 @@ class GPGPUMinimaMap implements GPGPUProgram
             m2 = min(m2, avg3(c010.v001, c010.v100, c010.v111));
             m2 = min(m2, avg3(c010.v000, c010.v011, c010.v110));
 
-            return max3(m0, m1, m2);
+            return max3(m0, m1, m1);
         }
             
         float getMinOnFaceZ(CellValues c000, CellValues c001)
@@ -347,7 +348,7 @@ class GPGPUMinimaMap implements GPGPUProgram
             m2 = min(m2, avg3(c001.v010, c001.v100, c001.v111));
             m2 = min(m2, avg3(c001.v000, c001.v011, c001.v101));
 
-            return max3(m0, m1, m2);
+            return max3(m0, m1, m1);
         }
 
         void main()
@@ -820,10 +821,42 @@ function runProgram(prog: GPGPUProgram, inputs: tf.Tensor[]): tf.Tensor
     const info = backend.compileAndRun(prog, inputs)
     return tf.engine().makeTensorFromTensorInfo(info) as tf.Tensor
 }
+export function computeOneWayOcclusionMap0(volumeMap: tf.Tensor3D) : tf.Tensor<tf.Rank>
+{
+    const minimaProgram = new GPGPUMinimaMap0(volumeMap.shape)
+    const minimaStart = runProgram(minimaProgram, [volumeMap])
+    console.log('minimaStart', tf.tidy(() => minimaStart.mean([0,1,2]).dataSync())) 
+
+    const updateProgram = new GPGPUUpdateMinimaSlices(volumeMap.shape)
+    const slices = tf.unstack(minimaStart, 0)
+    minimaStart.dispose()
+
+    for (let i = 1; i < slices.length; i++)
+    {
+        const updatedSlice = runProgram(updateProgram, [slices[i], slices[i-1]])
+        tf.dispose(slices[i])
+        slices[i] = updatedSlice
+    }
+
+    const minima = tf.stack(slices, 0)
+    tf.dispose(slices)
+    console.log('minima', tf.tidy(() => minima.mean([0,1,2]).dataSync())) 
+    
+    const maximaProgram = new GPGPUMaximaMap0(volumeMap.shape)
+    const maxima = runProgram(maximaProgram, [volumeMap])
+    console.log('maxima', tf.tidy(() => maxima.mean([0,1,2]).dataSync())) 
+
+    const occlusionProgram = new GPGPUOcclusionMap(volumeMap.shape)
+    const occlusion = runProgram(occlusionProgram, [minima, maxima])
+    tf.dispose([minima, maxima])
+    console.log('occlusion', tf.tidy(() => occlusion.mean().dataSync()))
+
+    return occlusion as tf.Tensor
+}
 
 export function computeOneWayOcclusionMap(volumeMap: tf.Tensor3D) : tf.Tensor<tf.Rank>
 {
-    const minimaProgram = new GPGPUMinimaMap(volumeMap.shape)
+    const minimaProgram = new GPGPUMinimaMap0(volumeMap.shape)
     const minimaStart = runProgram(minimaProgram, [volumeMap])
     console.log('minimaStart', tf.tidy(() => minimaStart.mean([0,1,2]).dataSync())) 
 
@@ -881,6 +914,18 @@ export async function computeOneWayOcclusionMap2(volumeMap: tf.Tensor3D) : Promi
     console.log('occlusion', tf.tidy(() => occlusion.mean().dataSync()))
 
     return occlusion as tf.Tensor
+}
+
+export function computeOcclusionMap0(volumeMap: tf.Tensor3D): tf.Tensor3D
+{
+    const occlusionMapPos = computeOneWayOcclusionMap0(volumeMap)
+    const occlusionMapNeg = tf.tidy(() => tf.reverse(computeOneWayOcclusionMap0(tf.reverse(volumeMap))))
+
+    const occlusionMap = tf.maximum(occlusionMapPos, occlusionMapNeg)
+    tf.dispose([occlusionMapPos, occlusionMapNeg])
+    console.log('occlusionMap', tf.tidy(() => occlusionMap.mean().dataSync()))
+
+    return occlusionMap as tf.Tensor3D
 }
 
 export function computeOcclusionMap(volumeMap: tf.Tensor3D): tf.Tensor3D

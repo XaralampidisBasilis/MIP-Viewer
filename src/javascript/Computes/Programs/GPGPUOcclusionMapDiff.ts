@@ -47,12 +47,12 @@ class GPGPUMinDiffMap implements GPGPUProgram
 
         ivec3 getInCoords(ivec3 coords, int ox, int oy, int oz)
         {
-            return  coords + ivec3(ox, oy, oz);
+            return coords + ivec3(ox, oy, oz);
         }
 
         ivec3 getCellCoords(ivec3 coords, int ox, int oy, int oz)
         {
-            return  coords + ivec3(ox, oy, oz);
+            return coords + ivec3(ox, oy, oz);
         }
 
         float getA(ivec3 coords)
@@ -79,67 +79,59 @@ class GPGPUMinDiffMap implements GPGPUProgram
             return c;
         }
 
-        float getMinDiffOnFaceX(CellValues c111, CellValues c110, CellValues c101, CellValues c100)
+        float getMinDiffOnFaceX(CellValues c)
         {
-            float m111 = min4(c111.v000, c111.v010, c111.v100, c111.v110);
-            float m110 = min4(c110.v000, c110.v010, c110.v100, c110.v110);
-            float m101 = min4(c101.v000, c101.v010, c101.v100, c101.v110);
-            float m100 = min4(c100.v000, c100.v010, c100.v100, c100.v110);
+            float m = 1.0/0.0;
 
-            float d111 = m111 - c111.v111;
-            float d110 = m110 - c111.v110;
-            float d101 = m101 - c111.v101;
-            float d100 = m100 - c111.v100;
+            m = min(m, c.v000 - c.v111);
+            m = min(m, c.v010 - c.v111);
+            m = min(m, c.v100 - c.v111);
+            m = min(m, c.v110 - c.v111);
+            m = min(m, c.v000 - c.v101);
+            m = min(m, c.v100 - c.v101);
 
-            return max(min4(d111, d110, d101, d100), 0.0);
+            return max(m, 0.0);
         }
 
-        float getMinDiffOnFaceY(CellValues c111, CellValues c110, CellValues c011, CellValues c010)
+        float getMinDiffOnFaceY(CellValues c)
         {
-            float m111 = min4(c111.v000, c111.v010, c111.v100, c111.v110);
-            float m110 = min4(c110.v000, c110.v010, c110.v100, c110.v110);
-            float m011 = min4(c011.v000, c011.v010, c011.v100, c011.v110);
-            float m010 = min4(c010.v000, c010.v010, c010.v100, c010.v110);
+            float m = 1.0/0.0;
 
-            float d111 = m111 - c111.v111;
-            float d110 = m110 - c111.v110;
-            float d011 = m011 - c111.v011;
-            float d010 = m010 - c111.v010;
+            m = min(m, c.v000 - c.v111);
+            m = min(m, c.v100 - c.v111);
+            m = min(m, c.v010 - c.v111);
+            m = min(m, c.v110 - c.v111);
+            m = min(m, c.v000 - c.v011);
+            m = min(m, c.v010 - c.v011);
 
-            return max(min4(d111, d110, d011, d010), 0.0);
+            return max(m, 0.0);
         }
             
-        float getMinDiffOnFaceZ(CellValues c111, CellValues c101,  CellValues c011,  CellValues c001)
+        float getMinDiffOnFaceZ(CellValues c)
         {
-            float m111 = min4(c111.v000, c111.v010, c111.v100, c111.v110);
-            float m101 = min4(c101.v000, c101.v010, c101.v100, c101.v110);
-            float m011 = min4(c011.v000, c011.v010, c011.v100, c011.v110);
-            float m001 = min4(c001.v000, c001.v010, c001.v100, c001.v110);
-            
-            float d111 = m111 - c111.v111;
-            float d101 = m101 - c111.v101;
-            float d011 = m011 - c111.v011;
-            float d001 = m001 - c111.v001;
+            float m = 1.0/0.0;
 
-            return max(min4(d111, d101, d011, d001), 0.0);
+            m = min(m, c.v000 - c.v111);
+            m = min(m, c.v010 - c.v111);
+            m = min(m, c.v100 - c.v111);
+            m = min(m, c.v110 - c.v111);
+            m = min(m, c.v000 - c.v101);
+            m = min(m, c.v100 - c.v101);
+            m = min(m, c.v000 - c.v011);
+            m = min(m, c.v010 - c.v011);
+            m = min(m, c.v000 - c.v001);
+
+            return max(m, 0.0);
         }
 
         void main()
         {
             ivec3 coords = getOutCoords();
-
-            CellValues c111 = getValues(getInCoords(coords, -0,-0,-0));
-            CellValues c011 = getValues(getInCoords(coords, -1,-0,-0));
-            CellValues c101 = getValues(getInCoords(coords, -0,-1,-0));
-            CellValues c001 = getValues(getInCoords(coords, -1,-1,-0));
-            CellValues c110 = getValues(getInCoords(coords, -0,-0,-1));
-            CellValues c010 = getValues(getInCoords(coords, -1,-0,-1));
-            CellValues c100 = getValues(getInCoords(coords, -0,-1,-1));
-            CellValues c000 = getValues(getInCoords(coords, -1,-1,-1));
-
-            float xMin = getMinDiffOnFaceX(c111, c110, c101, c100);
-            float yMin = getMinDiffOnFaceY(c111, c110, c011, c010);
-            float zMin = getMinDiffOnFaceZ(c111, c101, c011, c001);
+            CellValues c = getValues(coords);
+        
+            float xMin = getMinDiffOnFaceX(c);
+            float yMin = getMinDiffOnFaceY(c);
+            float zMin = getMinDiffOnFaceZ(c);
 
             setOutput(vec4(xMin, yMin, zMin, 0.0));
         }
