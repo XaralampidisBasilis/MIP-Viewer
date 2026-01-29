@@ -106,6 +106,111 @@ class GPGPUMinimaMaps0 implements GPGPUProgram
         `
     }
 }
+
+class GPGPUMaximaMaps0 implements GPGPUProgram 
+{
+    variableNames = ['A']
+    outputShape: number[]
+    userCode: string
+    packedInputs = false
+    packedOutput = true
+
+    constructor
+    (
+        volumeShape: [number, number, number], 
+    ) 
+    {
+        const [inDepth, inHeight, inWidth] = volumeShape
+        const [outDepth, outHeight, outWidth] = volumeShape.map((x: number) => x + 1)
+        this.outputShape = [4, outDepth, outHeight, outWidth, 2, 2]     
+        this.userCode = `
+
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
+
+        float avg3(float a, float b, float c) { return (1.0/3.0) * (a + b + c); }
+
+        struct CellValues 
+        { 
+            float v000; 
+            float v100; 
+            float v010; 
+            float v001; 
+            float v011; 
+            float v101; 
+            float v110; 
+            float v111; 
+        }; 
+
+        ivec4 getOutCoords()
+        {
+            ivec6 coords = getOutputCoords();
+            return ivec4(coords.w, coords.z, coords.y, coords.x);
+        }
+
+        ivec3 getInCoords(ivec4 coords, int ox, int oy, int oz)
+        {
+            if (coords.w / 2 == 1) ox = 1-ox;
+            if (coords.w % 2 == 1) oy = 1-oy;
+
+            return ivec3(coords.x + ox, coords.y + oy, coords.z + oz);
+        }
+
+        float getA(ivec3 coords)
+        {
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.z, coords.y, coords.x);
+        }
+
+        CellValues getValues(ivec4 coords)
+        {
+            CellValues c;
+
+            coords = coords - 1;
+
+            c.v000 = getA(getInCoords(coords, 0,0,0));
+            c.v100 = getA(getInCoords(coords, 1,0,0));
+            c.v010 = getA(getInCoords(coords, 0,1,0));
+            c.v001 = getA(getInCoords(coords, 0,0,1));
+            c.v011 = getA(getInCoords(coords, 0,1,1));
+            c.v101 = getA(getInCoords(coords, 1,0,1));
+            c.v110 = getA(getInCoords(coords, 1,1,0));
+            c.v111 = getA(getInCoords(coords, 1,1,1));
+
+            return c;
+        }
+
+        float getMaxOnFaceX(CellValues c)
+        {
+            return max4(c.v100, c.v110, c.v101, c.v111);
+        }
+    
+        float getMaxOnFaceY(CellValues c)
+        {
+            return max4(c.v010, c.v110, c.v011, c.v111);
+        }
+
+        float getMaxOnFaceZ(CellValues c)
+        {
+            return max4(c.v001, c.v011, c.v101, c.v111);
+        }
+
+        void main()
+        {
+            ivec4 coords = getOutCoords();
+            CellValues c = getValues(coords);
+
+            float xMax = getMaxOnFaceX(c);
+            float yMax = getMaxOnFaceY(c);
+            float zMax = getMaxOnFaceZ(c);
+            float wMax = getMaxOnCell(c);
+
+            setOutput(vec4(xMax, yMax, zMax, 1.0));
+        }
+        `
+    }
+}
+
 class GPGPUMinimaMaps implements GPGPUProgram 
 {
     variableNames = ['A']

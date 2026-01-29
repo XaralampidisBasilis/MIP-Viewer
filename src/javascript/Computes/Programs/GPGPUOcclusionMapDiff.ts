@@ -2,109 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 
-class GPGPUMinimaMap0 implements GPGPUProgram 
-{
-    variableNames = ['A']
-    outputShape: number[]
-    userCode: string
-    packedInputs = false
-    packedOutput = true
-
-    constructor
-    (
-        inputShape: [number, number, number], 
-    ) 
-    {
-        const [inDepth, inHeight, inWidth] = inputShape
-        const [outDepth, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
-        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]     
-        this.userCode = `
-
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
-
-        float avg3(float a, float b, float c) { return (a + b + c) * (1.0/3.0); }
-        float max3(float a, float b, float c) { return max(max(a, b), c); }
-        float min4(float a, float b, float c, float d) { return min(min(min(a, b), c), d); }
-
-        struct CellValues 
-        { 
-            float v000; 
-            float v100; 
-            float v010; 
-            float v001; 
-            float v011; 
-            float v101; 
-            float v110; 
-            float v111; 
-        }; 
-
-        ivec3 getOutCoords()
-        {
-            ivec5 coords = getOutputCoords();
-            return ivec3(coords.z, coords.y, coords.x);
-        }
-
-        ivec3 getInCoords(ivec3 coords, int ox, int oy, int oz)
-        {
-            return  coords + ivec3(ox, oy, oz);
-        }
-
-        float getA(ivec3 coords)
-        {
-            coords = clamp(coords, minCoords, maxCoords);
-            return getA(coords.z, coords.y, coords.x);
-        }
-
-        CellValues getValues(ivec3 coords)
-        {
-            CellValues c;
-
-            coords = coords - 1;
-
-            c.v000 = getA(getInCoords(coords, 0,0,0));
-            c.v100 = getA(getInCoords(coords, 1,0,0));
-            c.v010 = getA(getInCoords(coords, 0,1,0));
-            c.v001 = getA(getInCoords(coords, 0,0,1));
-            c.v011 = getA(getInCoords(coords, 0,1,1));
-            c.v101 = getA(getInCoords(coords, 1,0,1));
-            c.v110 = getA(getInCoords(coords, 1,1,0));
-            c.v111 = getA(getInCoords(coords, 1,1,1));
-
-            return c;
-        }
-
-        float getMinOnFaceX(CellValues c000)
-        {           
-            return min4(c000.v100, c000.v110, c000.v101, c000.v111);
-        }
-
-        float getMinOnFaceY(CellValues c000)
-        {
-            return min4(c000.v010, c000.v110, c000.v011, c000.v111);
-        }
-            
-        float getMinOnFaceZ(CellValues c000)
-        {
-            return min4(c000.v001, c000.v011, c000.v101, c000.v111);
-        }
-
-        void main()
-        {
-            ivec3 coords = getOutCoords();
-            CellValues c = getValues(coords);
-
-            float xMin = getMinOnFaceX(c);
-            float yMin = getMinOnFaceY(c);
-            float zMin = getMinOnFaceZ(c);
-
-            setOutput(vec4(xMin, yMin, zMin, 0.0));
-        }
-        `
-    }
-}
-
-class GPGPUMaximaMap0 implements GPGPUProgram 
+class GPGPUMinDiffMap implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -126,106 +24,6 @@ class GPGPUMaximaMap0 implements GPGPUProgram
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
         float avg3(float a, float b, float c) { return (a + b + c) * (1.0 / 3.0); }
-
-        struct CellValues 
-        { 
-            float v000; 
-            float v100; 
-            float v010; 
-            float v001; 
-            float v011; 
-            float v101; 
-            float v110; 
-            float v111; 
-        }; 
-
-        ivec3 getOutCoords()
-        {
-            ivec5 coords = getOutputCoords();
-            return ivec3(coords.z, coords.y, coords.x);
-        }
-
-        ivec3 getInCoords(ivec3 coords, int ox, int oy, int oz)
-        {
-            return  coords + ivec3(ox, oy, oz);
-        }
-
-        float getA(ivec3 coords)
-        {
-            coords = clamp(coords, minCoords, maxCoords);
-            return getA(coords.z, coords.y, coords.x);
-        }
-
-        CellValues getValues(ivec3 coords)
-        {
-            CellValues c;
-
-            coords = coords - 1;
-
-            c.v000 = getA(getInCoords(coords, 0,0,0));
-            c.v100 = getA(getInCoords(coords, 1,0,0));
-            c.v010 = getA(getInCoords(coords, 0,1,0));
-            c.v001 = getA(getInCoords(coords, 0,0,1));
-            c.v011 = getA(getInCoords(coords, 0,1,1));
-            c.v101 = getA(getInCoords(coords, 1,0,1));
-            c.v110 = getA(getInCoords(coords, 1,1,0));
-            c.v111 = getA(getInCoords(coords, 1,1,1));
-
-            return c;
-        }
-
-        float getMaxOnFaceX(CellValues c)
-        {
-            return max4(c.v100, c.v110, c.v101, c.v111);
-        }
-    
-        float getMaxOnFaceY(CellValues c)
-        {
-            return max4(c.v010, c.v110, c.v011, c.v111);
-        }
-
-        float getMaxOnFaceZ(CellValues c)
-        {
-            return max4(c.v001, c.v011, c.v101, c.v111);
-        }
-
-        void main()
-        {
-            ivec3 cellCoords = getOutCoords();
-            CellValues c = getValues(cellCoords);
-
-            float xMax = getMaxOnFaceX(c);
-            float yMax = getMaxOnFaceY(c);
-            float zMax = getMaxOnFaceZ(c);
-
-            setOutput(vec4(xMax, yMax, zMax, 1.0));
-        }
-        `
-    }
-}
-
-class GPGPUMinimaMap implements GPGPUProgram 
-{
-    variableNames = ['A']
-    outputShape: number[]
-    userCode: string
-    packedInputs = false
-    packedOutput = true
-
-    constructor
-    (
-        inputShape: [number, number, number], 
-    ) 
-    {
-        const [inDepth, inHeight, inWidth] = inputShape
-        const [outDepth, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
-        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]     
-        this.userCode = `
-
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
-
-        float avg3(float a, float b, float c) { return (a + b + c) * (1.0/3.0); }
         float max3(float a, float b, float c) { return max(max(a, b), c); }
         float min4(float a, float b, float c, float d) { return min(min(min(a, b), c), d); }
 
@@ -281,87 +79,67 @@ class GPGPUMinimaMap implements GPGPUProgram
             return c;
         }
 
-        float getMinOnFaceX(CellValues c000, CellValues c100)
+        float getMinDiffOnFaceX(CellValues c111, CellValues c110, CellValues c101, CellValues c100)
         {
-            float m0 = min4(c000.v100, c000.v110, c000.v101, c000.v111);
-            float m1 = min4(c000.v100, c000.v110, c000.v101, c000.v011);
-            float m2 = min4(c100.v001, c100.v010, c100.v100, c100.v011);
+            float m111 = min4(c111.v000, c111.v010, c111.v100, c111.v110);
+            float m110 = min4(c110.v000, c110.v010, c110.v100, c110.v110);
+            float m101 = min4(c101.v000, c101.v010, c101.v100, c101.v110);
+            float m100 = min4(c100.v000, c100.v010, c100.v100, c100.v110);
 
-            m1 = min(m1, avg3(c000.v001, c000.v101, c000.v111));
-            m1 = min(m1, avg3(c000.v001, c000.v011, c000.v111));
-            m1 = min(m1, avg3(c000.v000, c000.v101, c000.v110));
-            m1 = min(m1, avg3(c000.v001, c000.v010, c000.v111));
-            m1 = min(m1, avg3(c000.v010, c000.v110, c000.v111));
-            m1 = min(m1, avg3(c000.v010, c000.v011, c000.v111));
+            float d111 = m111 - c111.v111;
+            float d110 = m110 - c111.v110;
+            float d101 = m101 - c111.v101;
+            float d100 = m100 - c111.v100;
 
-            m2 = min(m2, avg3(c100.v000, c100.v010, c100.v110));
-            m2 = min(m2, avg3(c100.v000, c100.v100, c100.v110));
-            m2 = min(m2, avg3(c100.v000, c100.v001, c100.v101));
-            m2 = min(m2, avg3(c100.v000, c100.v100, c100.v101));
-            m2 = min(m2, avg3(c100.v001, c100.v010, c100.v111));
-            m2 = min(m2, avg3(c100.v000, c100.v101, c100.v110));
-
-            return max3(m0, m1, m2);
+            return max(min4(d111, d110, d101, d100), 0.0);
         }
 
-        float getMinOnFaceY(CellValues c000, CellValues c010)
+        float getMinDiffOnFaceY(CellValues c111, CellValues c110, CellValues c011, CellValues c010)
         {
-            float m0 = min4(c000.v010, c000.v110, c000.v011, c000.v111);
-            float m1 = min4(c000.v010, c000.v110, c000.v011, c000.v101);
-            float m2 = min4(c010.v001, c010.v100, c010.v010, c010.v101);
+            float m111 = min4(c111.v000, c111.v010, c111.v100, c111.v110);
+            float m110 = min4(c110.v000, c110.v010, c110.v100, c110.v110);
+            float m011 = min4(c011.v000, c011.v010, c011.v100, c011.v110);
+            float m010 = min4(c010.v000, c010.v010, c010.v100, c010.v110);
 
-            m1 = min(m1, avg3(c000.v001, c000.v011, c000.v111));
-            m1 = min(m1, avg3(c000.v001, c000.v101, c000.v111));
-            m1 = min(m1, avg3(c000.v000, c000.v011, c000.v110));
-            m1 = min(m1, avg3(c000.v001, c000.v100, c000.v111));
-            m1 = min(m1, avg3(c000.v100, c000.v110, c000.v111));
-            m1 = min(m1, avg3(c000.v100, c000.v101, c000.v111));
+            float d111 = m111 - c111.v111;
+            float d110 = m110 - c111.v110;
+            float d011 = m011 - c111.v011;
+            float d010 = m010 - c111.v010;
 
-            m2 = min(m2, avg3(c010.v000, c010.v100, c010.v110));
-            m2 = min(m2, avg3(c010.v000, c010.v010, c010.v110));
-            m2 = min(m2, avg3(c010.v000, c010.v001, c010.v011));
-            m2 = min(m2, avg3(c010.v000, c010.v010, c010.v011));
-            m2 = min(m2, avg3(c010.v001, c010.v100, c010.v111));
-            m2 = min(m2, avg3(c010.v000, c010.v011, c010.v110));
-
-            return max3(m0, m1, m2);
+            return max(min4(d111, d110, d011, d010), 0.0);
         }
             
-        float getMinOnFaceZ(CellValues c000, CellValues c001)
+        float getMinDiffOnFaceZ(CellValues c111, CellValues c101,  CellValues c011,  CellValues c001)
         {
-            float m0 = min4(c000.v001, c000.v011, c000.v101, c000.v111);
-            float m1 = min4(c000.v001, c000.v011, c000.v101, c000.v110);
-            float m2 = min4(c001.v100, c001.v010, c001.v001, c001.v110);
+            float m111 = min4(c111.v000, c111.v010, c111.v100, c111.v110);
+            float m101 = min4(c101.v000, c101.v010, c101.v100, c101.v110);
+            float m011 = min4(c011.v000, c011.v010, c011.v100, c011.v110);
+            float m001 = min4(c001.v000, c001.v010, c001.v100, c001.v110);
+            
+            float d111 = m111 - c111.v111;
+            float d101 = m101 - c111.v101;
+            float d011 = m011 - c111.v011;
+            float d001 = m001 - c111.v001;
 
-            m1 = min(m1, avg3(c000.v100, c000.v101, c000.v111));
-            m1 = min(m1, avg3(c000.v100, c000.v110, c000.v111));
-            m1 = min(m1, avg3(c000.v000, c000.v011, c000.v101));
-            m1 = min(m1, avg3(c000.v010, c000.v100, c000.v111));
-            m1 = min(m1, avg3(c000.v010, c000.v110, c000.v111));
-            m1 = min(m1, avg3(c000.v010, c000.v011, c000.v111));
-
-            m2 = min(m2, avg3(c001.v000, c001.v100, c001.v101));
-            m2 = min(m2, avg3(c001.v000, c001.v001, c001.v101));
-            m2 = min(m2, avg3(c001.v000, c001.v010, c001.v011));
-            m2 = min(m2, avg3(c001.v000, c001.v001, c001.v011));
-            m2 = min(m2, avg3(c001.v010, c001.v100, c001.v111));
-            m2 = min(m2, avg3(c001.v000, c001.v011, c001.v101));
-
-            return max3(m0, m1, m2);
+            return max(min4(d111, d101, d011, d001), 0.0);
         }
 
         void main()
         {
-            ivec3 outCoords = getOutCoords();
+            ivec3 coords = getOutCoords();
 
-            CellValues c000 = getValues(getCellCoords(outCoords, 0,0,0));
-            CellValues c100 = getValues(getCellCoords(outCoords, 1,0,0));
-            CellValues c010 = getValues(getCellCoords(outCoords, 0,1,0));
-            CellValues c001 = getValues(getCellCoords(outCoords, 0,0,1));
+            CellValues c111 = getValues(getInCoords(coords, -0,-0,-0));
+            CellValues c011 = getValues(getInCoords(coords, -1,-0,-0));
+            CellValues c101 = getValues(getInCoords(coords, -0,-1,-0));
+            CellValues c001 = getValues(getInCoords(coords, -1,-1,-0));
+            CellValues c110 = getValues(getInCoords(coords, -0,-0,-1));
+            CellValues c010 = getValues(getInCoords(coords, -1,-0,-1));
+            CellValues c100 = getValues(getInCoords(coords, -0,-1,-1));
+            CellValues c000 = getValues(getInCoords(coords, -1,-1,-1));
 
-            float xMin = getMinOnFaceX(c000, c100);
-            float yMin = getMinOnFaceY(c000, c010);
-            float zMin = getMinOnFaceZ(c000, c001);
+            float xMin = getMinDiffOnFaceX(c111, c110, c101, c100);
+            float yMin = getMinDiffOnFaceY(c111, c110, c011, c010);
+            float zMin = getMinDiffOnFaceZ(c111, c101, c011, c001);
 
             setOutput(vec4(xMin, yMin, zMin, 0.0));
         }
@@ -369,7 +147,7 @@ class GPGPUMinimaMap implements GPGPUProgram
     }
 }
 
-class GPGPUMaximaMap implements GPGPUProgram 
+class GPGPUMaxDiffMap implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -443,19 +221,21 @@ class GPGPUMaximaMap implements GPGPUProgram
         {
             float m = -1.0/0.0;
 
-            m = max(m, avg3(c.v000, c.v001, c.v100));
-            m = max(m, avg3(c.v001, c.v010, c.v100));
-            m = max(m, avg3(c.v010, c.v011, c.v110));
-            m = max(m, avg3(c.v001, c.v100, c.v101));
-            m = max(m, avg3(c.v011, c.v101, c.v110));
-            m = max(m, avg3(c.v011, c.v110, c.v111));
-            m = max(m, c.v000);
-            m = max(m, c.v001);
-            m = max(m, c.v010);
-            m = max(m, c.v011);
-            m = max(m, c.v101);
-            m = max(m, c.v111);
-            
+            m = max(m, avg3(c.v001, c.v010, c.v011) - c.v000);
+            m = max(m, avg3(c.v001, c.v010, c.v100) - c.v000);
+            m = max(m, avg3(c.v001, c.v100, c.v101) - c.v000);
+            m = max(m, avg3(c.v011, c.v101, c.v110) - c.v000);
+            m = max(m, avg3(c.v001, c.v010, c.v000) - c.v000);
+            m = max(m, avg3(c.v001, c.v100, c.v000) - c.v000);
+            m = max(m, avg3(c.v011, c.v110, c.v111) - c.v010);
+            m = max(m, avg3(c.v011, c.v110, c.v010) - c.v010);
+            m = max(m, c.v001 - c.v000);
+            m = max(m, c.v011 - c.v000);
+            m = max(m, c.v101 - c.v000);
+            m = max(m, c.v111 - c.v000);
+            m = max(m, c.v011 - c.v010);
+            m = max(m, c.v111 - c.v010);
+
             return m;
         }
     
@@ -463,19 +243,21 @@ class GPGPUMaximaMap implements GPGPUProgram
         {
             float m = -1.0/0.0;
 
-            m = max(m, avg3(c.v000, c.v001, c.v010));
-            m = max(m, avg3(c.v001, c.v010, c.v011));
-            m = max(m, avg3(c.v001, c.v010, c.v100));
-            m = max(m, avg3(c.v011, c.v101, c.v110));
-            m = max(m, avg3(c.v100, c.v101, c.v110));
-            m = max(m, avg3(c.v101, c.v110, c.v111));
-            m = max(m, c.v000);
-            m = max(m, c.v001);
-            m = max(m, c.v011);
-            m = max(m, c.v100);
-            m = max(m, c.v101);
-            m = max(m, c.v111);
-        
+            m = max(m, avg3(c.v001, c.v010, c.v011) - c.v000);
+            m = max(m, avg3(c.v001, c.v010, c.v100) - c.v000);
+            m = max(m, avg3(c.v001, c.v100, c.v101) - c.v000);
+            m = max(m, avg3(c.v011, c.v101, c.v110) - c.v000);
+            m = max(m, avg3(c.v001, c.v010, c.v000) - c.v000);
+            m = max(m, avg3(c.v001, c.v100, c.v000) - c.v000);
+            m = max(m, avg3(c.v101, c.v110, c.v111) - c.v100);
+            m = max(m, avg3(c.v101, c.v110, c.v100) - c.v100);
+            m = max(m, c.v001 - c.v000);
+            m = max(m, c.v011 - c.v000);
+            m = max(m, c.v101 - c.v000);
+            m = max(m, c.v111 - c.v000);
+            m = max(m, c.v101 - c.v100);
+            m = max(m, c.v111 - c.v100);
+
             return m;
         }
 
@@ -483,37 +265,21 @@ class GPGPUMaximaMap implements GPGPUProgram
         {
             float m = -1.0/0.0;
 
-            m = max(m, c.v000);
-            m = max(m, c.v100);
-            m = max(m, c.v010);
-            m = max(m, c.v001);
-            m = max(m, c.v011);
-            m = max(m, c.v101);
-            m = max(m, c.v110);
-            m = max(m, c.v111);
-
-            return m;
-        }
-
-        float getMaxOnCell(CellValues c)
-        {
-            float m = -1.0/0.0;
-
             m = max(m, avg3(c.v001, c.v010, c.v011) - c.v000);
             m = max(m, avg3(c.v001, c.v010, c.v100) - c.v000);
             m = max(m, avg3(c.v001, c.v100, c.v101) - c.v000);
             m = max(m, avg3(c.v011, c.v101, c.v110) - c.v000);
-            m = max(m, avg3(c.v011, c.v110, c.v111) - c.v010);
-            m = max(m, avg3(c.v101, c.v110, c.v111) - c.v100);
             m = max(m, avg3(c.v001, c.v010, c.v000) - c.v000);
             m = max(m, avg3(c.v001, c.v100, c.v000) - c.v000);
+            m = max(m, avg3(c.v011, c.v110, c.v111) - c.v010);
             m = max(m, avg3(c.v011, c.v110, c.v010) - c.v010);
+            m = max(m, avg3(c.v101, c.v110, c.v111) - c.v100);
             m = max(m, avg3(c.v101, c.v110, c.v100) - c.v100);
             m = max(m, c.v001 - c.v000);
             m = max(m, c.v011 - c.v000);
-            m = max(m, c.v011 - c.v010);
             m = max(m, c.v101 - c.v000);
             m = max(m, c.v111 - c.v000);
+            m = max(m, c.v011 - c.v010);
             m = max(m, c.v111 - c.v010);
             m = max(m, c.v101 - c.v100);
             m = max(m, c.v111 - c.v100);
@@ -530,15 +296,14 @@ class GPGPUMaximaMap implements GPGPUProgram
             float xMax = getMaxOnFaceX(c);
             float yMax = getMaxOnFaceY(c);
             float zMax = getMaxOnFaceZ(c);
-            float wMax = getMaxOnCell(c);
 
-            setOutput(vec4(xMax, yMax, zMax, wMax));
+            setOutput(vec4(xMax, yMax, zMax, 0.0));
         }
         `
     }
 }
 
-class GPGPUUpdateMinimaSlices implements GPGPUProgram 
+class GPGPUUpdateMinDiffSlices implements GPGPUProgram 
 {
     variableNames = ['A', 'B']
     outputShape: number[]
@@ -587,9 +352,9 @@ class GPGPUUpdateMinimaSlices implements GPGPUProgram
         {
             float t10 = c100.z;
             
-            t10 = max(c101.y, t10);
+            t10 = max(c101.y + t10, 0.0);
             t10 = min(c110.z, t10);
-            t10 = max(c111.x, t10);
+            t10 = max(c111.x + t10, 0.0);
 
             return t10;
         }
@@ -598,9 +363,9 @@ class GPGPUUpdateMinimaSlices implements GPGPUProgram
         {
             float t01 = c010.z;
 
-            t01 = max(c011.x, t01);
+            t01 = max(c011.x + t01, 0.0);
             t01 = min(c110.z, t01);
-            t01 = max(c111.y, t01);
+            t01 = max(c111.y + t01, 0.0);
 
             return t01;
         }
@@ -611,17 +376,17 @@ class GPGPUUpdateMinimaSlices implements GPGPUProgram
 
             t00 = c000.z;
 
-            t01 = max(c001.y, t00);
+            t01 = max(c001.y + t00, 0.0);
             t01 = min(c010.z, t01);
-            t01 = max(c011.x, t01);
+            t01 = max(c011.x + t01, 0.0);
 
-            t10 = max(c001.x, t00);
+            t10 = max(c001.x + t00, 0.0);
             t10 = min(c100.z, t10);
-            t10 = max(c101.y, t10);
+            t10 = max(c101.y + t10, 0.0);
 
             t11 = min(t01, t10);
             t11 = min(c110.z, t11);
-            t11 = max(c111.z, t11);
+            t11 = max(c111.z + t11, 0.0);
 
             return t11;
         }
@@ -649,7 +414,7 @@ class GPGPUUpdateMinimaSlices implements GPGPUProgram
     }
 }
 
-class GPGPUUpdateMinimaMap implements GPGPUProgram 
+class GPGPUUpdateMinDiffMap implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -693,9 +458,9 @@ class GPGPUUpdateMinimaMap implements GPGPUProgram
         {
             float t10 = c100.z;
             
-            t10 = max(c101.y, t10);
+            t10 = max(c101.y + t10, 0.0);
             t10 = min(c110.z, t10);
-            t10 = max(c111.x, t10);
+            t10 = max(c111.x + t10, 0.0);
 
             return t10;
         }
@@ -704,9 +469,9 @@ class GPGPUUpdateMinimaMap implements GPGPUProgram
         {
             float t01 = c010.z;
 
-            t01 = max(c011.x, t01);
+            t01 = max(c011.x + t01, 0.0);
             t01 = min(c110.z, t01);
-            t01 = max(c111.y, t01);
+            t01 = max(c111.y + t01, 0.0);
 
             return t01;
         }
@@ -717,17 +482,17 @@ class GPGPUUpdateMinimaMap implements GPGPUProgram
 
             t00 = c000.z;
 
-            t01 = max(c001.y, t00);
+            t01 = max(c001.y + t00, 0.0);
             t01 = min(c010.z, t01);
-            t01 = max(c011.x, t01);
+            t01 = max(c011.x + t01, 0.0);
 
-            t10 = max(c001.x, t00);
+            t10 = max(c001.x + t00, 0.0);
             t10 = min(c100.z, t10);
-            t10 = max(c101.y, t10);
+            t10 = max(c101.y + t10, 0.0);
 
             t11 = min(t01, t10);
             t11 = min(c110.z, t11);
-            t11 = max(c111.z, t11);
+            t11 = max(c111.z + t11, 0.0);
 
             return t11;
         }
@@ -799,7 +564,7 @@ class GPGPUOcclusionMap implements GPGPUProgram
             vec4 maxValues = getB(coords);
 
             bvec4 tests = greaterThanEqual(minValues, maxValues);
-            bool occlusion = all(tests.xyz) || tests.w;
+            bool occlusion = all(tests.xyz);
 
             return occlusion;
         }
@@ -823,11 +588,11 @@ function runProgram(prog: GPGPUProgram, inputs: tf.Tensor[]): tf.Tensor
 
 export function computeOneWayOcclusionMap(volumeMap: tf.Tensor3D) : tf.Tensor<tf.Rank>
 {
-    const minimaProgram = new GPGPUMinimaMap(volumeMap.shape)
+    const minimaProgram = new GPGPUMinDiffMap(volumeMap.shape)
     const minimaStart = runProgram(minimaProgram, [volumeMap])
     console.log('minimaStart', tf.tidy(() => minimaStart.mean([0,1,2]).dataSync())) 
 
-    const updateProgram = new GPGPUUpdateMinimaSlices(volumeMap.shape)
+    const updateProgram = new GPGPUUpdateMinDiffSlices(volumeMap.shape)
     const slices = tf.unstack(minimaStart, 0)
     minimaStart.dispose()
 
@@ -842,7 +607,7 @@ export function computeOneWayOcclusionMap(volumeMap: tf.Tensor3D) : tf.Tensor<tf
     tf.dispose(slices)
     console.log('minima', tf.tidy(() => minima.mean([0,1,2]).dataSync())) 
     
-    const maximaProgram = new GPGPUMaximaMap(volumeMap.shape)
+    const maximaProgram = new GPGPUMaxDiffMap(volumeMap.shape)
     const maxima = runProgram(maximaProgram, [volumeMap])
     console.log('maxima', tf.tidy(() => maxima.mean([0,1,2]).dataSync())) 
 
@@ -856,8 +621,8 @@ export function computeOneWayOcclusionMap(volumeMap: tf.Tensor3D) : tf.Tensor<tf
 
 export async function computeOneWayOcclusionMap2(volumeMap: tf.Tensor3D) : Promise<tf.Tensor<tf.Rank>>
 {
-    const updateProgram = new GPGPUUpdateMinimaMap(volumeMap.shape)
-    const minimaProgram = new GPGPUMinimaMap(volumeMap.shape)
+    const updateProgram = new GPGPUUpdateMinDiffMap(volumeMap.shape)
+    const minimaProgram = new GPGPUMinDiffMap(volumeMap.shape)
     let minima = runProgram(minimaProgram, [volumeMap])
     console.log('minima', tf.tidy(() => minima.mean([0,1,2]).dataSync())) 
 
@@ -871,7 +636,7 @@ export async function computeOneWayOcclusionMap2(volumeMap: tf.Tensor3D) : Promi
     }
     console.log('minima', tf.tidy(() => minima.mean([0,1,2]).dataSync())) 
 
-    const maximaProgram = new GPGPUMaximaMap(volumeMap.shape)
+    const maximaProgram = new GPGPUMaxDiffMap(volumeMap.shape)
     const maxima = runProgram(maximaProgram, [volumeMap])
     console.log('maxima', tf.tidy(() => maxima.mean([0,1,2]).dataSync())) 
 
