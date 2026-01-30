@@ -43,6 +43,7 @@ export default class VolumeMap
             return tensor
         })  
         console.timeEnd('computeTensor') 
+        console.log(this)
     }
 
     computeTexture()
