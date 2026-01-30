@@ -1113,6 +1113,7 @@ function runProgram(prog: GPGPUProgram, inputs: tf.Tensor[], outputDtype?: tf.Da
     return tf.engine().makeTensorFromTensorInfo(info) as tf.Tensor
 }
 
+// Slice versions, for older implementations
 
 export function computeOneWayOcclusionMaps0(volumeMap: tf.Tensor3D) : tf.Tensor5D
 {
@@ -1149,9 +1150,21 @@ export function computeOneWayOcclusionMaps0(volumeMap: tf.Tensor3D) : tf.Tensor5
 
 export function computeExtendedAnisotropicOcclusionMaps0(volumeMap: tf.Tensor3D): tf.Tensor3D
 {
-    const occlusionMapX = tf.tidy(() => tf.transpose(computeAnisotropicOcclusionMaps0(tf.transpose(volumeMap, [2,1,0])), [2,1,0]))
-    const occlusionMapY = tf.tidy(() => tf.transpose(computeAnisotropicOcclusionMaps0(tf.transpose(volumeMap, [1,0,2])), [1,0,2]))
-    const occlusionMapZ = tf.tidy(() => computeAnisotropicOcclusionMaps0(volumeMap))
+    const transposedVolumeMapX = tf.transpose(volumeMap, [2,1,0])
+    const transposedOcclusionMapX = computeAnisotropicOcclusionMaps0(transposedVolumeMapX)
+    tf.dispose(transposedVolumeMapX)
+
+    const occlusionMapX = tf.transpose(transposedOcclusionMapX, [2,1,0])
+    tf.dispose(transposedOcclusionMapX)
+
+    const transposedVolumeMapY = tf.transpose(volumeMap, [1,0,2])
+    const transposedOcclusionMapY = computeAnisotropicOcclusionMaps0(transposedVolumeMapY)
+    tf.dispose(transposedVolumeMapY)
+
+    const occlusionMapY = tf.transpose(transposedOcclusionMapY, [1,0,2])
+    tf.dispose(transposedOcclusionMapY)
+
+    const occlusionMapZ = computeAnisotropicOcclusionMaps0(volumeMap)
 
     const pack = new GPGPUPackOcclusionMaps(volumeMap.shape)
     const occlusionMap = runProgram(pack, [occlusionMapX, occlusionMapY, occlusionMapZ], 'float32', [], false)
@@ -1177,21 +1190,29 @@ export function computeExtendedAnisotropicOcclusionMaps0(volumeMap: tf.Tensor3D)
 
 export function computeAnisotropicOcclusionMaps0(volumeMap: tf.Tensor3D): tf.Tensor3D
 {
-    const occlusionMapA = tf.tidy(() => tf.reverse(computeOneWayOcclusionMaps0(tf.reverse(volumeMap))))
-    const occlusionMapB = tf.tidy(() => computeOneWayOcclusionMaps0(volumeMap))
+    const reversedVolumeMap = tf.reverse(volumeMap)
+    const reversedOccupancyMapA = computeOneWayOcclusionMaps0(reversedVolumeMap)
+    tf.dispose(reversedVolumeMap)
+    
+    const occlusionMapA = tf.reverse(reversedOccupancyMapA)
+    tf.dispose(reversedOccupancyMapA)
+
+    const occlusionMapB = computeOneWayOcclusionMaps0(volumeMap)
 
     const logicalOr = new GPGPUUniteOcclusionMaps(volumeMap.shape)
     const occlusionMap = runProgram(logicalOr, [occlusionMapA, occlusionMapB], 'float32', [], false)
     tf.dispose([occlusionMapA, occlusionMapB])
     
-    // console.log('occlusionMap0', tf.tidy(() => occlusionMap.floorDiv(1 << 0).mod(2).mean([0,1,2]).dataSync()))
-    // console.log('occlusionMap1', tf.tidy(() => occlusionMap.floorDiv(1 << 1).mod(2).mean([0,1,2]).dataSync()))
-    // console.log('occlusionMap2', tf.tidy(() => occlusionMap.floorDiv(1 << 2).mod(2).mean([0,1,2]).dataSync()))
-    // console.log('occlusionMap3', tf.tidy(() => occlusionMap.floorDiv(1 << 3).mod(2).mean([0,1,2]).dataSync()))
+    // const unpack = new GPGPUUnpackOccupancyMap0(volumeMap.shape)
+    // console.log('occlusionMap0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[0]]).mean([0,1,2]).dataSync()))
+    // console.log('occlusionMap1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[1]]).mean([0,1,2]).dataSync()))
+    // console.log('occlusionMap2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[2]]).mean([0,1,2]).dataSync()))
+    // console.log('occlusionMap3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[3]]).mean([0,1,2]).dataSync()))
 
     return occlusionMap as tf.Tensor3D
 }
 
+// Slice versions, faster but more unstable for large volumes
 
 export function computeOneWayOcclusionMaps(volumeMap: tf.Tensor3D) : tf.Tensor5D
 {
@@ -1228,8 +1249,14 @@ export function computeOneWayOcclusionMaps(volumeMap: tf.Tensor3D) : tf.Tensor5D
 
 export function computeAnisotropicOcclusionMaps(volumeMap: tf.Tensor3D): tf.Tensor3D
 {
-    const occlusionMapA = tf.tidy(() => tf.reverse(computeOneWayOcclusionMaps(tf.reverse(volumeMap))))
-    const occlusionMapB = tf.tidy(() => computeOneWayOcclusionMaps(volumeMap))
+    const reversedVolumeMap = tf.reverse(volumeMap)
+    const reversedOccupancyMapA = computeOneWayOcclusionMaps(reversedVolumeMap)
+    tf.dispose(reversedVolumeMap)
+    
+    const occlusionMapA = tf.reverse(reversedOccupancyMapA)
+    tf.dispose(reversedOccupancyMapA)
+
+    const occlusionMapB = computeOneWayOcclusionMaps(volumeMap)
 
     const logicalOr = new GPGPUUniteOcclusionMaps(volumeMap.shape)
     const occlusionMap = runProgram(logicalOr, [occlusionMapA, occlusionMapB], 'float32', [], false)
@@ -1246,9 +1273,22 @@ export function computeAnisotropicOcclusionMaps(volumeMap: tf.Tensor3D): tf.Tens
 
 export function computeExtendedAnisotropicOcclusionMaps(volumeMap: tf.Tensor3D): tf.Tensor3D
 {
-    const occlusionMapX = tf.tidy(() => tf.transpose(computeAnisotropicOcclusionMaps(tf.transpose(volumeMap, [2,1,0])), [2,1,0]))
-    const occlusionMapY = tf.tidy(() => tf.transpose(computeAnisotropicOcclusionMaps(tf.transpose(volumeMap, [1,0,2])), [1,0,2]))
-    const occlusionMapZ = tf.tidy(() => computeAnisotropicOcclusionMaps(volumeMap))
+    const transposedVolumeMapX = tf.transpose(volumeMap, [2,1,0])
+    const transposedOcclusionMapX = computeAnisotropicOcclusionMaps(transposedVolumeMapX)
+    tf.dispose(transposedVolumeMapX)
+
+    const occlusionMapX = tf.transpose(transposedOcclusionMapX, [2,1,0])
+    tf.dispose(transposedOcclusionMapX)
+
+    const transposedVolumeMapY = tf.transpose(volumeMap, [1,0,2])
+    const transposedOcclusionMapY = computeAnisotropicOcclusionMaps(transposedVolumeMapY)
+    tf.dispose(transposedVolumeMapY)
+
+    const occlusionMapY = tf.transpose(transposedOcclusionMapY, [1,0,2])
+    tf.dispose(transposedOcclusionMapY)
+
+    const occlusionMapZ = computeAnisotropicOcclusionMaps(volumeMap)
+
 
     const pack = new GPGPUPackOcclusionMaps(volumeMap.shape)
     const occlusionMap = runProgram(pack, [occlusionMapX, occlusionMapY, occlusionMapZ], 'float32', [], false)
@@ -1271,6 +1311,7 @@ export function computeExtendedAnisotropicOcclusionMaps(volumeMap: tf.Tensor3D):
     return occlusionMap as tf.Tensor3D
 }
 
+// Async versions, slower but more stable for large volumes
 
 export async function computeOneWayOcclusionMapsAsync(volumeMap: tf.Tensor3D) : Promise<tf.Tensor5D>
 {
