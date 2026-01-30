@@ -23,7 +23,7 @@ class GPGPUMinimaMaps0 implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
-        float avg3(float a, float b, float c) { return (1.0/3.0) * (a + b + c); }
+        float avg3(float a, float b, float c) { return (1.0 / 3.0) * (a + b + c); }
         float max3(float a, float b, float c) { return max(max(a, b), c); }
         float min4(float a, float b, float c, float d) { return min(min(min(a, b), c), d); }
 
@@ -782,7 +782,7 @@ class GPGPUOcclusionMaps implements GPGPUProgram
     outputShape: number[]
     userCode: string
     packedInputs = true
-    packedOutput = true
+    packedOutput = false
 
     constructor
     (
@@ -790,56 +790,280 @@ class GPGPUOcclusionMaps implements GPGPUProgram
     ) 
     {
         const [outDepth, outHeight, outWidth] = volumeShape.map((x: number) => x + 1)
-        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]     
+        this.outputShape = [outDepth, outHeight, outWidth]     
         this.userCode = `
 
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
-
+                    
         ivec3 getOutCoords()
         {
-            ivec5 coords = getOutputCoords();
+            ivec3 coords = getOutputCoords();
             return ivec3(coords.z, coords.y, coords.x);
         }
 
-        vec4 getA(ivec3 coords, int i)
+        vec4 getA(ivec3 coords, int wCoord)
         {
             coords = clamp(coords, minCoords, maxCoords);
-            return getA(i, coords.z, coords.y, coords.x, 0, 0);
+            return getA(wCoord, coords.z, coords.y, coords.x, 0, 0);
         }
 
-        vec4 getB(ivec3 coords, int i)
+        vec4 getB(ivec3 coords, int wCoord)
         {
             coords = clamp(coords, minCoords, maxCoords);
-            return getB(i, coords.z, coords.y, coords.x, 0, 0);
+            return getB(wCoord, coords.z, coords.y, coords.x, 0, 0);
         }
 
-        int getOcclusion(ivec3 coords, int i)
+        uint getOcclusion(ivec3 coords, int wCoord)
         {
-            vec4 minValues = getA(coords, i);
-            vec4 maxValues = getB(coords, i);
+            vec4 minValues = getA(coords, wCoord);
+            vec4 maxValues = getB(coords, wCoord);
 
             bvec4 tests = greaterThanEqual(minValues, maxValues);
             bool occlusion = all(tests.xyz) || tests.w;
 
-            return int(occlusion);
+            return uint(occlusion);
         }
-                
+
+        uint pack(uint o0, uint o1, uint o2, uint o3) 
+        { 
+            return (o0 << 0) | (o1 << 1) | (o2 << 2) | (o3 << 3);
+        }
+ 
         void main()
         {
             ivec3 coords = getOutCoords();
-            
-            setOutput(vec4(
-                getOcclusion(coords, 0),
-                getOcclusion(coords, 1),
-                getOcclusion(coords, 2),
-                getOcclusion(coords, 3)
-            ));
+
+            uint o0 = getOcclusion(coords, 0);
+            uint o1 = getOcclusion(coords, 1);
+            uint o2 = getOcclusion(coords, 2);
+            uint o3 = getOcclusion(coords, 3);
+
+            uint o = pack(o0, o1, o2, o3);
+
+            setOutput(float(o));
         }
         `
     }
 }
-class GPGPUReverse5d implements GPGPUProgram 
+
+class GPGPUUniteOcclusionMaps implements GPGPUProgram 
+{
+    variableNames = ['A', 'B']
+    outputShape: number[]
+    userCode: string
+    packedInputs = false
+    packedOutput = false
+
+    constructor
+    (
+        volumeShape: [number, number, number], 
+    ) 
+    {
+        const [outDepth, outHeight, outWidth] = volumeShape.map((x: number) => x + 1)
+        this.outputShape = [outDepth, outHeight, outWidth]     
+        this.userCode = `
+
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
+        
+        uint toUintRounded(float f) { return uint(floor(f + 0.5)); }
+
+        ivec3 getOutCoords()
+        {
+            ivec3 coords = getOutputCoords();
+            return ivec3(coords.z, coords.y, coords.x);
+        }
+
+        float getA(ivec3 coords)
+        {
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.z, coords.y, coords.x);
+        }
+
+        float getB(ivec3 coords)
+        {
+            coords = clamp(coords, minCoords, maxCoords);
+            return getB(coords.z, coords.y, coords.x);
+        }
+ 
+        void main()
+        {
+            ivec3 coords = getOutCoords();
+
+            uint oA = toUintRounded(clamp(getA(coords), 0.0, 15.0));
+            uint oB = toUintRounded(clamp(getB(coords), 0.0, 15.0));
+            uint o = oA | oB;
+
+            setOutput(float(o));
+        }
+        `
+    }
+}
+
+class GPGPUPackOcclusionMaps implements GPGPUProgram 
+{
+    variableNames = ['A', 'B', 'C']
+    outputShape: number[]
+    userCode: string
+    packedInputs = false
+    packedOutput = false
+
+    constructor
+    (
+        volumeShape: [number, number, number], 
+    ) 
+    {
+        const [outDepth, outHeight, outWidth] = volumeShape.map((x: number) => x + 1)
+        this.outputShape = [outDepth, outHeight, outWidth]     
+        this.userCode = `
+
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
+           
+        uint toUintRounded(float f) { return uint(floor(f + 0.5)); }
+
+        ivec3 getOutCoords()
+        {
+            ivec3 coords = getOutputCoords();
+            return ivec3(coords.z, coords.y, coords.x);
+        }
+
+        float getA(ivec3 coords)
+        {
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.z, coords.y, coords.x);
+        }
+
+        float getB(ivec3 coords)
+        {
+            coords = clamp(coords, minCoords, maxCoords);
+            return getB(coords.z, coords.y, coords.x);
+        }
+
+        float getC(ivec3 coords)
+        {
+            coords = clamp(coords, minCoords, maxCoords);
+            return getC(coords.z, coords.y, coords.x);
+        }
+
+        int pack(uint oA, uint oB, uint oC)
+        {
+            uint p = (oA << 0) | (oB << 4) | (oC << 8); // 0..4095
+            return int(p) - 2048; // -2048..2047 in half float precision 
+        }
+ 
+        void main()
+        {
+            ivec3 coords = getOutCoords();
+
+            uint oA = toUintRounded(clamp(getA(coords), 0.0, 15.0));
+            uint oB = toUintRounded(clamp(getB(coords), 0.0, 15.0));
+            uint oC = toUintRounded(clamp(getC(coords), 0.0, 15.0));
+
+            setOutput(float(pack(oA, oB, oC)));
+        }
+        `
+    }
+}
+
+class GPGPUUnpackOccupancyMap0 implements GPGPUProgram 
+{
+    variableNames = ['A'] 
+    outputShape: number[]
+    userCode: string
+    packedInputs = false
+    packedOutput = false
+    customUniforms = [{ name: 'uMap', type: 'int' as const }]
+
+    constructor(volumeShape: [number, number, number]) 
+    {
+        const [outDepth, outHeight, outWidth] = volumeShape.map(x => x + 1)
+        this.outputShape = [outDepth, outHeight, outWidth]
+        this.userCode = `
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
+
+        int toIntRounded(float f) { return int(f >= 0.0 ? floor(f + 0.5) : ceil(f - 0.5)); }
+        uint toUintRounded(float f) { return uint(floor(f + 0.5)); }
+
+        ivec3 getOutCoords() 
+        {
+            ivec3 c = getOutputCoords();
+            return ivec3(c.z, c.y, c.x);
+        }
+
+        float getA(ivec3 coords) 
+        {
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.z, coords.y, coords.x);
+        }
+
+        void main() 
+        {
+            ivec3 coords = getOutCoords();
+
+            uint u = toUintRounded(clamp(getA(coords), 0.0, 15.0));
+            uint o = (u >> uMap) & 1u;
+
+            setOutput(float(o));
+        }
+        `
+    }
+}
+
+class GPGPUUnpackOccupancyMap implements GPGPUProgram 
+{
+    variableNames = ['A'] 
+    outputShape: number[]
+    userCode: string
+    packedInputs = false
+    packedOutput = false
+    customUniforms = [{ name: 'uMap', type: 'int' as const }]
+
+    constructor(volumeShape: [number, number, number]) 
+    {
+        const [outDepth, outHeight, outWidth] = volumeShape.map(x => x + 1)
+        this.outputShape = [outDepth, outHeight, outWidth]
+        this.userCode = `
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
+
+        int toIntRounded(float f) { return int(f >= 0.0 ? floor(f + 0.5) : ceil(f - 0.5)); }
+
+        ivec3 getOutCoords() 
+        {
+            ivec3 c = getOutputCoords();
+            return ivec3(c.z, c.y, c.x);
+        }
+
+        float getA(ivec3 coords) 
+        {
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.z, coords.y, coords.x);
+        }
+
+        uint unpack(int p) 
+        {
+            int i = clamp(p, -2048, 2047); // -2048..2047 
+            return uint(i + 2048); // 0..4095
+        }
+
+        void main() 
+        {
+            ivec3 coords = getOutCoords();
+
+            int p = toIntRounded(clamp(getA(coords), -2048.0, 2047.0));
+            uint u = unpack(p);
+            uint o = (u >> uMap) & 1u;
+
+            setOutput(float(o));
+        }
+        `
+    }
+}
+
+class GPGPUReverse implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -882,85 +1106,181 @@ class GPGPUReverse5d implements GPGPUProgram
     }
 }
 
-function runProgram(prog: GPGPUProgram, inputs: tf.Tensor[]): tf.Tensor
+function runProgram(prog: GPGPUProgram, inputs: tf.Tensor[], outputDtype?: tf.DataType, customUniformValues?: number[][], preventEagerUnpackingOfOutput?: boolean): tf.Tensor
 {
     const backend = tf.backend() as MathBackendWebGL
-    const info = backend.compileAndRun(prog, inputs)
+    const info = backend.compileAndRun(prog, inputs, outputDtype, customUniformValues, preventEagerUnpackingOfOutput)
     return tf.engine().makeTensorFromTensorInfo(info) as tf.Tensor
+}
+
+export function computeOneWayOcclusionMaps0(volumeMap: tf.Tensor3D) : tf.Tensor5D
+{
+    const minimaProgram = new GPGPUMinimaMaps0(volumeMap.shape)
+    const minimaStart = runProgram(minimaProgram, [volumeMap], 'float32', [], true)
+    // console.log('minimaStart', tf.tidy(() => minimaStart.unstack(0)[0].mean([0,1,2]).dataSync()))
+
+    const updateProgram = new GPGPUUpdateMinimaSlices(volumeMap.shape)
+    const minimaSlices = tf.unstack(minimaStart, 1)
+    minimaStart.dispose()
+
+    for (let i = 1; i < minimaSlices.length; i++)
+    {
+        const updatedSlice = runProgram(updateProgram, [minimaSlices[i], minimaSlices[i-1]], 'float32', [], true)
+        tf.dispose(minimaSlices[i])
+        minimaSlices[i] = updatedSlice
+    }
+
+    const minimaMap = tf.stack(minimaSlices, 1); 
+    tf.dispose(minimaSlices)
+    // console.log('minimaMap', tf.tidy(() => minimaMap.unstack(0)[0].mean([0,1,2]).dataSync()))
+
+    const maximaProgram = new GPGPUMaximaMaps0(volumeMap.shape)
+    const maximaMap = runProgram(maximaProgram, [volumeMap], 'float32', [], true)
+    // console.log('maximaMap', tf.tidy(() => maximaMap.unstack(0)[0].mean([0,1,2]).dataSync()))
+
+    const occlusionProgram = new GPGPUOcclusionMaps(volumeMap.shape)
+    const occlusionMap = runProgram(occlusionProgram, [minimaMap, maximaMap], 'int32', [], false)
+    tf.dispose([minimaMap, maximaMap])
+    // console.log('occlusionMap', tf.tidy(() => occlusionMap.mean([0,1,2]).dataSync()))
+
+    return occlusionMap as tf.Tensor5D
 }
 
 export function computeOneWayOcclusionMaps(volumeMap: tf.Tensor3D) : tf.Tensor5D
 {
     const minimaProgram = new GPGPUMinimaMaps(volumeMap.shape)
-    const minimaStart = runProgram(minimaProgram, [volumeMap])
-    console.log('minimaStart', tf.tidy(() => minimaStart.unstack(0)[0].mean([0,1,2]).dataSync()))
+    const minimaStart = runProgram(minimaProgram, [volumeMap], 'float32', [], true)
+    // console.log('minimaStart', tf.tidy(() => minimaStart.unstack(0)[0].mean([0,1,2]).dataSync()))
 
     const updateProgram = new GPGPUUpdateMinimaSlices(volumeMap.shape)
-    const slices = tf.unstack(minimaStart, 1)
+    const minimaSlices = tf.unstack(minimaStart, 1)
     minimaStart.dispose()
 
-    for (let i = 1; i < slices.length; i++)
+    for (let i = 1; i < minimaSlices.length; i++)
     {
-        const updatedSlice = runProgram(updateProgram, [slices[i], slices[i-1]])
-        tf.dispose(slices[i])
-        slices[i] = updatedSlice
+        const updatedSlice = runProgram(updateProgram, [minimaSlices[i], minimaSlices[i-1]], 'float32', [], true)
+        tf.dispose(minimaSlices[i])
+        minimaSlices[i] = updatedSlice
     }
 
-    const minima = tf.stack(slices, 1); 
-    tf.dispose(slices)
-    console.log('minima', tf.tidy(() => minima.unstack(0)[0].mean([0,1,2]).dataSync()))
+    const minimaMap = tf.stack(minimaSlices, 1); 
+    tf.dispose(minimaSlices)
+    // console.log('minimaMap', tf.tidy(() => minimaMap.unstack(0)[0].mean([0,1,2]).dataSync()))
 
     const maximaProgram = new GPGPUMaximaMaps(volumeMap.shape)
-    const maxima = runProgram(maximaProgram, [volumeMap])
-    console.log('maxima', tf.tidy(() => maxima.unstack(0)[0].mean([0,1,2]).dataSync()))
+    const maximaMap = runProgram(maximaProgram, [volumeMap], 'float32', [], true)
+    // console.log('maximaMap', tf.tidy(() => maximaMap.unstack(0)[0].mean([0,1,2]).dataSync()))
 
     const occlusionProgram = new GPGPUOcclusionMaps(volumeMap.shape)
-    const occlusion = runProgram(occlusionProgram, [minima, maxima])
-    tf.dispose([minima, maxima])
-    console.log('occlusionMap', tf.tidy(() => occlusion.mean([0,1,2]).dataSync()))
+    const occlusionMap = runProgram(occlusionProgram, [minimaMap, maximaMap], 'int32', [], false)
+    tf.dispose([minimaMap, maximaMap])
+    // console.log('occlusionMap', tf.tidy(() => occlusionMap.mean([0,1,2]).dataSync()))
 
-    return occlusion as tf.Tensor5D
+    return occlusionMap as tf.Tensor5D
 }
 
-export async function computeOneWayOcclusionMaps2(volumeMap: tf.Tensor3D) : Promise<tf.Tensor5D>
+export async function computeOneWayOcclusionMapsAsync(volumeMap: tf.Tensor3D) : Promise<tf.Tensor5D>
 {
     const updateProgram = new GPGPUUpdateMinimaMaps(volumeMap.shape)
     const minimaProgram = new GPGPUMinimaMaps(volumeMap.shape)
-    let minima = runProgram(minimaProgram, [volumeMap])
-    console.log('minima', tf.tidy(() => minima.unstack(0)[0].mean([0,1,2]).dataSync()))
+    let minimaMap = runProgram(minimaProgram, [volumeMap], 'float32', [], true)
+    // console.log('minimaMap', tf.tidy(() => minimaMap.unstack(0)[0].mean([0,1,2]).dataSync()))
 
-    for (let i = 0; i < volumeMap.shape[0]; i++)
+    for (let i = 0; i <= volumeMap.shape[0]; i++)
     {
-        const temp = runProgram(updateProgram, [minima])
-        tf.dispose(minima)
-        minima = temp
+        const temp = runProgram(updateProgram, [minimaMap], 'float32', [], true)
+        tf.dispose(minimaMap)
+        minimaMap = temp
 
-        console.log(i, tf.memory())
         await tf.nextFrame()
     }
-    console.log('minima', tf.tidy(() => minima.unstack(0)[0].mean([0,1,2]).dataSync()))
+    // console.log('minimaMap', tf.tidy(() => minimaMap.unstack(0)[0].mean([0,1,2]).dataSync()))
 
     const maximaProgram = new GPGPUMaximaMaps(volumeMap.shape)
-    const maxima = runProgram(maximaProgram, [volumeMap])
-    console.log('maxima', tf.tidy(() => maxima.unstack(0)[0].mean([0,1,2]).dataSync()))
+    const maximaMap = runProgram(maximaProgram, [volumeMap], 'float32', [], true)
+    // console.log('maximaMap', tf.tidy(() => maximaMap.unstack(0)[0].mean([0,1,2]).dataSync()))
 
     const occlusionProgram = new GPGPUOcclusionMaps(volumeMap.shape)
-    const occlusion = runProgram(occlusionProgram, [minima, maxima])
-    tf.dispose([minima, maxima])
-    console.log('occlusionMap', tf.tidy(() => occlusion.mean([0,1,2]).dataSync()))
+    const occlusionMap = runProgram(occlusionProgram, [minimaMap, maximaMap], 'int32', [], false)
+    tf.dispose([minimaMap, maximaMap])
+    // console.log('occlusionMap', tf.tidy(() => occlusionMap.mean([0,1,2]).dataSync()))
 
-    return occlusion as tf.Tensor5D
+    return occlusionMap as tf.Tensor5D
 }
 
-export function computeOcclusionMaps(volumeMap: tf.Tensor3D): tf.Tensor3D
+export function computeAnisotropicOcclusionMaps0(volumeMap: tf.Tensor3D): tf.Tensor3D
 {
-    const reverse5d = new GPGPUReverse5d(volumeMap.shape)
-    const occlusionMapPos = computeOneWayOcclusionMaps(volumeMap)
-    const occlusionMapNeg = tf.tidy(() => runProgram(reverse5d, [computeOneWayOcclusionMaps(tf.reverse(volumeMap))]))
+    const occlusionMapA = tf.tidy(() => tf.reverse(computeOneWayOcclusionMaps0(tf.reverse(volumeMap))))
+    const occlusionMapB = tf.tidy(() => computeOneWayOcclusionMaps0(volumeMap))
 
-    const occlusionMap = tf.maximum(occlusionMapPos, occlusionMapNeg)
-    tf.dispose([occlusionMapPos, occlusionMapNeg])
-    console.log('occlusionMap',  tf.tidy(() => occlusionMap.mean([0,1,2]).dataSync()))
+    const logicalOr = new GPGPUUniteOcclusionMaps(volumeMap.shape)
+    const occlusionMap = runProgram(logicalOr, [occlusionMapA, occlusionMapB], 'int32', [], false)
+    tf.dispose([occlusionMapA, occlusionMapB])
+    
+    // console.log('occlusionMap0', tf.tidy(() => occlusionMap.floorDiv(1 << 0).mod(2).mean([0,1,2]).dataSync()))
+    // console.log('occlusionMap1', tf.tidy(() => occlusionMap.floorDiv(1 << 1).mod(2).mean([0,1,2]).dataSync()))
+    // console.log('occlusionMap2', tf.tidy(() => occlusionMap.floorDiv(1 << 2).mod(2).mean([0,1,2]).dataSync()))
+    // console.log('occlusionMap3', tf.tidy(() => occlusionMap.floorDiv(1 << 3).mod(2).mean([0,1,2]).dataSync()))
 
+    return occlusionMap as tf.Tensor3D
+}
+
+export function computeAnisotropicOcclusionMaps(volumeMap: tf.Tensor3D): tf.Tensor3D
+{
+    const occlusionMapA = tf.tidy(() => tf.reverse(computeOneWayOcclusionMaps(tf.reverse(volumeMap))))
+    const occlusionMapB = tf.tidy(() => computeOneWayOcclusionMaps(volumeMap))
+
+    const logicalOr = new GPGPUUniteOcclusionMaps(volumeMap.shape)
+    const occlusionMap = runProgram(logicalOr, [occlusionMapA, occlusionMapB], 'float32', [], false)
+    tf.dispose([occlusionMapA, occlusionMapB])
+
+    const unpack = new GPGPUUnpackOccupancyMap0(volumeMap.shape)
+    console.log('occlusionMap0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[0]]).mean([0,1,2]).dataSync()))
+    console.log('occlusionMap1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[1]]).mean([0,1,2]).dataSync()))
+    console.log('occlusionMap2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[2]]).mean([0,1,2]).dataSync()))
+    console.log('occlusionMap3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[3]]).mean([0,1,2]).dataSync()))
+
+    return occlusionMap as tf.Tensor3D
+}
+
+export function computeExtendedAnisotropicOcclusionMaps(volumeMap: tf.Tensor3D): tf.Tensor3D
+{
+    const occlusionMapX = tf.tidy(() => tf.transpose(computeAnisotropicOcclusionMaps(tf.transpose(volumeMap, [2,1,0])), [2,1,0]))
+    const occlusionMapY = tf.tidy(() => tf.transpose(computeAnisotropicOcclusionMaps(tf.transpose(volumeMap, [1,0,2])), [1,0,2]))
+    const occlusionMapZ = tf.tidy(() => computeAnisotropicOcclusionMaps(volumeMap))
+
+    const pack = new GPGPUPackOcclusionMaps(volumeMap.shape)
+    const occlusionMap = runProgram(pack, [occlusionMapX, occlusionMapY, occlusionMapZ], 'int32', [], false)
+    tf.dispose([occlusionMapX, occlusionMapY, occlusionMapZ])
+
+    const unpack = new GPGPUUnpackOccupancyMap(volumeMap.shape)
+    console.log('occlusionMapX0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 0]]).mean([0,1,2]).dataSync()))
+    console.log('occlusionMapX1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 1]]).mean([0,1,2]).dataSync()))
+    console.log('occlusionMapX2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 2]]).mean([0,1,2]).dataSync()))
+    console.log('occlusionMapX3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 3]]).mean([0,1,2]).dataSync()))
+    console.log('occlusionMapY0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 4]]).mean([0,1,2]).dataSync()))
+    console.log('occlusionMapY1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 5]]).mean([0,1,2]).dataSync()))
+    console.log('occlusionMapY2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 6]]).mean([0,1,2]).dataSync()))
+    console.log('occlusionMapY3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 7]]).mean([0,1,2]).dataSync()))
+    console.log('occlusionMapZ0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 8]]).mean([0,1,2]).dataSync()))
+    console.log('occlusionMapZ1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 9]]).mean([0,1,2]).dataSync()))
+    console.log('occlusionMapZ2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[10]]).mean([0,1,2]).dataSync()))
+    console.log('occlusionMapZ3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[11]]).mean([0,1,2]).dataSync()))
+    
+    
+    // 0.64208984375, 0.64208984375, 
+    // 0.65673828125, 0.65673828125, 
+    // 0.66748046875, 0.6669921875,  
+    // 0.63134765625, 0.630859375,   
+    // 0.83251953125, 0.83251953125, 
+    // 0.82763671875, 0.82763671875, 
+    // 0.81982421875, 0.81982421875, 
+    // 0.77197265625, 0.77197265625, 
+    // 0.724609375,   0.724609375,   
+    // 0.7119140625,  0.7119140625,  
+    // 0.73486328125, 0.73486328125, 
+    // 0.71337890625, 0.71337890625, 
+
+    
     return occlusionMap as tf.Tensor3D
 }
