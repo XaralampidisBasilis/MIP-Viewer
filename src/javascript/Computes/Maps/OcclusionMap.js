@@ -1,8 +1,8 @@
 import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
-import { computeOcclusionMap, computeOneWayOcclusionMap } from '../Programs/GPGPUOcclusionMap'
-import { computeExtendedAnisotropicOcclusionMapsAsync } from '../Programs/GPGPUOcclusionMapFused'
+// import { computeOcclusionMap, computeOneWayOcclusionMap } from '../Programs/GPGPUOcclusionMap'
+import { computeOneWayOcclusionMaps } from '../Programs/GPGPUOcclusionMapFused'
 // import { computeOneWayOcclusionMap } from '../Programs/GPGPUOcclusionMapSliced'
 
 export class OcclusionMap
@@ -18,7 +18,7 @@ export class OcclusionMap
     {
         console.time('computeTensor') 
         // console.log(await tf.profile(() => computeOcclusionMap(this.volumeMap.tensor)))
-        this.tensor = await computeExtendedAnisotropicOcclusionMapsAsync(this.volumeMap.tensor)
+        this.tensor = computeOneWayOcclusionMaps(this.volumeMap.tensor)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.slice(0,3).toReversed())
         console.timeEnd('computeTensor') 
     }

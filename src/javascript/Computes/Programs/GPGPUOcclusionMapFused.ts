@@ -1,6 +1,8 @@
 import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
+import { stackDepthPacked } from './stack_depth_packed_webgl'
+import { unstackDepthPacked } from './unstack_depth_packed_webgl'
 
 class GPGPUMinimaMaps0 implements GPGPUProgram 
 {
@@ -1221,7 +1223,7 @@ export function computeOneWayOcclusionMaps(volumeMap: tf.Tensor3D) : tf.Tensor5D
     // console.log('minimaStart', tf.tidy(() => minimaStart.unstack(0)[0].mean([0,1,2]).dataSync()))
 
     const updateProgram = new GPGPUUpdateMinimaSlices(volumeMap.shape)
-    const minimaSlices = tf.unstack(minimaStart, 1)
+    const minimaSlices = unstackDepthPacked(minimaStart)
     minimaStart.dispose()
 
     for (let i = 1; i < minimaSlices.length; i++)
@@ -1231,7 +1233,7 @@ export function computeOneWayOcclusionMaps(volumeMap: tf.Tensor3D) : tf.Tensor5D
         minimaSlices[i] = updatedSlice
     }
 
-    const minimaMap = tf.stack(minimaSlices, 1); 
+    const minimaMap = stackDepthPacked(minimaSlices); 
     tf.dispose(minimaSlices)
     // console.log('minimaMap', tf.tidy(() => minimaMap.unstack(0)[0].mean([0,1,2]).dataSync()))
 
@@ -1242,7 +1244,12 @@ export function computeOneWayOcclusionMaps(volumeMap: tf.Tensor3D) : tf.Tensor5D
     const occlusionProgram = new GPGPUOcclusionMaps(volumeMap.shape)
     const occlusionMap = runProgram(occlusionProgram, [minimaMap, maximaMap], 'float32', [], false)
     tf.dispose([minimaMap, maximaMap])
-    // console.log('occlusionMap', tf.tidy(() => occlusionMap.mean([0,1,2]).dataSync()))
+
+    const unpack = new GPGPUUnpackOccupancyMap0(volumeMap.shape)
+    console.log('occlusionMap0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[0]]).mean([0,1,2]).dataSync()))
+    console.log('occlusionMap1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[1]]).mean([0,1,2]).dataSync()))
+    console.log('occlusionMap2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[2]]).mean([0,1,2]).dataSync()))
+    console.log('occlusionMap3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[3]]).mean([0,1,2]).dataSync()))
 
     return occlusionMap as tf.Tensor5D
 }

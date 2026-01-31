@@ -1,6 +1,8 @@
 import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
+import { stackDepthPacked } from './stack_depth_packed_webgl'
+import { unstackDepthPacked } from './unstack_depth_packed_webgl'
 
 class GPGPUMinimaMap0 implements GPGPUProgram 
 {
@@ -861,6 +863,25 @@ export function computeOneWayOcclusionMap0(volumeMap: tf.Tensor3D) : tf.Tensor<t
     return occlusionMap as tf.Tensor
 }
 
+export function computeOcclusionMap0(volumeMap: tf.Tensor3D): tf.Tensor3D
+{
+    const reversedVolumeMap = tf.reverse(volumeMap)
+    const reversedOccupancyMapA = computeOneWayOcclusionMap0(reversedVolumeMap)
+    tf.dispose(reversedVolumeMap)
+    
+    const occlusionMapA = tf.reverse(reversedOccupancyMapA)
+    tf.dispose(reversedOccupancyMapA)
+
+    const occlusionMapB = computeOneWayOcclusionMap0(volumeMap)
+
+    const occlusionMap = tf.maximum(occlusionMapA, occlusionMapB)
+    tf.dispose([occlusionMapA, occlusionMapB])
+
+    console.log('occlusionMap', tf.tidy(() => occlusionMap.mean().dataSync()))
+
+    return occlusionMap as tf.Tensor3D
+}
+
 export function computeOneWayOcclusionMap(volumeMap: tf.Tensor3D) : tf.Tensor<tf.Rank>
 {
     const minimaProgram = new GPGPUMinimaMap(volumeMap.shape)
@@ -869,6 +890,7 @@ export function computeOneWayOcclusionMap(volumeMap: tf.Tensor3D) : tf.Tensor<tf
 
     const updateProgram = new GPGPUUpdateMinimaSlices(volumeMap.shape)
     const minimaSlices = tf.unstack(minimaStart, 0)
+    // const minimaSlices = unstackDepthPacked(minimaStart)
     minimaStart.dispose()
 
     for (let i = 1; i < minimaSlices.length; i++)
@@ -879,6 +901,7 @@ export function computeOneWayOcclusionMap(volumeMap: tf.Tensor3D) : tf.Tensor<tf
     }
 
     const minimaMap = tf.stack(minimaSlices, 0)
+    // const minimaMap = stackDepthPacked(minimaSlices)
     tf.dispose(minimaSlices)
     // console.log('minimaMap', tf.tidy(() => minimaMap.mean([0,1,2]).dataSync())) 
     
@@ -889,9 +912,29 @@ export function computeOneWayOcclusionMap(volumeMap: tf.Tensor3D) : tf.Tensor<tf
     const occlusionProgram = new GPGPUOcclusionMap(volumeMap.shape)
     const occlusionMap = runProgram(occlusionProgram, [minimaMap, maximaMap], 'float32', [], false)
     tf.dispose([minimaMap, maximaMap])
+
     console.log('occlusionMap', tf.tidy(() => occlusionMap.mean().dataSync()))
 
     return occlusionMap as tf.Tensor
+}
+
+export function computeOcclusionMap(volumeMap: tf.Tensor3D): tf.Tensor3D
+{
+    const reversedVolumeMap = tf.reverse(volumeMap)
+    const reversedOccupancyMapA = computeOneWayOcclusionMap(reversedVolumeMap)
+    tf.dispose(reversedVolumeMap)
+    
+    const occlusionMapA = tf.reverse(reversedOccupancyMapA)
+    tf.dispose(reversedOccupancyMapA)
+
+    const occlusionMapB = computeOneWayOcclusionMap(volumeMap)
+
+    const occlusionMap = tf.maximum(occlusionMapA, occlusionMapB)
+    tf.dispose([occlusionMapA, occlusionMapB])
+
+    console.log('occlusionMap', tf.tidy(() => occlusionMap.mean().dataSync()))
+
+    return occlusionMap as tf.Tensor3D
 }
 
 export async function computeOneWayOcclusionMapAsync(volumeMap: tf.Tensor3D) : Promise<tf.Tensor<tf.Rank>>
@@ -923,25 +966,20 @@ export async function computeOneWayOcclusionMapAsync(volumeMap: tf.Tensor3D) : P
     return occlusionMap as tf.Tensor
 }
 
-export function computeOcclusionMap0(volumeMap: tf.Tensor3D): tf.Tensor3D
+export async function computeOcclusionMapAsync(volumeMap: tf.Tensor3D): Promise<tf.Tensor3D>
 {
-    const occlusionMapPos = computeOneWayOcclusionMap0(volumeMap)
-    const occlusionMapNeg = tf.tidy(() => tf.reverse(computeOneWayOcclusionMap0(tf.reverse(volumeMap))))
+    const reversedVolumeMap = tf.reverse(volumeMap)
+    const reversedOccupancyMapA = await computeOneWayOcclusionMapAsync(reversedVolumeMap)
+    tf.dispose(reversedVolumeMap)
+    
+    const occlusionMapA = tf.reverse(reversedOccupancyMapA)
+    tf.dispose(reversedOccupancyMapA)
 
-    const occlusionMap = tf.maximum(occlusionMapPos, occlusionMapNeg)
-    tf.dispose([occlusionMapPos, occlusionMapNeg])
-    console.log('occlusionMap', tf.tidy(() => occlusionMap.mean().dataSync()))
+    const occlusionMapB = await computeOneWayOcclusionMapAsync(volumeMap)
 
-    return occlusionMap as tf.Tensor3D
-}
+    const occlusionMap = tf.maximum(occlusionMapA, occlusionMapB)
+    tf.dispose([occlusionMapA, occlusionMapB])
 
-export function computeOcclusionMap(volumeMap: tf.Tensor3D): tf.Tensor3D
-{
-    const occlusionMapNeg = tf.tidy(() => tf.reverse(computeOneWayOcclusionMap(tf.reverse(volumeMap))))
-    const occlusionMapPos = computeOneWayOcclusionMap(volumeMap)
-
-    const occlusionMap = tf.maximum(occlusionMapPos, occlusionMapNeg)
-    tf.dispose([occlusionMapPos, occlusionMapNeg])
     console.log('occlusionMap', tf.tidy(() => occlusionMap.mean().dataSync()))
 
     return occlusionMap as tf.Tensor3D
