@@ -1,8 +1,9 @@
 import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
-import { stackDepthPacked } from './stack_depth_packed_webgl'
-import { unstackDepthPacked } from './unstack_depth_packed_webgl'
+import { stackDepthPacked } from './stack_depth_packed_batched_webgl'
+import { unstackDepthPacked } from './unstack_depth_packed_batched_webgl'
+import { log } from 'mathjs'
 
 class GPGPUMinimaMaps0 implements GPGPUProgram 
 {
@@ -778,7 +779,7 @@ class GPGPUUpdateMinimaMaps implements GPGPUProgram
     }
 }
 
-class GPGPUOcclusionMaps implements GPGPUProgram 
+class GPGPUAnisotropicOcclusionMaps implements GPGPUProgram 
 {
     variableNames = ['A', 'B']
     outputShape: number[]
@@ -849,7 +850,7 @@ class GPGPUOcclusionMaps implements GPGPUProgram
     }
 }
 
-class GPGPUUniteOcclusionMaps implements GPGPUProgram 
+class GPGPUMergeAnisotropicOcclusionMaps implements GPGPUProgram 
 {
     variableNames = ['A', 'B']
     outputShape: number[]
@@ -903,7 +904,7 @@ class GPGPUUniteOcclusionMaps implements GPGPUProgram
     }
 }
 
-class GPGPUPackOcclusionMaps implements GPGPUProgram 
+class GPGPUPackAnisotropicOcclusionMaps implements GPGPUProgram 
 {
     variableNames = ['A', 'B', 'C']
     outputShape: number[]
@@ -969,7 +970,7 @@ class GPGPUPackOcclusionMaps implements GPGPUProgram
     }
 }
 
-class GPGPUUnpackOccupancyMap0 implements GPGPUProgram 
+class GPGPUUnpackAnisotropicOcclusionMaps implements GPGPUProgram 
 {
     variableNames = ['A'] 
     outputShape: number[]
@@ -978,10 +979,10 @@ class GPGPUUnpackOccupancyMap0 implements GPGPUProgram
     packedOutput = false
     customUniforms = [{ name: 'uMap', type: 'int' as const }]
 
-    constructor(volumeShape: [number, number, number]) 
+    constructor(outputShape: [number, number, number]) 
     {
-        const [outDepth, outHeight, outWidth] = volumeShape.map(x => x + 1)
-        this.outputShape = [outDepth, outHeight, outWidth]
+        const [outDepth, outHeight, outWidth] = outputShape
+        this.outputShape = outputShape
         this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
@@ -1014,7 +1015,7 @@ class GPGPUUnpackOccupancyMap0 implements GPGPUProgram
     }
 }
 
-class GPGPUUnpackOccupancyMap implements GPGPUProgram 
+class GPGPUUnpackExtendedAnisotropicOcclusionMaps implements GPGPUProgram 
 {
     variableNames = ['A'] 
     outputShape: number[]
@@ -1023,10 +1024,10 @@ class GPGPUUnpackOccupancyMap implements GPGPUProgram
     packedOutput = false
     customUniforms = [{ name: 'uMap', type: 'int' as const }]
 
-    constructor(volumeShape: [number, number, number]) 
+    constructor(outputShape: [number, number, number]) 
     {
-        const [outDepth, outHeight, outWidth] = volumeShape.map(x => x + 1)
-        this.outputShape = [outDepth, outHeight, outWidth]
+        const [outDepth, outHeight, outWidth] = outputShape
+        this.outputShape = outputShape
         this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
@@ -1065,49 +1066,6 @@ class GPGPUUnpackOccupancyMap implements GPGPUProgram
     }
 }
 
-class GPGPUReverse implements GPGPUProgram 
-{
-    variableNames = ['A']
-    outputShape: number[]
-    userCode: string
-    packedInputs = true
-    packedOutput = true
-
-    constructor
-    (
-        volumeShape: [number, number, number], 
-    ) 
-    {
-        const [outDepth, outHeight, outWidth] = volumeShape.map((x: number) => x + 1)
-        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]     
-        this.userCode = `
-
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
-
-        ivec3 getOutCoords()
-        {
-            ivec5 coords = getOutputCoords();
-            return ivec3(coords.z, coords.y, coords.x);
-        }
-
-        vec4 getA(ivec3 coords)
-        {
-            coords = clamp(coords, minCoords, maxCoords);
-            return getA(coords.z, coords.y, coords.x, 0, 0);
-        }
-                
-        void main()
-        {
-            ivec3 coords = getOutCoords();
-            ivec3 revCoords = maxCoords - coords;
-    
-            setOutput(getA(revCoords));    
-        }
-        `
-    }
-}
-
 function runProgram(prog: GPGPUProgram, inputs: tf.Tensor[], outputDtype?: tf.DataType, customUniformValues?: number[][], preventEagerUnpackingOfOutput?: boolean): tf.Tensor
 {
     const backend = tf.backend() as MathBackendWebGL
@@ -1121,106 +1079,6 @@ export function computeOneWayOcclusionMaps0(volumeMap: tf.Tensor3D) : tf.Tensor5
 {
     const minimaProgram = new GPGPUMinimaMaps0(volumeMap.shape)
     const minimaStart = runProgram(minimaProgram, [volumeMap], 'float32', [], true)
-    // console.log('minimaStart', tf.tidy(() => minimaStart.unstack(0)[0].mean([0,1,2]).dataSync()))
-
-    const updateProgram = new GPGPUUpdateMinimaSlices(volumeMap.shape)
-    const minimaSlices = tf.unstack(minimaStart, 1)
-    minimaStart.dispose()
-
-    for (let i = 1; i < minimaSlices.length; i++)
-    {
-        const updatedSlice = runProgram(updateProgram, [minimaSlices[i], minimaSlices[i-1]], 'float32', [], true)
-        tf.dispose(minimaSlices[i])
-        minimaSlices[i] = updatedSlice
-    }
-
-    const minimaMap = tf.stack(minimaSlices, 1); 
-    tf.dispose(minimaSlices)
-    // console.log('minimaMap', tf.tidy(() => minimaMap.unstack(0)[0].mean([0,1,2]).dataSync()))
-
-    const maximaProgram = new GPGPUMaximaMaps0(volumeMap.shape)
-    const maximaMap = runProgram(maximaProgram, [volumeMap], 'float32', [], true)
-    // console.log('maximaMap', tf.tidy(() => maximaMap.unstack(0)[0].mean([0,1,2]).dataSync()))
-
-    const occlusionProgram = new GPGPUOcclusionMaps(volumeMap.shape)
-    const occlusionMap = runProgram(occlusionProgram, [minimaMap, maximaMap], 'float32', [], false)
-    tf.dispose([minimaMap, maximaMap])
-    // console.log('occlusionMap', tf.tidy(() => occlusionMap.mean([0,1,2]).dataSync()))
-
-    return occlusionMap as tf.Tensor5D
-}
-
-export function computeExtendedAnisotropicOcclusionMaps0(volumeMap: tf.Tensor3D): tf.Tensor3D
-{
-    const transposedVolumeMapX = tf.transpose(volumeMap, [2,1,0])
-    const transposedOcclusionMapX = computeAnisotropicOcclusionMaps0(transposedVolumeMapX)
-    tf.dispose(transposedVolumeMapX)
-
-    const occlusionMapX = tf.transpose(transposedOcclusionMapX, [2,1,0])
-    tf.dispose(transposedOcclusionMapX)
-
-    const transposedVolumeMapY = tf.transpose(volumeMap, [1,0,2])
-    const transposedOcclusionMapY = computeAnisotropicOcclusionMaps0(transposedVolumeMapY)
-    tf.dispose(transposedVolumeMapY)
-
-    const occlusionMapY = tf.transpose(transposedOcclusionMapY, [1,0,2])
-    tf.dispose(transposedOcclusionMapY)
-
-    const occlusionMapZ = computeAnisotropicOcclusionMaps0(volumeMap)
-
-    const pack = new GPGPUPackOcclusionMaps(volumeMap.shape)
-    const occlusionMap = runProgram(pack, [occlusionMapX, occlusionMapY, occlusionMapZ], 'float32', [], false)
-    tf.dispose([occlusionMapX, occlusionMapY, occlusionMapZ])
-
-    const unpack = new GPGPUUnpackOccupancyMap(volumeMap.shape)
-    console.log('occlusionMapX0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 0]]).mean([0,1,2]).dataSync())) // 0.58740234375
-    console.log('occlusionMapX1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 1]]).mean([0,1,2]).dataSync())) // 0.59619140625
-    console.log('occlusionMapX2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 2]]).mean([0,1,2]).dataSync())) // 0.60302734375
-    console.log('occlusionMapX3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 3]]).mean([0,1,2]).dataSync())) // 0.560546875  
-    console.log('occlusionMapY0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 4]]).mean([0,1,2]).dataSync())) // 0.79150390625
-    console.log('occlusionMapY1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 5]]).mean([0,1,2]).dataSync())) // 0.7783203125 
-    console.log('occlusionMapY2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 6]]).mean([0,1,2]).dataSync())) // 0.75         
-    console.log('occlusionMapY3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 7]]).mean([0,1,2]).dataSync())) // 0.7138671875 
-    console.log('occlusionMapZ0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 8]]).mean([0,1,2]).dataSync())) // 0.65673828125
-    console.log('occlusionMapZ1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 9]]).mean([0,1,2]).dataSync())) // 0.63037109375
-    console.log('occlusionMapZ2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[10]]).mean([0,1,2]).dataSync())) // 0.65380859375
-    console.log('occlusionMapZ3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[11]]).mean([0,1,2]).dataSync())) // 0.6328125    
-
-
-    return occlusionMap as tf.Tensor3D
-}
-
-export function computeAnisotropicOcclusionMaps0(volumeMap: tf.Tensor3D): tf.Tensor3D
-{
-    const reversedVolumeMap = tf.reverse(volumeMap)
-    const reversedOccupancyMapA = computeOneWayOcclusionMaps0(reversedVolumeMap)
-    tf.dispose(reversedVolumeMap)
-    
-    const occlusionMapA = tf.reverse(reversedOccupancyMapA)
-    tf.dispose(reversedOccupancyMapA)
-
-    const occlusionMapB = computeOneWayOcclusionMaps0(volumeMap)
-
-    const logicalOr = new GPGPUUniteOcclusionMaps(volumeMap.shape)
-    const occlusionMap = runProgram(logicalOr, [occlusionMapA, occlusionMapB], 'float32', [], false)
-    tf.dispose([occlusionMapA, occlusionMapB])
-    
-    // const unpack = new GPGPUUnpackOccupancyMap0(volumeMap.shape)
-    // console.log('occlusionMap0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[0]]).mean([0,1,2]).dataSync()))
-    // console.log('occlusionMap1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[1]]).mean([0,1,2]).dataSync()))
-    // console.log('occlusionMap2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[2]]).mean([0,1,2]).dataSync()))
-    // console.log('occlusionMap3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[3]]).mean([0,1,2]).dataSync()))
-
-    return occlusionMap as tf.Tensor3D
-}
-
-// Slice versions, faster but more unstable for large volumes
-
-export function computeOneWayOcclusionMaps(volumeMap: tf.Tensor3D) : tf.Tensor5D
-{
-    const minimaProgram = new GPGPUMinimaMaps(volumeMap.shape)
-    const minimaStart = runProgram(minimaProgram, [volumeMap], 'float32', [], true)
-    // console.log('minimaStart', tf.tidy(() => minimaStart.unstack(0)[0].mean([0,1,2]).dataSync()))
 
     const updateProgram = new GPGPUUpdateMinimaSlices(volumeMap.shape)
     const minimaSlices = unstackDepthPacked(minimaStart)
@@ -1233,89 +1091,144 @@ export function computeOneWayOcclusionMaps(volumeMap: tf.Tensor3D) : tf.Tensor5D
         minimaSlices[i] = updatedSlice
     }
 
-    const minimaMap = stackDepthPacked(minimaSlices); 
+    const minimaMaps = stackDepthPacked(minimaSlices); 
     tf.dispose(minimaSlices)
-    // console.log('minimaMap', tf.tidy(() => minimaMap.unstack(0)[0].mean([0,1,2]).dataSync()))
+
+    const maximaProgram = new GPGPUMaximaMaps0(volumeMap.shape)
+    const maximaMaps = runProgram(maximaProgram, [volumeMap], 'float32', [], true)
+
+    const occlusionProgram = new GPGPUAnisotropicOcclusionMaps(volumeMap.shape)
+    const occlusionMaps = runProgram(occlusionProgram, [minimaMaps, maximaMaps], 'float32', [], false)
+    tf.dispose([minimaMaps, maximaMaps])
+
+    return occlusionMaps as tf.Tensor5D
+}
+
+export function computeAnisotropicOcclusionMaps0(volumeMap: tf.Tensor3D): tf.Tensor3D
+{
+    const reversedVolumeMap = tf.reverse(volumeMap)
+    const reversedOcclusionMapsA = computeOneWayOcclusionMaps0(reversedVolumeMap)
+    tf.dispose(reversedVolumeMap)
+    
+    const occlusionMapsA = tf.reverse(reversedOcclusionMapsA)
+    tf.dispose(reversedOcclusionMapsA)
+
+    const occlusionMapsB = computeOneWayOcclusionMaps0(volumeMap)
+
+    const merge = new GPGPUMergeAnisotropicOcclusionMaps(volumeMap.shape)
+    const occlusionMaps = runProgram(merge, [occlusionMapsA, occlusionMapsB], 'float32', [], false) as tf.Tensor3D
+    tf.dispose([occlusionMapsA, occlusionMapsB])
+    
+    logAnisotropicOcclusionMaps(occlusionMaps)
+
+    return occlusionMaps as tf.Tensor3D
+}
+
+export function computeExtendedAnisotropicOcclusionMaps0(volumeMap: tf.Tensor3D): tf.Tensor3D
+{
+    const transposedVolumeMapX = tf.transpose(volumeMap, [2,1,0])
+    const transposedOcclusionMapsX = computeAnisotropicOcclusionMaps0(transposedVolumeMapX)
+    tf.dispose(transposedVolumeMapX)
+
+    const occlusionMapsX = tf.transpose(transposedOcclusionMapsX, [2,1,0])
+    tf.dispose(transposedOcclusionMapsX)
+
+    const transposedVolumeMapY = tf.transpose(volumeMap, [1,0,2])
+    const transposedOcclusionMapsY = computeAnisotropicOcclusionMaps0(transposedVolumeMapY)
+    tf.dispose(transposedVolumeMapY)
+
+    const occlusionMapY = tf.transpose(transposedOcclusionMapsY, [1,0,2])
+    tf.dispose(transposedOcclusionMapsY)
+
+    const occlusionMapsZ = computeAnisotropicOcclusionMaps0(volumeMap)
+
+    const pack = new GPGPUPackAnisotropicOcclusionMaps(volumeMap.shape)
+    const occlusionMaps = runProgram(pack, [occlusionMapsX, occlusionMapY, occlusionMapsZ], 'float32', [], false) as tf.Tensor3D
+    tf.dispose([occlusionMapsX, occlusionMapY, occlusionMapsZ])
+
+    logExtendedAnisotropicOcclusionMaps(occlusionMaps)
+
+    return occlusionMaps
+}
+
+// Slice versions, faster but more unstable for large volumes
+
+export function computeOneWayOcclusionMaps(volumeMap: tf.Tensor3D) : tf.Tensor3D
+{
+    const minimaProgram = new GPGPUMinimaMaps(volumeMap.shape)
+    const minimaStart = runProgram(minimaProgram, [volumeMap], 'float32', [], true)
+
+    const updateProgram = new GPGPUUpdateMinimaSlices(volumeMap.shape)
+    const minimaSlices = unstackDepthPacked(minimaStart)
+    minimaStart.dispose()
+
+    for (let i = 1; i < minimaSlices.length; i++)
+    {
+        const updatedSlice = runProgram(updateProgram, [minimaSlices[i], minimaSlices[i-1]], 'float32', [], true)
+        tf.dispose(minimaSlices[i])
+        minimaSlices[i] = updatedSlice
+    }
+
+    const minimaMaps = stackDepthPacked(minimaSlices); 
+    tf.dispose(minimaSlices)
 
     const maximaProgram = new GPGPUMaximaMaps(volumeMap.shape)
-    const maximaMap = runProgram(maximaProgram, [volumeMap], 'float32', [], true)
-    // console.log('maximaMap', tf.tidy(() => maximaMap.unstack(0)[0].mean([0,1,2]).dataSync()))
+    const maximaMaps = runProgram(maximaProgram, [volumeMap], 'float32', [], true)
 
-    const occlusionProgram = new GPGPUOcclusionMaps(volumeMap.shape)
-    const occlusionMap = runProgram(occlusionProgram, [minimaMap, maximaMap], 'float32', [], false)
-    tf.dispose([minimaMap, maximaMap])
+    const occlusionProgram = new GPGPUAnisotropicOcclusionMaps(volumeMap.shape)
+    const occlusionMaps = runProgram(occlusionProgram, [minimaMaps, maximaMaps], 'float32', [], false) as tf.Tensor3D
+    tf.dispose([minimaMaps, maximaMaps])
 
-    const unpack = new GPGPUUnpackOccupancyMap0(volumeMap.shape)
-    console.log('occlusionMap0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[0]]).mean([0,1,2]).dataSync()))
-    console.log('occlusionMap1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[1]]).mean([0,1,2]).dataSync()))
-    console.log('occlusionMap2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[2]]).mean([0,1,2]).dataSync()))
-    console.log('occlusionMap3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[3]]).mean([0,1,2]).dataSync()))
+    // logAnisotropicOcclusionMaps(occlusionMaps)
 
-    return occlusionMap as tf.Tensor5D
+    return occlusionMaps 
 }
 
 export function computeAnisotropicOcclusionMaps(volumeMap: tf.Tensor3D): tf.Tensor3D
 {
     const reversedVolumeMap = tf.reverse(volumeMap)
-    const reversedOccupancyMapA = computeOneWayOcclusionMaps(reversedVolumeMap)
+    const reversedOcclusionMapsA = computeOneWayOcclusionMaps(reversedVolumeMap)
     tf.dispose(reversedVolumeMap)
     
-    const occlusionMapA = tf.reverse(reversedOccupancyMapA)
-    tf.dispose(reversedOccupancyMapA)
+    const occlusionMapsA = tf.reverse(reversedOcclusionMapsA)
+    tf.dispose(reversedOcclusionMapsA)
 
-    const occlusionMapB = computeOneWayOcclusionMaps(volumeMap)
+    const occlusionMapsB = computeOneWayOcclusionMaps(volumeMap)
 
-    const logicalOr = new GPGPUUniteOcclusionMaps(volumeMap.shape)
-    const occlusionMap = runProgram(logicalOr, [occlusionMapA, occlusionMapB], 'float32', [], false)
-    tf.dispose([occlusionMapA, occlusionMapB])
+    const merge = new GPGPUMergeAnisotropicOcclusionMaps(volumeMap.shape)
+    const occlusionMaps = runProgram(merge, [occlusionMapsA, occlusionMapsB], 'float32', [], false) as tf.Tensor3D
+    tf.dispose([occlusionMapsA, occlusionMapsB])
+    
+    // logAnisotropicOcclusionMaps(occlusionMaps)
 
-    // const unpack = new GPGPUUnpackOccupancyMap0(volumeMap.shape)
-    // console.log('occlusionMap0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[0]]).mean([0,1,2]).dataSync()))
-    // console.log('occlusionMap1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[1]]).mean([0,1,2]).dataSync()))
-    // console.log('occlusionMap2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[2]]).mean([0,1,2]).dataSync()))
-    // console.log('occlusionMap3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[3]]).mean([0,1,2]).dataSync()))
-
-    return occlusionMap as tf.Tensor3D
+    return occlusionMaps as tf.Tensor3D
 }
 
 export function computeExtendedAnisotropicOcclusionMaps(volumeMap: tf.Tensor3D): tf.Tensor3D
 {
     const transposedVolumeMapX = tf.transpose(volumeMap, [2,1,0])
-    const transposedOcclusionMapX = computeAnisotropicOcclusionMaps(transposedVolumeMapX)
+    const transposedOcclusionMapsX = computeAnisotropicOcclusionMaps(transposedVolumeMapX)
     tf.dispose(transposedVolumeMapX)
 
-    const occlusionMapX = tf.transpose(transposedOcclusionMapX, [2,1,0])
-    tf.dispose(transposedOcclusionMapX)
+    const occlusionMapsX = tf.transpose(transposedOcclusionMapsX, [2,1,0])
+    tf.dispose(transposedOcclusionMapsX)
 
     const transposedVolumeMapY = tf.transpose(volumeMap, [1,0,2])
-    const transposedOcclusionMapY = computeAnisotropicOcclusionMaps(transposedVolumeMapY)
+    const transposedOcclusionMapsY = computeAnisotropicOcclusionMaps(transposedVolumeMapY)
     tf.dispose(transposedVolumeMapY)
 
-    const occlusionMapY = tf.transpose(transposedOcclusionMapY, [1,0,2])
-    tf.dispose(transposedOcclusionMapY)
+    const occlusionMapY = tf.transpose(transposedOcclusionMapsY, [1,0,2])
+    tf.dispose(transposedOcclusionMapsY)
 
-    const occlusionMapZ = computeAnisotropicOcclusionMaps(volumeMap)
+    const occlusionMapsZ = computeAnisotropicOcclusionMaps(volumeMap)
 
+    const pack = new GPGPUPackAnisotropicOcclusionMaps(volumeMap.shape)
+    const occlusionMaps = runProgram(pack, [occlusionMapsX, occlusionMapY, occlusionMapsZ], 'float32', [], false) as tf.Tensor3D
+    tf.dispose([occlusionMapsX, occlusionMapY, occlusionMapsZ])
 
-    const pack = new GPGPUPackOcclusionMaps(volumeMap.shape)
-    const occlusionMap = runProgram(pack, [occlusionMapX, occlusionMapY, occlusionMapZ], 'float32', [], false)
-    tf.dispose([occlusionMapX, occlusionMapY, occlusionMapZ])
+    logExtendedAnisotropicOcclusionMaps(occlusionMaps)
 
-    const unpack = new GPGPUUnpackOccupancyMap(volumeMap.shape)
-    console.log('occlusionMapX0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 0]]).mean([0,1,2]).dataSync())) // 0.64208984375 
-    console.log('occlusionMapX1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 1]]).mean([0,1,2]).dataSync())) // 0.65673828125 
-    console.log('occlusionMapX2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 2]]).mean([0,1,2]).dataSync())) // 0.6669921875  
-    console.log('occlusionMapX3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 3]]).mean([0,1,2]).dataSync())) // 0.630859375   
-    console.log('occlusionMapY0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 4]]).mean([0,1,2]).dataSync())) // 0.83251953125 
-    console.log('occlusionMapY1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 5]]).mean([0,1,2]).dataSync())) // 0.82763671875 
-    console.log('occlusionMapY2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 6]]).mean([0,1,2]).dataSync())) // 0.81982421875 
-    console.log('occlusionMapY3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 7]]).mean([0,1,2]).dataSync())) // 0.77197265625 
-    console.log('occlusionMapZ0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 8]]).mean([0,1,2]).dataSync())) // 0.724609375   
-    console.log('occlusionMapZ1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 9]]).mean([0,1,2]).dataSync())) // 0.7119140625  
-    console.log('occlusionMapZ2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[10]]).mean([0,1,2]).dataSync())) // 0.73486328125 
-    console.log('occlusionMapZ3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[11]]).mean([0,1,2]).dataSync())) // 0.71337890625 
-
-    return occlusionMap as tf.Tensor3D
+    return occlusionMaps
 }
 
 // Async versions, slower but more stable for large volumes
@@ -1324,53 +1237,45 @@ export async function computeOneWayOcclusionMapsAsync(volumeMap: tf.Tensor3D) : 
 {
     const updateProgram = new GPGPUUpdateMinimaMaps(volumeMap.shape)
     const minimaProgram = new GPGPUMinimaMaps(volumeMap.shape)
-    let minimaMap = runProgram(minimaProgram, [volumeMap], 'float32', [], true)
-    // console.log('minimaMap', tf.tidy(() => minimaMap.unstack(0)[0].mean([0,1,2]).dataSync()))
+    let minimaMaps = runProgram(minimaProgram, [volumeMap], 'float32', [], true)
     
     for (let i = 0; i < volumeMap.shape[0]; i++)
     {
-        const temp = runProgram(updateProgram, [minimaMap], 'float32', [], true)
-        tf.dispose(minimaMap)
-        minimaMap = temp
+        const temp = runProgram(updateProgram, [minimaMaps], 'float32', [], true)
+        tf.dispose(minimaMaps)
+        minimaMaps = temp
 
         await tf.nextFrame()
     }
-    // console.log('minimaMap', tf.tidy(() => minimaMap.unstack(0)[0].mean([0,1,2]).dataSync()))
 
     const maximaProgram = new GPGPUMaximaMaps(volumeMap.shape)
-    const maximaMap = runProgram(maximaProgram, [volumeMap], 'float32', [], true)
-    // console.log('maximaMap', tf.tidy(() => maximaMap.unstack(0)[0].mean([0,1,2]).dataSync()))
+    const maximaMaps = runProgram(maximaProgram, [volumeMap], 'float32', [], true)
 
-    const occlusionProgram = new GPGPUOcclusionMaps(volumeMap.shape)
-    const occlusionMap = runProgram(occlusionProgram, [minimaMap, maximaMap], 'float32', [], false)
-    tf.dispose([minimaMap, maximaMap])
-    // console.log('occlusionMap', tf.tidy(() => occlusionMap.mean([0,1,2]).dataSync()))
+    const occlusionProgram = new GPGPUAnisotropicOcclusionMaps(volumeMap.shape)
+    const occlusionMaps = runProgram(occlusionProgram, [minimaMaps, maximaMaps], 'float32', [], false)
+    tf.dispose([minimaMaps, maximaMaps])
 
-    return occlusionMap as tf.Tensor5D
+    return occlusionMaps as tf.Tensor5D
 }
 
 export async function computeAnisotropicOcclusionMapsAsync(volumeMap: tf.Tensor3D): Promise<tf.Tensor3D>
 {
     const reversedVolumeMap = tf.reverse(volumeMap)
-    const reversedOccupancyMapA = await computeOneWayOcclusionMapsAsync(reversedVolumeMap)
+    const reversedOcclusionMapA = await computeOneWayOcclusionMapsAsync(reversedVolumeMap)
     tf.dispose(reversedVolumeMap)
     
-    const occlusionMapA = tf.reverse(reversedOccupancyMapA)
-    tf.dispose(reversedOccupancyMapA)
+    const occlusionMapsA = tf.reverse(reversedOcclusionMapA)
+    tf.dispose(reversedOcclusionMapA)
 
-    const occlusionMapB = await computeOneWayOcclusionMapsAsync(volumeMap)
+    const occlusionMapsB = await computeOneWayOcclusionMapsAsync(volumeMap)
 
-    const logicalOr = new GPGPUUniteOcclusionMaps(volumeMap.shape)
-    const occlusionMap = runProgram(logicalOr, [occlusionMapA, occlusionMapB], 'float32', [], false)
-    tf.dispose([occlusionMapA, occlusionMapB])
+    const merge = new GPGPUMergeAnisotropicOcclusionMaps(volumeMap.shape)
+    const occlusionsMaps = runProgram(merge, [occlusionMapsA, occlusionMapsB], 'float32', [], false) as tf.Tensor3D
+    tf.dispose([occlusionMapsA, occlusionMapsB])
 
-    // const unpack = new GPGPUUnpackOccupancyMap0(volumeMap.shape)
-    // console.log('occlusionMap0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[0]]).mean([0,1,2]).dataSync()))
-    // console.log('occlusionMap1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[1]]).mean([0,1,2]).dataSync()))
-    // console.log('occlusionMap2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[2]]).mean([0,1,2]).dataSync()))
-    // console.log('occlusionMap3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[3]]).mean([0,1,2]).dataSync()))
+    logAnisotropicOcclusionMaps(occlusionsMaps)
 
-    return occlusionMap as tf.Tensor3D
+    return occlusionsMaps
 }
 
 export async function computeExtendedAnisotropicOcclusionMapsAsync(volumeMap: tf.Tensor3D): Promise<tf.Tensor3D>
@@ -1391,23 +1296,41 @@ export async function computeExtendedAnisotropicOcclusionMapsAsync(volumeMap: tf
 
     const occlusionMapZ = await computeAnisotropicOcclusionMapsAsync(volumeMap)
 
-    const pack = new GPGPUPackOcclusionMaps(volumeMap.shape)
-    const occlusionMap = runProgram(pack, [occlusionMapX, occlusionMapY, occlusionMapZ], 'float32', [], false)
+    const pack = new GPGPUPackAnisotropicOcclusionMaps(volumeMap.shape)
+    const occlusionMap = runProgram(pack, [occlusionMapX, occlusionMapY, occlusionMapZ], 'float32', [], false) as tf.Tensor3D
     tf.dispose([occlusionMapX, occlusionMapY, occlusionMapZ])
 
-    const unpack = new GPGPUUnpackOccupancyMap(volumeMap.shape)
-    console.log('occlusionMapX0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 0]]).mean([0,1,2]).dataSync())) // 0.64208984375 
-    console.log('occlusionMapX1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 1]]).mean([0,1,2]).dataSync())) // 0.65673828125 
-    console.log('occlusionMapX2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 2]]).mean([0,1,2]).dataSync())) // 0.6669921875  
-    console.log('occlusionMapX3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 3]]).mean([0,1,2]).dataSync())) // 0.630859375   
-    console.log('occlusionMapY0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 4]]).mean([0,1,2]).dataSync())) // 0.83251953125 
-    console.log('occlusionMapY1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 5]]).mean([0,1,2]).dataSync())) // 0.82763671875 
-    console.log('occlusionMapY2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 6]]).mean([0,1,2]).dataSync())) // 0.81982421875 
-    console.log('occlusionMapY3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 7]]).mean([0,1,2]).dataSync())) // 0.77197265625 
-    console.log('occlusionMapZ0', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 8]]).mean([0,1,2]).dataSync())) // 0.724609375   
-    console.log('occlusionMapZ1', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[ 9]]).mean([0,1,2]).dataSync())) // 0.7119140625  
-    console.log('occlusionMapZ2', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[10]]).mean([0,1,2]).dataSync())) // 0.73486328125 
-    console.log('occlusionMapZ3', tf.tidy(() => runProgram(unpack, [occlusionMap], 'float32', [[11]]).mean([0,1,2]).dataSync())) // 0.71337890625 
+    logExtendedAnisotropicOcclusionMaps(occlusionMap)
 
     return occlusionMap as tf.Tensor3D
+}
+
+// helpers
+
+function logAnisotropicOcclusionMaps(occlusionMaps: tf.Tensor3D)
+{
+    const unpack = new GPGPUUnpackAnisotropicOcclusionMaps(occlusionMaps.shape)
+
+    console.log('occlusionMap0', tf.tidy(() => runProgram(unpack, [occlusionMaps], 'float32', [[ 0]]).mean([0,1,2]).dataSync())) 
+    console.log('occlusionMap1', tf.tidy(() => runProgram(unpack, [occlusionMaps], 'float32', [[ 1]]).mean([0,1,2]).dataSync())) 
+    console.log('occlusionMap2', tf.tidy(() => runProgram(unpack, [occlusionMaps], 'float32', [[ 2]]).mean([0,1,2]).dataSync())) 
+    console.log('occlusionMap3', tf.tidy(() => runProgram(unpack, [occlusionMaps], 'float32', [[ 3]]).mean([0,1,2]).dataSync())) 
+}
+
+function logExtendedAnisotropicOcclusionMaps(occlusionMaps: tf.Tensor3D)
+{
+    const unpack = new GPGPUUnpackExtendedAnisotropicOcclusionMaps(occlusionMaps.shape)
+
+    console.log('occlusionMapX0', tf.tidy(() => runProgram(unpack, [occlusionMaps], 'float32', [[ 0]]).mean([0,1,2]).dataSync())) 
+    console.log('occlusionMapX1', tf.tidy(() => runProgram(unpack, [occlusionMaps], 'float32', [[ 1]]).mean([0,1,2]).dataSync())) 
+    console.log('occlusionMapX2', tf.tidy(() => runProgram(unpack, [occlusionMaps], 'float32', [[ 2]]).mean([0,1,2]).dataSync())) 
+    console.log('occlusionMapX3', tf.tidy(() => runProgram(unpack, [occlusionMaps], 'float32', [[ 3]]).mean([0,1,2]).dataSync())) 
+    console.log('occlusionMapY0', tf.tidy(() => runProgram(unpack, [occlusionMaps], 'float32', [[ 4]]).mean([0,1,2]).dataSync())) 
+    console.log('occlusionMapY1', tf.tidy(() => runProgram(unpack, [occlusionMaps], 'float32', [[ 5]]).mean([0,1,2]).dataSync())) 
+    console.log('occlusionMapY2', tf.tidy(() => runProgram(unpack, [occlusionMaps], 'float32', [[ 6]]).mean([0,1,2]).dataSync())) 
+    console.log('occlusionMapY3', tf.tidy(() => runProgram(unpack, [occlusionMaps], 'float32', [[ 7]]).mean([0,1,2]).dataSync())) 
+    console.log('occlusionMapZ0', tf.tidy(() => runProgram(unpack, [occlusionMaps], 'float32', [[ 8]]).mean([0,1,2]).dataSync())) 
+    console.log('occlusionMapZ1', tf.tidy(() => runProgram(unpack, [occlusionMaps], 'float32', [[ 9]]).mean([0,1,2]).dataSync())) 
+    console.log('occlusionMapZ2', tf.tidy(() => runProgram(unpack, [occlusionMaps], 'float32', [[10]]).mean([0,1,2]).dataSync())) 
+    console.log('occlusionMapZ3', tf.tidy(() => runProgram(unpack, [occlusionMaps], 'float32', [[11]]).mean([0,1,2]).dataSync())) 
 }
