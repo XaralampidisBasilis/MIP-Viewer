@@ -56,7 +56,6 @@ export class UnstackPackedProgram implements GPGPUProgram
         } 
         else
         {
-            // axis === 2
             // output: [D, H, 1, 2, 2] (outC.z is always 0)
             mapCoords = `
             int d = outC.x;
@@ -82,25 +81,12 @@ export class UnstackPackedProgram implements GPGPUProgram
     }
 }
 
-export function unstackPacked(T: tf.Tensor, axis: Axis3 = 0): tf.Tensor[]
+export function unstackPacked(tensor: tf.Tensor, axis: Axis3 = 0): tf.Tensor[]
 {
-    if (T.rank !== 5) 
-    {
-        throw new Error(`Unstack expects rank-5 [D,H,W,2,2]. Got rank=${T.rank}.`)
-    }
+    assertAxis3(axis)
+    assertTensor(tensor)
     
-    if (axis !== 0 && axis !== 1 && axis !== 2) 
-    {
-        throw new Error(`Axis must be 0, 1, or 2. Got axis=${axis}.`)
-    }
-    
-    const [D, H, W, twoR, twoC] = T.shape as unknown as [number, number, number, number, number]
-
-    if (twoR !== 2 || twoC !== 2) 
-    {
-        throw new Error(`Expected trailing [2,2], got [${twoR},${twoC}].`)
-    }
-    
+    const [D, H, W] = tensor.shape as unknown as [number, number, number, number, number]
     const sliceCount = [D, H, W][axis]
 
     // Keep the chosen axis as 1 instead of removing it.
@@ -116,9 +102,36 @@ export function unstackPacked(T: tf.Tensor, axis: Axis3 = 0): tf.Tensor[]
     for (let i = 0; i < sliceCount; i++) 
     {
         // uSlice uniform as 1-element array
-        const info = backend.runWebGLProgram(prog, [T], T.dtype, [[i]], true)
+        const info = backend.runWebGLProgram(prog, [tensor], tensor.dtype, [[i]], true)
         ys.push(tf.engine().makeTensorFromTensorInfo(info))
     }
 
     return ys
+}
+
+// assertions
+
+function assertAxis3(axis: number): asserts axis is Axis3 
+{
+    if (axis !== 0 && axis !== 1 && axis !== 2) 
+    {
+        throw new Error(`axis must be 0, 1, or 2. Got axis=${axis}.`);
+    }
+}
+
+function assertTensor(tensor: tf.Tensor): void
+{
+    if (tensor.rank !== 5) 
+    {
+        throw new Error(`Expected rank-5 [D,H,W,2,2]. Got rank=${tensor.rank}.`)
+    }
+
+    const shape = tensor.shape as unknown as [number, number, number, number, number]
+    const twoR = shape[3]
+    const twoC = shape[4]
+
+    if (twoR !== 2 || twoC !== 2) 
+    {
+        throw new Error(`Expected trailing [2,2], got [${twoR},${twoC}].`)
+    }
 }
