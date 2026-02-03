@@ -195,7 +195,7 @@ export class StackBlocksPackedProgram implements GPGPUProgram
  * Inputs must be rank-5, with a singleton on the stacked axis:
  *  axis=0: [1,H,W,2,2], axis=1: [D,1,W,2,2], axis=2: [D,H,1,2,2]
  */
-export function stackSlicesPacked(slices: tf.Tensor[], axis: Axis3 = 0): tf.Tensor 
+function stackSlicesPacked(slices: tf.Tensor[], axis: Axis3 = 0): tf.Tensor 
 {
     if (slices.length === 0) 
     {
@@ -267,7 +267,7 @@ export function stackSlicesPacked(slices: tf.Tensor[], axis: Axis3 = 0): tf.Tens
 /**
  * Single-pass concat of a small number of axis-blocks (UNBATCHED ONLY).
  */
-export function stackBlocksPacked(blocks: tf.Tensor[], axis: Axis3 = 0): tf.Tensor 
+function stackBlocksPacked(blocks: tf.Tensor[], axis: Axis3 = 0): tf.Tensor 
 {
     if (blocks.length === 0) 
     {
