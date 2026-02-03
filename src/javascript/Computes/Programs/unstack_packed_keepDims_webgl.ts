@@ -35,35 +35,15 @@ export class UnstackPackedProgram implements GPGPUProgram
 
         // For rank-5, tf coords are typically outC.x, outC.y, outC.z, outC.w, outC.u
         // representing [d, h, w, r, c] in our output layout.
-        let mapCoords: string
-        if (axis === 0) 
-        {
-            // output: [1, H, W, 2, 2] (outC.x is always 0)
-            mapCoords = `
-            int d = uSlice;
-            int h = outC.y;
-            int w = outC.z;
-            `
-        } 
-        else if (axis === 1) 
-        {
-            // output: [D, 1, W, 2, 2] (outC.y is always 0)
-            mapCoords = `
-            int d = outC.x;
-            int h = uSlice;
-            int w = outC.z;
-            `
-        } 
-        else
-        {
-            // output: [D, H, 1, 2, 2] (outC.z is always 0)
-            mapCoords = `
-            int d = outC.x;
-            int h = outC.y;
-            int w = uSlice;
-            `
-        }
+        const outCoord = ['outC.x', 'outC.y', 'outC.z']
+        outCoord[axis] = 'uSlice'
 
+        const mapCoords = `
+        int d = ${outCoord[0]};
+        int h = ${outCoord[1]};
+        int w = ${outCoord[2]};
+        `
+        
         this.userCode = `
         void main() 
         {
@@ -90,10 +70,10 @@ export function unstackPacked(tensor: tf.Tensor, axis: Axis3 = 0): tf.Tensor[]
     const sliceCount = [D, H, W][axis]
 
     // Keep the chosen axis as 1 instead of removing it.
-    const outBase3: [number, number, number] = [D, H, W]
-    outBase3[axis] = 1
+    const outBase: [number, number, number] = [D, H, W]
+    outBase[axis] = 1
 
-    const outShape = [...outBase3, 2, 2] // rank-5
+    const outShape = [...outBase, 2, 2] // rank-5
 
     const backend: any = tf.backend()
     const prog = new UnstackPackedProgram(outShape, axis)
@@ -101,7 +81,6 @@ export function unstackPacked(tensor: tf.Tensor, axis: Axis3 = 0): tf.Tensor[]
     const ys: tf.Tensor[] = []
     for (let i = 0; i < sliceCount; i++) 
     {
-        // uSlice uniform as 1-element array
         const info = backend.runWebGLProgram(prog, [tensor], tensor.dtype, [[i]], true)
         ys.push(tf.engine().makeTensorFromTensorInfo(info))
     }
@@ -127,11 +106,11 @@ function assertTensor(tensor: tf.Tensor): void
     }
 
     const shape = tensor.shape as unknown as [number, number, number, number, number]
-    const twoR = shape[3]
-    const twoC = shape[4]
+    const R = shape[3]
+    const C = shape[4]
 
-    if (twoR !== 2 || twoC !== 2) 
+    if (R !== 2 || C !== 2) 
     {
-        throw new Error(`Expected trailing [2,2], got [${twoR},${twoC}].`)
+        throw new Error(`Expected trailing [2,2], got [${R},${C}].`)
     }
 }

@@ -19,8 +19,9 @@ export class OcclusionMap
         console.time('computeTensor') 
         // console.log(await tf.profile(async () => await OCC1.computeExtendedAnisotropicBidirectionalOcclusionMapAsync(this.volumeMap.tensor) ))
 
-        const t1 = OCC.computeUnidirectionalOcclusionMap(this.volumeMap.tensor.transpose([2,1,0])).transpose([2,1,0])
-        const t2 = OCC1.computeUnidirectionalOcclusionMap(this.volumeMap.tensor, [2,1,0], [])
+        // const t1 = (await OCC.computeUnidirectionalOcclusionMap(this.volumeMap.tensor.transpose([1,0,2]))).transpose([1,0,2])
+        const t1 = OCC.computeUnidirectionalOcclusionMap(this.volumeMap.tensor.reverse(0).transpose([2,1,0])).transpose([2,1,0]).reverse(0)
+        const t2 = await OCC1.computeUnidirectionalOcclusionMapAsync(this.volumeMap.tensor, [2,1,0], [0])
         tf.tidy(() => console.log(tf.sub(t1, t2).abs().mean().dataSync()[0]))
 
         // this.tensor = computeExtendedAnisotropicBidirectionalOcclusionMap(this.volumeMap.tensor)

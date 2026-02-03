@@ -1,8 +1,8 @@
 import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
-import { unstackDepthPacked } from './unstack_depth_packed_webgl'
-import { stackDepthPacked } from './stack_depth_packed_webgl'
+import { unstackPacked } from './unstack_packed_keepDims_webgl'
+import { stackPacked } from './stack_packed_keep_keepDims_webgl'
 
 class GPGPUUnidirectionalMinimaMapDeprecated implements GPGPUProgram 
 {
@@ -555,38 +555,38 @@ class GPGPUUpdateUnidirectionalMinimaSlices implements GPGPUProgram
     packedInputs = true
     packedOutput = true
 
-    constructor(outputShape: [number, number, 2, 2]) 
+    constructor(outputShape: [number, number, number, 2, 2]) 
     {
-        const [outHeight, outWidth] = outputShape.slice(0, 2)
+        const [outDepth, outHeight, outWidth] = outputShape
         this.outputShape = outputShape
         this.userCode = `
 
-        const ivec2 minCoords = ivec2(0);
-        const ivec2 maxCoords = ivec2(${outWidth-1}, ${outHeight-1});
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
         float min3(float a, float b, float c) { return min(min(a, b), c); }
 
-        ivec2 getOutCoords()
+        ivec3 getOutCoords()
         {
-            ivec4 coords = getOutputCoords();
-            return ivec2(coords.y, coords.x);
+            ivec5 coords = getOutputCoords();
+            return ivec3(coords.z, coords.y, coords.x);
         }
 
-        ivec2 getInCoords(ivec2 coords, int ox, int oy)
+        ivec3 getCellCoords(ivec3 coords, int ox, int oy, int oz)
         {
-            return coords + ivec2(ox, oy);
+            return coords + ivec3(ox, oy, oz);
         }
 
-        vec4 getA(ivec2 coords)
+        vec4 getA(ivec3 coords)
         {
             coords = clamp(coords, minCoords, maxCoords);
-            return getA(coords.y, coords.x, 0, 0);
+            return getA(coords.z, coords.y, coords.x, 0, 0);
         }
 
-        vec4 getB(ivec2 coords)
+        vec4 getB(ivec3 coords)
         {
             coords = clamp(coords, minCoords, maxCoords);
-            return getB(coords.y, coords.x, 0, 0);
+            return getB(coords.z, coords.y, coords.x, 0, 0);
         }
 
         float getMinOnFaceX(vec4 c111, vec4 c110, vec4 c101, vec4 c100)
@@ -614,7 +614,6 @@ class GPGPUUpdateUnidirectionalMinimaSlices implements GPGPUProgram
         float getMinOnFaceZ(vec4 c111, vec4 c110, vec4 c101, vec4 c011, vec4 c100, vec4 c010, vec4 c001, vec4 c000)
         {
             float t00, t01, t10, t11;
-
             t00 = c000.z;
 
             t01 = max(c001.y, t00);
@@ -634,16 +633,16 @@ class GPGPUUpdateUnidirectionalMinimaSlices implements GPGPUProgram
                 
         void main()
         {
-            ivec2 cellCoords = getOutCoords();
+            ivec3 cellCoords = getOutCoords();
 
-            vec4 c111 = getA(getInCoords(cellCoords, -0,-0));
-            vec4 c011 = getA(getInCoords(cellCoords, -1,-0));
-            vec4 c101 = getA(getInCoords(cellCoords, -0,-1));
-            vec4 c001 = getA(getInCoords(cellCoords, -1,-1));
-            vec4 c110 = getB(getInCoords(cellCoords, -0,-0));
-            vec4 c010 = getB(getInCoords(cellCoords, -1,-0));
-            vec4 c100 = getB(getInCoords(cellCoords, -0,-1));
-            vec4 c000 = getB(getInCoords(cellCoords, -1,-1));
+            vec4 c111 = getA(getCellCoords(cellCoords, -0,-0,-0));
+            vec4 c011 = getA(getCellCoords(cellCoords, -1,-0,-0));
+            vec4 c101 = getA(getCellCoords(cellCoords, -0,-1,-0));
+            vec4 c001 = getA(getCellCoords(cellCoords, -1,-1,-0));
+            vec4 c110 = getB(getCellCoords(cellCoords, -0,-0,-1));
+            vec4 c010 = getB(getCellCoords(cellCoords, -1,-0,-1));
+            vec4 c100 = getB(getCellCoords(cellCoords, -0,-1,-1));
+            vec4 c000 = getB(getCellCoords(cellCoords, -1,-1,-1));
 
             c111.x = getMinOnFaceX(c111, c110, c101, c100);
             c111.y = getMinOnFaceY(c111, c110, c011, c010);
@@ -1085,29 +1084,17 @@ class GPGPUUnpackFromExtendedAnisotropicBidirectionalOcclusionMap implements GPG
     }
 }
 
-function runWebGLProgram
-(
-    prog: GPGPUProgram, 
-    inputs: tf.Tensor[], 
-    outputDtype?: tf.DataType, 
-    customUniformValues?: number[][], 
-    preventEagerUnpackingOfOutput?: boolean): tf.Tensor
-{
-    const backend = tf.backend() as MathBackendWebGL
-    const info = backend.compileAndRun(prog, inputs, outputDtype, customUniformValues, preventEagerUnpackingOfOutput)
-    return tf.engine().makeTensorFromTensorInfo(info) as tf.Tensor
-}
-
 export function computeUnidirectionalOcclusionMap(volumeMap: tf.Tensor3D) : tf.Tensor3D
 {
     const minimaProgram = new GPGPUUnidirectionalMinimaMap(volumeMap.shape)
     const minimaStart = runWebGLProgram(minimaProgram, [volumeMap], 'float32', [], true)
     console.log('minimaStart', tf.tidy(() => minimaStart.mean([0,1,2]).dataSync())) 
-    const minimaSlices = unstackDepthPacked(minimaStart) 
+    const minimaSlices = unstackPacked(minimaStart, 0) 
     minimaStart.dispose()
 
-    const sliceShape = minimaSlices[0].shape as [number, number, 2, 2]
+    const sliceShape = minimaSlices[0].shape as [number, number, number, 2, 2]
     const updateProgram = new GPGPUUpdateUnidirectionalMinimaSlices(sliceShape)
+
     for (let i = 1; i < minimaSlices.length; i++)
     {
         const updatedSlice = runWebGLProgram(updateProgram, [minimaSlices[i], minimaSlices[i-1]], 'float32', [], true)
@@ -1115,7 +1102,7 @@ export function computeUnidirectionalOcclusionMap(volumeMap: tf.Tensor3D) : tf.T
         minimaSlices[i] = updatedSlice
     }
 
-    const minimaMap = stackDepthPacked(minimaSlices) 
+    const minimaMap = stackPacked(minimaSlices, 0) 
     tf.dispose(minimaSlices)
     console.log('minimaMap', tf.tidy(() => minimaMap.mean([0,1,2]).dataSync())) 
     
@@ -1338,4 +1325,17 @@ function logExtendedAnisotropicBidirectionalOcclusionMaps(occlusionMaps: tf.Tens
     console.log('occlusionMapZ1', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[ 9]]).mean([0,1,2]).dataSync())) 
     console.log('occlusionMapZ2', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[10]]).mean([0,1,2]).dataSync())) 
     console.log('occlusionMapZ3', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[11]]).mean([0,1,2]).dataSync())) 
+}
+
+function runWebGLProgram
+(
+    prog: GPGPUProgram, 
+    inputs: tf.Tensor[], 
+    outputDtype?: tf.DataType, 
+    customUniformValues?: number[][], 
+    preventEagerUnpackingOfOutput?: boolean): tf.Tensor
+{
+    const backend = tf.backend() as MathBackendWebGL
+    const info = backend.compileAndRun(prog, inputs, outputDtype, customUniformValues, preventEagerUnpackingOfOutput)
+    return tf.engine().makeTensorFromTensorInfo(info) as tf.Tensor
 }

@@ -1,36 +1,12 @@
 import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
-import { stackPacked } from './stack_packed_webgl'
-import { unstackPacked } from './unstack_packed_webgl'
+import { stackPacked } from './stack_packed_keep_keepDims_webgl'
+import { unstackPacked } from './unstack_packed_keepDims_webgl'
 
 type Axis = 0 | 1 | 2;
 type Permute = [Axis, Axis, Axis]
 type Reverse = Axis[]
-
-function applyTransformToVoxelOffset(offset: [string, string, string], permutation: Permute, reverse: Reverse)
-{
-    const invOffset = offset.toReversed()
-    const invNewOffset = permutation.map(i => (reverse.includes(i) ? `1-${invOffset[i]}` : invOffset[i]))
-    const newOffset = invNewOffset.toReversed()
-    return newOffset
-}
-
-function applyTransformToCellOffset(offset: [string, string, string], permutation: Permute, reverse: Reverse) 
-{
-    const invOffset = offset.toReversed()
-    const invNewOffset = permutation.map(i => (reverse.includes(i) ? `-${invOffset[i]}` : invOffset[i]))
-    const newOffset = invNewOffset.toReversed()
-    return newOffset
-}
-
-function applyTransformToCellOffsetNum(offset: [number, number, number], permutation: Permute, reverse: Reverse) 
-{
-    const invOffset = offset.toReversed()
-    const invNewOffset = permutation.map(i => (reverse.includes(i) ? -invOffset[i] : invOffset[i]))
-    const newOffset = invNewOffset.toReversed()
-    return newOffset
-}
 
 class GPGPUUnidirectionalMinimaMapDeprecated implements GPGPUProgram 
 {
@@ -40,13 +16,21 @@ class GPGPUUnidirectionalMinimaMapDeprecated implements GPGPUProgram
     packedInputs = false
     packedOutput = true
 
-    constructor(inputShape: [number, number, number], perm: Permute, rev: Reverse) 
+    constructor(inputShape: [number, number, number], permutation: Permute, reverse: Reverse) 
     {
         const [inDepth, inHeight, inWidth] = inputShape
         const [outDepth, outHeight, outWidth] = inputShape.map(x => x + 1)
         this.outputShape = [outDepth, outHeight, outWidth, 2, 2]  
-        this.userCode = `
 
+        const transformVoxelOffset = (ox: number, oy: number, oz: number): string =>
+        {
+            const offset = [oz, oy, ox]
+            const mapped = permutation.map(i => reverse.includes(i) ? 1-offset[i] : offset[i])
+            
+            return mapped.toReversed().join(',')
+        }
+    
+        this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
@@ -74,7 +58,7 @@ class GPGPUUnidirectionalMinimaMapDeprecated implements GPGPUProgram
 
         ivec3 getVoxelCoords(ivec3 coords, int ox, int oy, int oz)
         {
-            return coords + ivec3(${applyTransformToVoxelOffset(['ox','oy','oz'], perm, rev)});
+            return coords + ivec3(ox, oy, oz);
         }
 
         float getA(ivec3 coords)
@@ -89,14 +73,14 @@ class GPGPUUnidirectionalMinimaMapDeprecated implements GPGPUProgram
 
             coords = coords - 1;
 
-            c.v000 = getA(getVoxelCoords(coords, 0,0,0));
-            c.v100 = getA(getVoxelCoords(coords, 1,0,0));
-            c.v010 = getA(getVoxelCoords(coords, 0,1,0));
-            c.v001 = getA(getVoxelCoords(coords, 0,0,1));
-            c.v011 = getA(getVoxelCoords(coords, 0,1,1));
-            c.v101 = getA(getVoxelCoords(coords, 1,0,1));
-            c.v110 = getA(getVoxelCoords(coords, 1,1,0));
-            c.v111 = getA(getVoxelCoords(coords, 1,1,1));
+            c.v000 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,0)}));
+            c.v100 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,0)}));
+            c.v010 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,0)}));
+            c.v001 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,1)}));
+            c.v011 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,1)}));
+            c.v101 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,1)}));
+            c.v110 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,0)}));
+            c.v111 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,1)}));
 
             return c;
         }
@@ -139,13 +123,21 @@ class GPGPUUnidirectionalMaximaMapDeprecated implements GPGPUProgram
     packedInputs = false
     packedOutput = true
 
-    constructor(inputShape: [number, number, number], perm: Permute, rev: Reverse) 
+    constructor(inputShape: [number, number, number], permutation: Permute, reverse: Reverse) 
     {
         const [inDepth, inHeight, inWidth] = inputShape
         const [outDepth, outHeight, outWidth] = inputShape.map(x => x + 1)
         this.outputShape = [outDepth, outHeight, outWidth, 2, 2]     
-        this.userCode = `
 
+        const transformVoxelOffset = (ox: number, oy: number, oz: number): string =>
+        {
+            const offset = [oz, oy, ox]
+            const mapped = permutation.map(i => reverse.includes(i) ? 1-offset[i] : offset[i])
+            
+            return mapped.toReversed().join(',')
+        }
+
+        this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
@@ -172,7 +164,7 @@ class GPGPUUnidirectionalMaximaMapDeprecated implements GPGPUProgram
 
         ivec3 getVoxelCoords(ivec3 coords, int ox, int oy, int oz)
         {
-            return coords + ivec3(${applyTransformToVoxelOffset(['ox','oy','oz'], perm, rev)});
+            return coords + ivec3(ox, oy, oz);
         }
 
         float getA(ivec3 coords)
@@ -187,14 +179,14 @@ class GPGPUUnidirectionalMaximaMapDeprecated implements GPGPUProgram
 
             coords = coords - 1;
 
-            c.v000 = getA(getVoxelCoords(coords, 0,0,0));
-            c.v100 = getA(getVoxelCoords(coords, 1,0,0));
-            c.v010 = getA(getVoxelCoords(coords, 0,1,0));
-            c.v001 = getA(getVoxelCoords(coords, 0,0,1));
-            c.v011 = getA(getVoxelCoords(coords, 0,1,1));
-            c.v101 = getA(getVoxelCoords(coords, 1,0,1));
-            c.v110 = getA(getVoxelCoords(coords, 1,1,0));
-            c.v111 = getA(getVoxelCoords(coords, 1,1,1));
+            c.v000 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,0)}));
+            c.v100 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,0)}));
+            c.v010 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,0)}));
+            c.v001 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,1)}));
+            c.v011 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,1)}));
+            c.v101 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,1)}));
+            c.v110 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,0)}));
+            c.v111 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,1)}));
 
             return c;
         }
@@ -237,13 +229,29 @@ class GPGPUUnidirectionalMinimaMap implements GPGPUProgram
     packedInputs = false
     packedOutput = true
 
-    constructor(inputShape: [number, number, number], perm: Permute, rev: Reverse) 
+    constructor(inputShape: [number, number, number], permutation: Permute, reverse: Reverse) 
     {
         const [inDepth, inHeight, inWidth] = inputShape
         const [outDepth, outHeight, outWidth] = inputShape.map(x => x + 1)
-        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]    
-        this.userCode = `
+        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]   
+        
+        const transformVoxelOffset = (ox: number, oy: number, oz: number): string =>
+        {
+            const offset = [oz, oy, ox]
+            const mapped = permutation.map(i => reverse.includes(i) ? 1-offset[i] : offset[i])
+            
+            return mapped.toReversed().join(',')
+        }
 
+        const transformCellOffset = (ox: number, oy: number, oz: number): string =>
+        {
+            const offset = [oz, oy, ox]
+            const mapped = permutation.map(i => reverse.includes(i) ? -offset[i] : offset[i])
+            
+            return mapped.toReversed().join(',')
+        }
+
+        this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
@@ -271,12 +279,12 @@ class GPGPUUnidirectionalMinimaMap implements GPGPUProgram
 
         ivec3 getVoxelCoords(ivec3 coords, int ox, int oy, int oz)
         {
-            return coords + ivec3(${applyTransformToVoxelOffset(['ox','oy','oz'], perm, rev)});
+            return coords + ivec3(ox, oy, oz);
         }
 
         ivec3 getCellCoords(ivec3 coords, int ox, int oy, int oz)
         {
-            return coords + ivec3(${applyTransformToCellOffset(['ox','oy','oz'], perm, rev)});
+            return coords + ivec3(ox, oy, oz);
         }
 
         float getA(ivec3 coords)
@@ -291,14 +299,14 @@ class GPGPUUnidirectionalMinimaMap implements GPGPUProgram
 
             coords = coords - 1;
 
-            c.v000 = getA(getVoxelCoords(coords, 0,0,0));
-            c.v100 = getA(getVoxelCoords(coords, 1,0,0));
-            c.v010 = getA(getVoxelCoords(coords, 0,1,0));
-            c.v001 = getA(getVoxelCoords(coords, 0,0,1));
-            c.v011 = getA(getVoxelCoords(coords, 0,1,1));
-            c.v101 = getA(getVoxelCoords(coords, 1,0,1));
-            c.v110 = getA(getVoxelCoords(coords, 1,1,0));
-            c.v111 = getA(getVoxelCoords(coords, 1,1,1));
+            c.v000 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,0)}));
+            c.v100 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,0)}));
+            c.v010 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,0)}));
+            c.v001 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,1)}));
+            c.v011 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,1)}));
+            c.v101 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,1)}));
+            c.v110 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,0)}));
+            c.v111 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,1)}));
 
             return c;
         }
@@ -382,10 +390,10 @@ class GPGPUUnidirectionalMinimaMap implements GPGPUProgram
         {
             ivec3 outCoords = getOutCoords();
 
-            CellValues c000 = getValues(getCellCoords(outCoords, 0,0,0));
-            CellValues c100 = getValues(getCellCoords(outCoords, 1,0,0));
-            CellValues c010 = getValues(getCellCoords(outCoords, 0,1,0));
-            CellValues c001 = getValues(getCellCoords(outCoords, 0,0,1));
+            CellValues c000 = getValues(getCellCoords(outCoords, ${transformCellOffset(0,0,0)}));
+            CellValues c100 = getValues(getCellCoords(outCoords, ${transformCellOffset(1,0,0)}));
+            CellValues c010 = getValues(getCellCoords(outCoords, ${transformCellOffset(0,1,0)}));
+            CellValues c001 = getValues(getCellCoords(outCoords, ${transformCellOffset(0,0,1)}));
 
             float xMin = getMinOnFaceX(c000, c100);
             float yMin = getMinOnFaceY(c000, c010);
@@ -405,13 +413,21 @@ class GPGPUUnidirectionalMaximaMap implements GPGPUProgram
     packedInputs = false
     packedOutput = true
 
-    constructor(inputShape: [number, number, number], perm: Permute, rev: Reverse) 
+    constructor(inputShape: [number, number, number], permutation: Permute, reverse: Reverse) 
     {
         const [inDepth, inHeight, inWidth] = inputShape
         const [outDepth, outHeight, outWidth] = inputShape.map(x => x + 1)
         this.outputShape = [outDepth, outHeight, outWidth, 2, 2]   
-        this.userCode = `
 
+        const transformVoxelOffset = (ox: number, oy: number, oz: number): string =>
+        {
+            const offset = [oz, oy, ox]
+            const mapped = permutation.map(i => reverse.includes(i) ? 1-offset[i] : offset[i])
+            
+            return mapped.toReversed().join(',')
+        }
+
+        this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
@@ -437,7 +453,7 @@ class GPGPUUnidirectionalMaximaMap implements GPGPUProgram
 
         ivec3 getVoxelCoords(ivec3 coords, int ox, int oy, int oz)
         {
-            return coords + ivec3(${applyTransformToVoxelOffset(['ox','oy','oz'], perm, rev)});
+            return coords + ivec3(ox, oy, oz);
         }
 
         float getA(ivec3 coords)
@@ -452,14 +468,14 @@ class GPGPUUnidirectionalMaximaMap implements GPGPUProgram
 
             coords = coords - 1;
 
-            c.v000 = getA(getVoxelCoords(coords, 0,0,0));
-            c.v100 = getA(getVoxelCoords(coords, 1,0,0));
-            c.v010 = getA(getVoxelCoords(coords, 0,1,0));
-            c.v001 = getA(getVoxelCoords(coords, 0,0,1));
-            c.v011 = getA(getVoxelCoords(coords, 0,1,1));
-            c.v101 = getA(getVoxelCoords(coords, 1,0,1));
-            c.v110 = getA(getVoxelCoords(coords, 1,1,0));
-            c.v111 = getA(getVoxelCoords(coords, 1,1,1));
+            c.v000 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,0)}));
+            c.v100 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,0)}));
+            c.v010 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,0)}));
+            c.v001 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,1)}));
+            c.v011 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,1)}));
+            c.v101 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,1)}));
+            c.v110 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,0)}));
+            c.v111 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,1)}));
 
             return c;
         }
@@ -571,132 +587,20 @@ class GPGPUUpdateUnidirectionalMinimaSlices implements GPGPUProgram
     packedInputs = true
     packedOutput = true
 
-    customUniforms = [{ name: 'slice', type: 'int' as const }];
-
-    constructor(outputShape: [number, number, 2, 2], perm: Permute, rev: Reverse) 
-    {
-        const [outHeight, outWidth] = outputShape.slice(0, 2)
-        this.outputShape = outputShape  
-        this.userCode = `
-
-        const ivec2 minCoords = ivec2(0);
-        const ivec2 maxCoords = ivec2(${outWidth-1}, ${outHeight-1});
-
-        float min3(float a, float b, float c) { return min(min(a, b), c); }
-
-        ivec2 getOutCoords()
-        {
-            ivec4 coords = getOutputCoords();
-            return ivec2(coords.y, coords.x);
-        }
-
-        ivec3 getCellCoords(ivec2 coords, int ox, int oy, int oz)
-        {
-            return ivec3(coords, 0) + ivec3(${applyTransformToCellOffset(['ox','oy','oz'], perm, rev)});
-        }
-
-        vec4 getA(ivec2 coords)
-        {
-            coords = clamp(coords, minCoords, maxCoords);
-            return getA(coords.y, coords.x, 0, 0);
-        }
-
-        vec4 getB(ivec2 coords)
-        {
-            coords = clamp(coords, minCoords, maxCoords);
-            return getB(coords.y, coords.x, 0, 0);
-        }
-
-        vec4 getAB(ivec3 coords)
-        {
-            if (coords.z == 0) 
-                return getA(coords.xy);
-            else 
-                return getB(coords.xy);
-        }
-
-        float getMinOnFaceX(vec4 c111, vec4 c110, vec4 c101, vec4 c100)
-        {
-            float t10 = c100.z;
-            
-            t10 = max(c101.y, t10);
-            t10 = min(c110.z, t10);
-            t10 = max(c111.x, t10);
-
-            return t10;
-        }
-
-        float getMinOnFaceY(vec4 c111, vec4 c110, vec4 c011, vec4 c010)
-        {
-            float t01 = c010.z;
-
-            t01 = max(c011.x, t01);
-            t01 = min(c110.z, t01);
-            t01 = max(c111.y, t01);
-
-            return t01;
-        }
-
-        float getMinOnFaceZ(vec4 c111, vec4 c110, vec4 c101, vec4 c011, vec4 c100, vec4 c010, vec4 c001, vec4 c000)
-        {
-            float t00, t01, t10, t11;
-            t00 = c000.z;
-
-            t01 = max(c001.y, t00);
-            t01 = min(c010.z, t01);
-            t01 = max(c011.x, t01);
-
-            t10 = max(c001.x, t00);
-            t10 = min(c100.z, t10);
-            t10 = max(c101.y, t10);
-
-            t11 = min(t01, t10);
-            t11 = min(c110.z, t11);
-            t11 = max(c111.z, t11);
-
-            return t11;
-        }
-                
-        void main()
-        {
-            ivec2 coords = getOutCoords();
-
-            vec4 c111 = getAB(getCellCoords(coords, -0,-0,-0));
-            vec4 c011 = getAB(getCellCoords(coords, -1,-0,-0));
-            vec4 c101 = getAB(getCellCoords(coords, -0,-1,-0));
-            vec4 c001 = getAB(getCellCoords(coords, -1,-1,-0));
-            vec4 c110 = getAB(getCellCoords(coords, -0,-0,-1));
-            vec4 c010 = getAB(getCellCoords(coords, -1,-0,-1));
-            vec4 c100 = getAB(getCellCoords(coords, -0,-1,-1));
-            vec4 c000 = getAB(getCellCoords(coords, -1,-1,-1));
-
-            c111.x = getMinOnFaceX(c111, c110, c101, c100);
-            c111.y = getMinOnFaceY(c111, c110, c011, c010);
-            c111.z = getMinOnFaceZ(c111, c110, c101, c011, c100, c010, c001, c000);
-
-            setOutput(c111);
-        }
-        `
-    }
-}
-
-class GPGPUUpdateUnidirectionalMinimaSlices1 implements GPGPUProgram 
-{
-    variableNames = ['A', 'B']
-    outputShape: number[]
-    userCode: string
-    packedInputs = true
-    packedOutput = true
-
-    constructor(outputShape: [number, number, number, 2, 2], perm: Permute, rev: Reverse) 
+    constructor(outputShape: [number, number, number, 2, 2], permutation: Permute, reverse: Reverse) 
     {
         const [outDepth, outHeight, outWidth] = outputShape.slice(0, 3)
         this.outputShape = outputShape 
 
-        const axis = 2 - perm[0];
-        const selectAorB = (n: number) => 'AB'[(n >> axis) & 1];
-        this.userCode = `
+        const transformCellOffset = (ox: number, oy: number, oz: number): string =>
+        {
+            const offset = [oz, oy, ox]
+            const mapped = permutation.map(i => reverse.includes(i) ? -offset[i] : offset[i])
+            
+            return mapped.toReversed().join(',')
+        }
 
+        this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
@@ -710,7 +614,7 @@ class GPGPUUpdateUnidirectionalMinimaSlices1 implements GPGPUProgram
 
         ivec3 getCellCoords(ivec3 coords, int ox, int oy, int oz)
         {
-            return coords + ivec3(${applyTransformToCellOffset(['ox','oy','oz'], perm, rev)});
+            return coords + ivec3(ox, oy, oz);
         }
 
         vec4 getA(ivec3 coords)
@@ -739,7 +643,7 @@ class GPGPUUpdateUnidirectionalMinimaSlices1 implements GPGPUProgram
         float getMinOnFaceY(vec4 c111, vec4 c110, vec4 c011, vec4 c010)
         {
             float t01 = c010.z;
-
+            
             t01 = max(c011.x, t01);
             t01 = min(c110.z, t01);
             t01 = max(c111.y, t01);
@@ -771,14 +675,14 @@ class GPGPUUpdateUnidirectionalMinimaSlices1 implements GPGPUProgram
         {
             ivec3 coords = getOutCoords();
 
-            vec4 c111 = get${selectAorB(0)}(getCellCoords(coords, -0,-0,-0));
-            vec4 c011 = get${selectAorB(1)}(getCellCoords(coords, -1,-0,-0));
-            vec4 c101 = get${selectAorB(2)}(getCellCoords(coords, -0,-1,-0));
-            vec4 c001 = get${selectAorB(3)}(getCellCoords(coords, -1,-1,-0));
-            vec4 c110 = get${selectAorB(4)}(getCellCoords(coords, -0,-0,-1));
-            vec4 c010 = get${selectAorB(5)}(getCellCoords(coords, -1,-0,-1));
-            vec4 c100 = get${selectAorB(6)}(getCellCoords(coords, -0,-1,-1));
-            vec4 c000 = get${selectAorB(7)}(getCellCoords(coords, -1,-1,-1));
+            vec4 c111 = getA(getCellCoords(coords, ${transformCellOffset(-0,-0,-0)}));
+            vec4 c011 = getA(getCellCoords(coords, ${transformCellOffset(-1,-0,-0)}));
+            vec4 c101 = getA(getCellCoords(coords, ${transformCellOffset(-0,-1,-0)}));
+            vec4 c001 = getA(getCellCoords(coords, ${transformCellOffset(-1,-1,-0)}));
+            vec4 c110 = getB(getCellCoords(coords, ${transformCellOffset(-0,-0,-1)}));
+            vec4 c010 = getB(getCellCoords(coords, ${transformCellOffset(-1,-0,-1)}));
+            vec4 c100 = getB(getCellCoords(coords, ${transformCellOffset(-0,-1,-1)}));
+            vec4 c000 = getB(getCellCoords(coords, ${transformCellOffset(-1,-1,-1)}));
 
             c111.x = getMinOnFaceX(c111, c110, c101, c100);
             c111.y = getMinOnFaceY(c111, c110, c011, c010);
@@ -798,12 +702,20 @@ class GPGPUUpdateUnidirectionalMinimaMap implements GPGPUProgram
     packedInputs = true
     packedOutput = true
 
-    constructor(outputShape: [number, number, number, 2, 2], perm: Permute, rev: Reverse) 
+    constructor(outputShape: [number, number, number, 2, 2], permutation: Permute, reverse: Reverse) 
     {
         const [outDepth, outHeight, outWidth] = outputShape.slice(0,3)
         this.outputShape = outputShape  
-        this.userCode = `
 
+        const transformCellOffset = (ox: number, oy: number, oz: number): string =>
+        {
+            const offset = [oz, oy, ox]
+            const mapped = permutation.map(i => reverse.includes(i) ? -offset[i] : offset[i])
+            
+            return mapped.toReversed().join(',')
+        }
+
+        this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
@@ -817,7 +729,7 @@ class GPGPUUpdateUnidirectionalMinimaMap implements GPGPUProgram
 
         ivec3 getCellCoords(ivec3 coords, int ox, int oy, int oz)
         {
-            return coords + ivec3(${applyTransformToCellOffset(['ox','oy','oz'], perm, rev)});
+            return coords + ivec3(ox, oy, oz);
         }
 
         vec4 getA(ivec3 coords)
@@ -872,14 +784,14 @@ class GPGPUUpdateUnidirectionalMinimaMap implements GPGPUProgram
         {
             ivec3 coords = getOutCoords();
 
-            vec4 c111 = getA(getCellCoords(coords, -0,-0,-0));
-            vec4 c011 = getA(getCellCoords(coords, -1,-0,-0));
-            vec4 c101 = getA(getCellCoords(coords, -0,-1,-0));
-            vec4 c001 = getA(getCellCoords(coords, -1,-1,-0));
-            vec4 c110 = getA(getCellCoords(coords, -0,-0,-1));
-            vec4 c010 = getA(getCellCoords(coords, -1,-0,-1));
-            vec4 c100 = getA(getCellCoords(coords, -0,-1,-1));
-            vec4 c000 = getA(getCellCoords(coords, -1,-1,-1));
+            vec4 c111 = getA(getCellCoords(coords, ${transformCellOffset(-0,-0,-0)}));
+            vec4 c011 = getA(getCellCoords(coords, ${transformCellOffset(-1,-0,-0)}));
+            vec4 c101 = getA(getCellCoords(coords, ${transformCellOffset(-0,-1,-0)}));
+            vec4 c001 = getA(getCellCoords(coords, ${transformCellOffset(-1,-1,-0)}));
+            vec4 c110 = getA(getCellCoords(coords, ${transformCellOffset(-0,-0,-1)}));
+            vec4 c010 = getA(getCellCoords(coords, ${transformCellOffset(-1,-0,-1)}));
+            vec4 c100 = getA(getCellCoords(coords, ${transformCellOffset(-0,-1,-1)}));
+            vec4 c000 = getA(getCellCoords(coords, ${transformCellOffset(-1,-1,-1)}));
 
             c111.x = getMinOnFaceX(c111, c110, c101, c100);
             c111.y = getMinOnFaceY(c111, c110, c011, c010);
@@ -904,7 +816,6 @@ class GPGPUUnidirectionalOcclusionMap implements GPGPUProgram
         const [outDepth, outHeight, outWidth] = outputShape
         this.outputShape = outputShape
         this.userCode = `
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
@@ -960,7 +871,6 @@ class GPGPUBidirectionalOcclusionMap implements GPGPUProgram
         const [outDepth, outHeight, outWidth] = outputShape
         this.outputShape = outputShape
         this.userCode = `
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
@@ -1010,7 +920,6 @@ class GPGPUAnisotropicBidirectionalOcclusionMap implements GPGPUProgram
         const [outDepth, outHeight, outWidth] = outputShape
         this.outputShape = outputShape
         this.userCode = `
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
@@ -1079,7 +988,6 @@ class GPGPUExtendedAnisotropicBidirectionalOcclusionMap implements GPGPUProgram
         const [outDepth, outHeight, outWidth] = outputShape
         this.outputShape = outputShape
         this.userCode = `
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
            
@@ -1218,18 +1126,6 @@ class GPGPUUnpackFromExtendedAnisotropicBidirectionalOcclusionMap implements GPG
     }
 }
 
-function runWebGLProgram(
-    prog: GPGPUProgram, 
-    inputs: tf.Tensor[], 
-    dtype?: tf.DataType, 
-    customValues?: number[][], 
-    preventEagerUnpackingOfOutput?: boolean): tf.Tensor
-{
-    const backend = tf.backend() as MathBackendWebGL
-    const info = backend.compileAndRun(prog, inputs, dtype, customValues, preventEagerUnpackingOfOutput)
-    return tf.engine().makeTensorFromTensorInfo(info) 
-}
-
 export function computeUnidirectionalOcclusionMap(volumeMap: tf.Tensor3D, permute: Permute, reverse: Reverse) : tf.Tensor3D
 {
     const axis = permute[0]
@@ -1242,7 +1138,7 @@ export function computeUnidirectionalOcclusionMap(volumeMap: tf.Tensor3D, permut
     const minimaSlices = unstackPacked(minimaStart, axis) 
     minimaStart.dispose()
 
-    const sliceShape = minimaSlices[0].shape as [number, number, 2, 2]
+    const sliceShape = minimaSlices[0].shape as [number, number, number, 2, 2]
     const updateProgram = new GPGPUUpdateUnidirectionalMinimaSlices(sliceShape, permute, reverse)
 
     if (reverseAxis) minimaSlices.reverse()
@@ -1286,17 +1182,17 @@ export function computeBidirectionalOcclusionMap(volumeMap: tf.Tensor3D, permute
     const occlusionMap = runWebGLProgram(merge, occlusionMaps, 'float32', [], true) as tf.Tensor3D
     tf.dispose(occlusionMaps)
 
-    console.log('occlusionMap', tf.tidy(() => occlusionMap.mean([0,1,2]).dataSync())) 
+    // console.log('occlusionMap', tf.tidy(() => occlusionMap.mean([0,1,2]).dataSync())) 
 
     return occlusionMap as tf.Tensor3D
 }
 
 export function computeAnisotropicBidirectionalOcclusionMap(volumeMap: tf.Tensor3D, permute: Permute) : tf.Tensor3D
 {
-        const reverseA = [] as Reverse
-        const reverseB = [permute[1]]  as Reverse
-        const reverseC = [permute[2]]  as Reverse
-        const reverseD = [permute[1], permute[2]]  as Reverse
+    const reverseA = permute.slice(1, 1) as Reverse
+    const reverseB = permute.slice(1, 2) as Reverse
+    const reverseC = permute.slice(2, 3) as Reverse
+    const reverseD = permute.slice(1, 3) as Reverse
 
     const occlusionMaps = [
         computeBidirectionalOcclusionMap(volumeMap, permute, reverseA),
@@ -1341,12 +1237,13 @@ export async function computeUnidirectionalOcclusionMapAsync(volumeMap: tf.Tenso
 {
     const minimaProgram = new GPGPUUnidirectionalMinimaMap(volumeMap.shape, permute, reverse)
     let minimaMap = runWebGLProgram(minimaProgram, [volumeMap], 'float32', [], true)
-    // console.log('minimaStart', tf.tidy(() => minimaMap.mean([0,1,2]).dataSync())) 
+    console.log('minimaStart', tf.tidy(() => minimaMap.mean([0,1,2]).dataSync())) 
 
     const minimaMapShape = minimaMap.shape as [number, number, number, 2, 2]
     const updateProgram = new GPGPUUpdateUnidirectionalMinimaMap(minimaMapShape, permute, reverse)
 
-    for (let i = 0; i < minimaMapShape[permute[0]]; i++)
+    const numUpdates = minimaMapShape[permute[0]] 
+    for (let i = 0; i < numUpdates; i++)
     {
         const map = runWebGLProgram(updateProgram, [minimaMap], 'float32', [], true)
         tf.dispose(minimaMap)
@@ -1354,17 +1251,17 @@ export async function computeUnidirectionalOcclusionMapAsync(volumeMap: tf.Tenso
 
         await tf.nextFrame()
     }
-    // console.log('minimaMap', tf.tidy(() => minimaMap.mean([0,1,2]).dataSync())) 
+    console.log('minimaMap', tf.tidy(() => minimaMap.mean([0,1,2]).dataSync())) 
 
     const maximaProgram = new GPGPUUnidirectionalMaximaMap(volumeMap.shape, permute, reverse)
     const maximaMap = runWebGLProgram(maximaProgram, [volumeMap], 'float32', [], true)
-    // console.log('maximaMap', tf.tidy(() => maximaMap.mean([0,1,2]).dataSync())) 
+    console.log('maximaMap', tf.tidy(() => maximaMap.mean([0,1,2]).dataSync())) 
 
     const occlusionMapShape = minimaMapShape.slice(0,3) as [number, number, number]
     const occlusionProgram = new GPGPUUnidirectionalOcclusionMap(occlusionMapShape)
     const occlusionMap = runWebGLProgram(occlusionProgram, [minimaMap, maximaMap], 'float32', [], true)
     tf.dispose([minimaMap, maximaMap])
-    // console.log('occlusionMap', tf.tidy(() => occlusionMap.mean().dataSync()))
+    console.log('occlusionMap', tf.tidy(() => occlusionMap.mean().dataSync()))
 
     return occlusionMap as tf.Tensor3D
 }
@@ -1459,4 +1356,16 @@ function logExtendedAnisotropicBidirectionalOcclusionMaps(occlusionMaps: tf.Tens
     console.log('occlusionMapZ1', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[ 9]]).mean([0,1,2]).dataSync())) 
     console.log('occlusionMapZ2', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[10]]).mean([0,1,2]).dataSync())) 
     console.log('occlusionMapZ3', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[11]]).mean([0,1,2]).dataSync())) 
+}
+
+function runWebGLProgram(
+    prog: GPGPUProgram, 
+    inputs: tf.Tensor[], 
+    dtype?: tf.DataType, 
+    customValues?: number[][], 
+    preventEagerUnpackingOfOutput?: boolean): tf.Tensor
+{
+    const backend = tf.backend() as MathBackendWebGL
+    const info = backend.compileAndRun(prog, inputs, dtype, customValues, preventEagerUnpackingOfOutput)
+    return tf.engine().makeTensorFromTensorInfo(info) 
 }

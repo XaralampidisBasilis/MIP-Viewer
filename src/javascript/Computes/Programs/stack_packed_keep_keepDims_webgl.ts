@@ -35,26 +35,11 @@ export class StackSlicesPackedProgram implements GPGPUProgram
 
         // Each input slice is rank-5 with a singleton on the stacked axis.
         // We always index that axis with 0.
-        let kExpr: string
-        let sliceCallArgs: string
-        if (axis === 0) 
-        {
-            // input: [1, H, W, 2, 2] (outC.x is always 0)
-            kExpr = 'd'
-            sliceCallArgs = `0, h, w, r, c`
-        } 
-        else if (axis === 1) 
-        {
-            // input: [D, 1, W, 2, 2] (outC.y is always 0)
-            kExpr = 'h' 
-            sliceCallArgs = `d, 0, w, r, c`
-        } 
-        else
-        {
-            // input: [D, H, 1, 2, 2] (outC.z is always 0)
-            kExpr = 'w'
-            sliceCallArgs = `d, h, 0, r, c`
-        }
+        const inCoord = ['d', 'h', 'w']
+        inCoord[axis] = '0'
+
+        const sliceCallArgs = `${inCoord[0]}, ${inCoord[1]}, ${inCoord[2]}, r, c`
+        const kExpr = ['d', 'h', 'w'][axis]
 
         const selectSliceCode = () => 
         {
@@ -66,7 +51,7 @@ export class StackSlicesPackedProgram implements GPGPUProgram
 
             lines.push(`else { v = vec4(0.0); }`)
             return lines.join('\n        ')
-        };
+        }
 
         this.userCode = `
         void main()
@@ -117,29 +102,17 @@ export class StackBlocksPackedProgram implements GPGPUProgram
 
         // Each input slice is rank-5 with a singleton on the stacked axis.
         // We always index that axis with 0.
-        let kExpr: string
-        let blockCallArgs: (string: any) => string
-        if (axis === 0) 
+        const blockCallArgs = (localK: string) =>
         {
-            // input: [localK, H, W, 2, 2] 
-            kExpr = 'd'
-            blockCallArgs = (localK: string) => `${localK}, h, w, r, c`
-        } 
-        else if (axis === 1) 
-        {
-            // input: [D, localK, W, 2, 2] 
-            kExpr = 'h' 
-            blockCallArgs = (localK: string) => `d, ${localK}, w, r, c`
-        } 
-        else
-        {
-            // input: [D, H, localK, 2, 2] 
-            kExpr = 'w'
-            blockCallArgs = (localK: string) => `d, h, ${localK}, r, c`
+            const args = ['d', 'h', 'w']
+            args[axis] = localK
+
+            return `${args[0]}, ${args[1]}, ${args[2]}, r, c`
         }
    
         let acc = 0;
         const kEnds = blockSizes.map(s => (acc += s));
+        const kExpr = ['d', 'h', 'w'][axis]
 
         const selectBlockCode = () => 
         {
@@ -156,7 +129,6 @@ export class StackBlocksPackedProgram implements GPGPUProgram
             lines.push(`else { v = vec4(0.0); }`);
             return lines.join('\n        ');
         }
-
 
         this.userCode = `
         void main()
@@ -191,19 +163,10 @@ export function stackSlicesPacked(slices: tf.Tensor[], axis: Axis3 = 0): tf.Tens
     const dtype = slices[0].dtype
     const shape = slices[0].shape as [number, number, number, number, number]
 
-    let outShape: [number, number, number, 2, 2]
-    if (axis === 0) 
-    { 
-        outShape = [K, shape[1], shape[2], 2, 2]
-    }
-    else if (axis === 1) 
-    { 
-        outShape = [shape[0], K, shape[2], 2, 2]
-    }
-    else 
-    { 
-        outShape = [shape[0], shape[1], K, 2, 2]
-    }
+    const outBase = [shape[0], shape[1], shape[2]]
+    outBase[axis] = K
+
+    const outShape = [outBase[0], outBase[1], outBase[2], 2, 2]
 
     const backend: any = tf.backend()
     const prog = new StackSlicesPackedProgram(outShape, K, axis)
@@ -232,19 +195,10 @@ export function stackBlocksPacked(blocks: tf.Tensor[], axis: Axis3 = 0): tf.Tens
 
     const total = blockSizes.reduce((a, b) => a + b, 0)
 
-    let outShape: [number, number, number, 2, 2]
-    if (axis === 0) 
-    { 
-        outShape = [total, shape[1], shape[2], 2, 2]
-    }
-    else if (axis === 1) 
-    { 
-        outShape = [shape[0], total, shape[2], 2, 2]
-    }
-    else 
-    { 
-        outShape = [shape[0], shape[1], total, 2, 2]
-    }
+    const outBase = [shape[0], shape[1], shape[2]]
+    outBase[axis] = total
+
+    const outShape = [outBase[0], outBase[1], outBase[2], 2, 2]
 
     const backend: any = tf.backend()
     const prog = new StackBlocksPackedProgram(outShape, blockSizes, axis)
