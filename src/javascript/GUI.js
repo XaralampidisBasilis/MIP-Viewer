@@ -252,10 +252,10 @@ export default class GUI
                 frag_luminance          : 517,
 
                 box_entry_distance: 601,
-                box_exit_distance:  602,
-                box_span_distance:  603,
+                box_exit_distance : 602,
+                box_span_distance : 603,
                 box_entry_position: 604,
-                box_exit_position:  605,
+                box_exit_position : 605,
 
                 camera_position         : 701,
                 camera_direction        : 702,

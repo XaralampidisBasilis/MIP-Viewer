@@ -2,7 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 import { unstackPacked } from './unstack_packed_keepDims_webgl'
-import { stackPacked } from './stack_packed_keep_keepDims_webgl'
+import { stackPacked } from './stack_packed_keepDims_webgl'
 
 type Axis = 0 | 1 | 2
 type Permute = [Axis, Axis, Axis]

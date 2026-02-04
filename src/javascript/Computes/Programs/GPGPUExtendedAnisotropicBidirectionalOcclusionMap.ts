@@ -1,8 +1,8 @@
 import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
-import { stackPacked } from './stack_packed_keep_keepDims_webgl'
 import { unstackPacked } from './unstack_packed_keepDims_webgl'
+import { stackPacked } from './stack_packed_keepDims_webgl'
 
 type Axis = 0 | 1 | 2
 type Permute = [Axis, Axis, Axis]
@@ -1228,7 +1228,7 @@ export function computeExtendedAnisotropicBidirectionalOcclusionMap(volumeMap: t
     ]
 
     const extendedAnisotropicBidirectionalProgram = new GPGPUExtendedAnisotropicBidirectionalOcclusionMap(occlusionMaps[0].shape)
-    const occlusionMap = runWebGLProgram(extendedAnisotropicBidirectionalProgram, occlusionMaps, 'float32', [], true) as tf.Tensor3D
+    const occlusionMap = runWebGLProgram(extendedAnisotropicBidirectionalProgram, occlusionMaps, 'int32', [], true) as tf.Tensor3D
     tf.dispose(occlusionMaps)
 
     // logExtendedAnisotropicBidirectionalOcclusionMaps(occlusionMap)
@@ -1354,7 +1354,7 @@ function inversePermutation(permutation: Permute): Permute
     return inv as Permute
 }
 
-export function applyPermutation(newOffset: [number, number, number], permutation: Permute): [number, number, number] 
+function applyPermutation(newOffset: [number, number, number], permutation: Permute): [number, number, number] 
 {
     const oldOffset: [number, number, number] = [0, 0, 0]
 

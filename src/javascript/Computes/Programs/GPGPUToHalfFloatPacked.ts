@@ -4,7 +4,7 @@ import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 
 class GPGPUToHalfFloat implements GPGPUProgram 
 {
-    variableNames = ['InterpolationMap']
+    variableNames = ['A']
     outputShape: number[]
     userCode: string
     packedInputs = true
@@ -37,7 +37,7 @@ class GPGPUToHalfFloat implements GPGPUProgram
 
         void main() 
         {
-            vec4 samples = getInterpolationMapAtOutCoords();
+            vec4 samples = getAAtOutCoords();
             setOutput(toHalfFloat(samples));
         }
     `

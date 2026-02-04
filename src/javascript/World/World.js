@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import Experience from '../Experience'
-import ISOViewer from './ISOViewer/ISOViewer'
+import MIPViewer from './MIPViewer/MIPViewer'
 import EventEmitter from '../Utils/EventEmitter'
 
 /**
@@ -18,7 +18,7 @@ export default class World extends EventEmitter
         this.scene = this.experience.scene
         this.resources = this.experience.resources
         this.camera = this.experience.camera
-        this.viewer = new ISOViewer()
+        this.viewer = new MIPViewer()
     }
 
     start()

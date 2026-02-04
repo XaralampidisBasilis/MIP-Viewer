@@ -2,9 +2,9 @@ import * as THREE from 'three'
 import Experience from '../../Experience'
 import EventEmitter from '../../Utils/EventEmitter'
 import Configs from '../../Utils/Configs'
-import ISOMaterial from './ISOMaterial'
+import ISOMaterial from './MIPMaterial'
 
-export default class ISOViewer extends EventEmitter
+export default class MIPViewer extends EventEmitter
 {
     static instance = null
 
@@ -12,11 +12,11 @@ export default class ISOViewer extends EventEmitter
     {
         super()
    
-        if (ISOViewer.instance) 
+        if (MIPViewer.instance) 
         {
-            return ISOViewer.instance
+            return MIPViewer.instance
         }
-        ISOViewer.instance = this
+        MIPViewer.instance = this
 
         this.experience = new Experience()
         this.scene = this.experience.scene
@@ -107,7 +107,6 @@ export default class ISOViewer extends EventEmitter
         uniforms.u_volume.value.blocked_dimensions.copy(this.computes.occupancyMap.dimensions)
         uniforms.u_volume.value.inv_dimensions.fromArray(uniforms.u_volume.value.dimensions.toArray().map(x => 1/x))
     }
-
 
     setUniformsShading()
     {
