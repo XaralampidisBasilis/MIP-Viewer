@@ -157,6 +157,8 @@
         "trilinearly",
         "triquadratic",
         "tsvu",
+        "unreversed",
+        "untransposed",
         "usampler",
         "uvec",
         "vander",

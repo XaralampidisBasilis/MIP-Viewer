@@ -4,6 +4,33 @@ import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 import { unstackPacked } from './unstack_packed_keepDims_webgl'
 import { stackPacked } from './stack_packed_keep_keepDims_webgl'
 
+type Axis = 0 | 1 | 2
+type Permute = [Axis, Axis, Axis]
+type Reverse = Axis[]
+
+function inversePermute(permute: Permute): Permute
+{
+    const inv = new Array<number>(permute.length)
+    for (let i = 0; i < permute.length; i++) 
+    {
+        inv[permute[i]] = i
+    }
+
+    return inv as Permute
+}
+
+function complementReverse(reverse: Reverse): Reverse 
+{
+    const set = new Set<Axis>(reverse)
+    const complement: Reverse = []
+
+    for (const axis of [0, 1, 2] as const) 
+    {
+        if (!set.has(axis)) complement.push(axis)
+    }
+    return complement
+}
+
 class GPGPUUnidirectionalMinimaMapDeprecated implements GPGPUProgram 
 {
     variableNames = ['A']
@@ -21,11 +48,10 @@ class GPGPUUnidirectionalMinimaMapDeprecated implements GPGPUProgram
         const [outDepth, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
         this.outputShape = [outDepth, outHeight, outWidth, 2, 2]     
         this.userCode = `
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
-        float avg3(float a, float b, float c) { return (a + b + c) * (1.0/3.0); }
+        float avg3(float a, float b, float c) { return (a + b + c) * (1.0 / 3.0); }
         float max3(float a, float b, float c) { return max(max(a, b), c); }
         float min4(float a, float b, float c, float d) { return min(min(min(a, b), c), d); }
 
@@ -47,9 +73,9 @@ class GPGPUUnidirectionalMinimaMapDeprecated implements GPGPUProgram
             return ivec3(coords.z, coords.y, coords.x);
         }
 
-        ivec3 getInCoords(ivec3 coords, int ox, int oy, int oz)
+        ivec3 getVoxelCoords(ivec3 coords, int ox, int oy, int oz)
         {
-            return  coords + ivec3(ox, oy, oz);
+            return coords + ivec3(ox, oy, oz);
         }
 
         float getA(ivec3 coords)
@@ -64,14 +90,14 @@ class GPGPUUnidirectionalMinimaMapDeprecated implements GPGPUProgram
 
             coords = coords - 1;
 
-            c.v000 = getA(getInCoords(coords, 0,0,0));
-            c.v100 = getA(getInCoords(coords, 1,0,0));
-            c.v010 = getA(getInCoords(coords, 0,1,0));
-            c.v001 = getA(getInCoords(coords, 0,0,1));
-            c.v011 = getA(getInCoords(coords, 0,1,1));
-            c.v101 = getA(getInCoords(coords, 1,0,1));
-            c.v110 = getA(getInCoords(coords, 1,1,0));
-            c.v111 = getA(getInCoords(coords, 1,1,1));
+            c.v000 = getA(getVoxelCoords(coords, 0,0,0));
+            c.v100 = getA(getVoxelCoords(coords, 1,0,0));
+            c.v010 = getA(getVoxelCoords(coords, 0,1,0));
+            c.v001 = getA(getVoxelCoords(coords, 0,0,1));
+            c.v011 = getA(getVoxelCoords(coords, 0,1,1));
+            c.v101 = getA(getVoxelCoords(coords, 1,0,1));
+            c.v110 = getA(getVoxelCoords(coords, 1,1,0));
+            c.v111 = getA(getVoxelCoords(coords, 1,1,1));
 
             return c;
         }
@@ -123,7 +149,6 @@ class GPGPUUnidirectionalMaximaMapDeprecated implements GPGPUProgram
         const [outDepth, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
         this.outputShape = [outDepth, outHeight, outWidth, 2, 2]     
         this.userCode = `
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
@@ -148,9 +173,9 @@ class GPGPUUnidirectionalMaximaMapDeprecated implements GPGPUProgram
             return ivec3(coords.z, coords.y, coords.x);
         }
 
-        ivec3 getInCoords(ivec3 coords, int ox, int oy, int oz)
+        ivec3 getVoxelCoords(ivec3 coords, int ox, int oy, int oz)
         {
-            return  coords + ivec3(ox, oy, oz);
+            return coords + ivec3(ox, oy, oz);
         }
 
         float getA(ivec3 coords)
@@ -165,14 +190,14 @@ class GPGPUUnidirectionalMaximaMapDeprecated implements GPGPUProgram
 
             coords = coords - 1;
 
-            c.v000 = getA(getInCoords(coords, 0,0,0));
-            c.v100 = getA(getInCoords(coords, 1,0,0));
-            c.v010 = getA(getInCoords(coords, 0,1,0));
-            c.v001 = getA(getInCoords(coords, 0,0,1));
-            c.v011 = getA(getInCoords(coords, 0,1,1));
-            c.v101 = getA(getInCoords(coords, 1,0,1));
-            c.v110 = getA(getInCoords(coords, 1,1,0));
-            c.v111 = getA(getInCoords(coords, 1,1,1));
+            c.v000 = getA(getVoxelCoords(coords, 0,0,0));
+            c.v100 = getA(getVoxelCoords(coords, 1,0,0));
+            c.v010 = getA(getVoxelCoords(coords, 0,1,0));
+            c.v001 = getA(getVoxelCoords(coords, 0,0,1));
+            c.v011 = getA(getVoxelCoords(coords, 0,1,1));
+            c.v101 = getA(getVoxelCoords(coords, 1,0,1));
+            c.v110 = getA(getVoxelCoords(coords, 1,1,0));
+            c.v111 = getA(getVoxelCoords(coords, 1,1,1));
 
             return c;
         }
@@ -224,7 +249,6 @@ class GPGPUUnidirectionalMinimaMap implements GPGPUProgram
         const [outDepth, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
         this.outputShape = [outDepth, outHeight, outWidth, 2, 2]     
         this.userCode = `
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
@@ -250,14 +274,14 @@ class GPGPUUnidirectionalMinimaMap implements GPGPUProgram
             return ivec3(coords.z, coords.y, coords.x);
         }
 
-        ivec3 getInCoords(ivec3 coords, int ox, int oy, int oz)
+        ivec3 getVoxelCoords(ivec3 coords, int ox, int oy, int oz)
         {
-            return  coords + ivec3(ox, oy, oz);
+            return coords + ivec3(ox, oy, oz);
         }
 
         ivec3 getCellCoords(ivec3 coords, int ox, int oy, int oz)
         {
-            return  coords + ivec3(ox, oy, oz);
+            return coords + ivec3(ox, oy, oz);
         }
 
         float getA(ivec3 coords)
@@ -272,14 +296,14 @@ class GPGPUUnidirectionalMinimaMap implements GPGPUProgram
 
             coords = coords - 1;
 
-            c.v000 = getA(getInCoords(coords, 0,0,0));
-            c.v100 = getA(getInCoords(coords, 1,0,0));
-            c.v010 = getA(getInCoords(coords, 0,1,0));
-            c.v001 = getA(getInCoords(coords, 0,0,1));
-            c.v011 = getA(getInCoords(coords, 0,1,1));
-            c.v101 = getA(getInCoords(coords, 1,0,1));
-            c.v110 = getA(getInCoords(coords, 1,1,0));
-            c.v111 = getA(getInCoords(coords, 1,1,1));
+            c.v000 = getA(getVoxelCoords(coords, 0,0,0));
+            c.v100 = getA(getVoxelCoords(coords, 1,0,0));
+            c.v010 = getA(getVoxelCoords(coords, 0,1,0));
+            c.v001 = getA(getVoxelCoords(coords, 0,0,1));
+            c.v011 = getA(getVoxelCoords(coords, 0,1,1));
+            c.v101 = getA(getVoxelCoords(coords, 1,0,1));
+            c.v110 = getA(getVoxelCoords(coords, 1,1,0));
+            c.v111 = getA(getVoxelCoords(coords, 1,1,1));
 
             return c;
         }
@@ -395,7 +419,6 @@ class GPGPUUnidirectionalMaximaMap implements GPGPUProgram
         const [outDepth, outHeight, outWidth] = inputShape.map((x: number) => x + 1)
         this.outputShape = [outDepth, outHeight, outWidth, 2, 2]     
         this.userCode = `
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
@@ -419,7 +442,7 @@ class GPGPUUnidirectionalMaximaMap implements GPGPUProgram
             return ivec3(coords.z, coords.y, coords.x);
         }
 
-        ivec3 getInCoords(ivec3 coords, int ox, int oy, int oz)
+        ivec3 getVoxelCoords(ivec3 coords, int ox, int oy, int oz)
         {
             return  coords + ivec3(ox, oy, oz);
         }
@@ -436,21 +459,21 @@ class GPGPUUnidirectionalMaximaMap implements GPGPUProgram
 
             coords = coords - 1;
 
-            c.v000 = getA(getInCoords(coords, 0,0,0));
-            c.v100 = getA(getInCoords(coords, 1,0,0));
-            c.v010 = getA(getInCoords(coords, 0,1,0));
-            c.v001 = getA(getInCoords(coords, 0,0,1));
-            c.v011 = getA(getInCoords(coords, 0,1,1));
-            c.v101 = getA(getInCoords(coords, 1,0,1));
-            c.v110 = getA(getInCoords(coords, 1,1,0));
-            c.v111 = getA(getInCoords(coords, 1,1,1));
+            c.v000 = getA(getVoxelCoords(coords, 0,0,0));
+            c.v100 = getA(getVoxelCoords(coords, 1,0,0));
+            c.v010 = getA(getVoxelCoords(coords, 0,1,0));
+            c.v001 = getA(getVoxelCoords(coords, 0,0,1));
+            c.v011 = getA(getVoxelCoords(coords, 0,1,1));
+            c.v101 = getA(getVoxelCoords(coords, 1,0,1));
+            c.v110 = getA(getVoxelCoords(coords, 1,1,0));
+            c.v111 = getA(getVoxelCoords(coords, 1,1,1));
 
             return c;
         }
 
         float getMaxOnFaceX(CellValues c)
         {
-            float m = -1.0/0.0;
+            float m = -1.0;
 
             m = max(m, avg3(c.v000, c.v001, c.v100));
             m = max(m, avg3(c.v001, c.v010, c.v100));
@@ -470,7 +493,7 @@ class GPGPUUnidirectionalMaximaMap implements GPGPUProgram
     
         float getMaxOnFaceY(CellValues c)
         {
-            float m = -1.0/0.0;
+            float m = -1.0;
 
             m = max(m, avg3(c.v000, c.v001, c.v010));
             m = max(m, avg3(c.v001, c.v010, c.v011));
@@ -490,7 +513,7 @@ class GPGPUUnidirectionalMaximaMap implements GPGPUProgram
 
         float getMaxOnFaceZ(CellValues c)
         {
-            float m = -1.0/0.0;
+            float m = -1.0;
 
             m = max(m, c.v000);
             m = max(m, c.v100);
@@ -506,7 +529,7 @@ class GPGPUUnidirectionalMaximaMap implements GPGPUProgram
 
         float getMaxOnCell(CellValues c)
         {
-            float m = -1.0/0.0;
+            float m = -1.0;
 
             m = max(m, avg3(c.v001, c.v010, c.v011) - c.v000);
             m = max(m, avg3(c.v001, c.v010, c.v100) - c.v000);
@@ -560,7 +583,6 @@ class GPGPUUpdateUnidirectionalMinimaSlices implements GPGPUProgram
         const [outDepth, outHeight, outWidth] = outputShape
         this.outputShape = outputShape
         this.userCode = `
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
@@ -667,7 +689,6 @@ class GPGPUUpdateUnidirectionalMinimaMap implements GPGPUProgram
         const [outDepth, outHeight, outWidth] = outputShape.slice(0,3)
         this.outputShape = outputShape
         this.userCode = `
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
@@ -716,7 +737,6 @@ class GPGPUUpdateUnidirectionalMinimaMap implements GPGPUProgram
         float getMinOnFaceZ(vec4 c111, vec4 c110, vec4 c101, vec4 c011, vec4 c100, vec4 c010, vec4 c001, vec4 c000)
         {
             float t00, t01, t10, t11;
-
             t00 = c000.z;
 
             t01 = max(c001.y, t00);
@@ -770,7 +790,6 @@ class GPGPUUnidirectionalOcclusionMap implements GPGPUProgram
         const [outDepth, outHeight, outWidth] = outputShape
         this.outputShape = outputShape
         this.userCode = `
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
@@ -826,7 +845,6 @@ class GPGPUBidirectionalOcclusionMap implements GPGPUProgram
         const [outDepth, outHeight, outWidth] = outputShape
         this.outputShape = outputShape
         this.userCode = `
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
@@ -876,7 +894,6 @@ class GPGPUAnisotropicBidirectionalOcclusionMap implements GPGPUProgram
         const [outDepth, outHeight, outWidth] = outputShape
         this.outputShape = outputShape
         this.userCode = `
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
@@ -945,7 +962,6 @@ class GPGPUExtendedAnisotropicBidirectionalOcclusionMap implements GPGPUProgram
         const [outDepth, outHeight, outWidth] = outputShape
         this.outputShape = outputShape
         this.userCode = `
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
            
@@ -1084,94 +1100,85 @@ class GPGPUUnpackFromExtendedAnisotropicBidirectionalOcclusionMap implements GPG
     }
 }
 
-export function computeUnidirectionalOcclusionMap(volumeMap: tf.Tensor3D) : tf.Tensor3D
+export function computeUnidirectionalOcclusionMap(volume: tf.Tensor3D, permute: Permute, reverse: Reverse) : tf.Tensor3D
 {
-    const minimaProgram = new GPGPUUnidirectionalMinimaMap(volumeMap.shape)
-    const minimaStart = runWebGLProgram(minimaProgram, [volumeMap], 'float32', [], true)
-    console.log('minimaStart', tf.tidy(() => minimaStart.mean([0,1,2]).dataSync())) 
-    const minimaSlices = unstackPacked(minimaStart, 0) 
-    minimaStart.dispose()
+    const reversed = volume.reverse(reverse) as tf.Tensor3D
+    const transposed = reversed.transpose(permute) as tf.Tensor3D
+    reversed.dispose()
 
-    const sliceShape = minimaSlices[0].shape as [number, number, number, 2, 2]
+    const minimaProgram = new GPGPUUnidirectionalMinimaMap(transposed.shape)
+    const minimaRaw = runWebGLProgram(minimaProgram, [transposed], 'float32', [], true) 
+    // logTensor('minimaRaw', minimaRaw)
+
+    const slices = unstackPacked(minimaRaw, 0) 
+    minimaRaw.dispose()
+
+    const sliceShape = slices[0].shape as [number, number, number, 2, 2]
     const updateProgram = new GPGPUUpdateUnidirectionalMinimaSlices(sliceShape)
 
-    for (let i = 1; i < minimaSlices.length; i++)
+    for (let i = 1; i < slices.length; i++)
     {
-        const updatedSlice = runWebGLProgram(updateProgram, [minimaSlices[i], minimaSlices[i-1]], 'float32', [], true)
-        tf.dispose(minimaSlices[i])
-        minimaSlices[i] = updatedSlice
+        const updatedSlice = runWebGLProgram(updateProgram, [slices[i], slices[i-1]], 'float32', [], true)
+        tf.dispose(slices[i])
+        slices[i] = updatedSlice
     }
 
-    const minimaMap = stackPacked(minimaSlices, 0) 
-    tf.dispose(minimaSlices)
-    console.log('minimaMap', tf.tidy(() => minimaMap.mean([0,1,2]).dataSync())) 
+    const minima = stackPacked(slices, 0) 
+    // logTensor('minima', minima)
+    tf.dispose(slices)
     
-    const maximaProgram = new GPGPUUnidirectionalMaximaMap(volumeMap.shape)
-    const maximaMap = runWebGLProgram(maximaProgram, [volumeMap], 'float32', [], true)
-    console.log('maximaMap', tf.tidy(() => maximaMap.mean([0,1,2]).dataSync())) 
+    const maximaProgram = new GPGPUUnidirectionalMaximaMap(transposed.shape)
+    const maxima = runWebGLProgram(maximaProgram, [transposed], 'float32', [], true)
+    // logTensor('maxima', maxima)
+    tf.dispose(transposed)
 
-    const outputShape = minimaMap.shape.slice(0, 3) as [number, number, number]
-    const occlusionProgram = new GPGPUUnidirectionalOcclusionMap(outputShape)
-    const occlusionMap = runWebGLProgram(occlusionProgram, [minimaMap, maximaMap], 'float32', [], true) as tf.Tensor3D
-    tf.dispose([minimaMap, maximaMap])
-    console.log('occlusionMap', tf.tidy(() => occlusionMap.mean([0,1,2]).dataSync())) 
+    const occlusionShape = minima.shape.slice(0, 3) as [number, number, number]
+    const occlusionProgram = new GPGPUUnidirectionalOcclusionMap(occlusionShape)
+    const occlusion = runWebGLProgram(occlusionProgram, [minima, maxima], 'float32', [], true) as tf.Tensor3D
+    // logTensor('occlusion', occlusion)
+    tf.dispose([minima, maxima])
+
+    const untransposed = occlusion.transpose(inversePermute(permute))
+    tf.dispose(occlusion)
+
+    const unreversed = untransposed.reverse(reverse)
+    tf.dispose(untransposed)
+
+    return unreversed as tf.Tensor3D
+}
+
+export function computeBidirectionalOcclusionMap(volumeMap: tf.Tensor3D, permute: Permute, reverse: Reverse) : tf.Tensor3D
+{
+    const occlusionMaps = [
+        computeUnidirectionalOcclusionMap(volumeMap, permute, reverse),
+        computeUnidirectionalOcclusionMap(volumeMap, permute, complementReverse(reverse)),
+    ]
+
+    const bidirectionalProgram = new GPGPUBidirectionalOcclusionMap(occlusionMaps[0].shape)
+    const occlusionMap = runWebGLProgram(bidirectionalProgram, occlusionMaps, 'float32', [], true) as tf.Tensor3D
+    tf.dispose(occlusionMaps)
+    // logTensor('bidirectionalOcclusion', occlusionMap)
 
     return occlusionMap as tf.Tensor3D
 }
 
-export function computeBidirectionalOcclusionMap(volumeMap: tf.Tensor3D) : tf.Tensor3D
+export function computeAnisotropicBidirectionalOcclusionMap(volumeMap: tf.Tensor3D, permute: Permute) : tf.Tensor3D
 {
-    const reversedVolumeMap = tf.reverse(volumeMap)
-    const reversedOcclusionMapA = computeUnidirectionalOcclusionMap(reversedVolumeMap)
-    tf.dispose(reversedVolumeMap)
-    
-    const occlusionMapA = tf.reverse(reversedOcclusionMapA)
-    tf.dispose(reversedOcclusionMapA)
+    const reverseA = permute.slice(1, 1) as Reverse
+    const reverseB = permute.slice(1, 2) as Reverse
+    const reverseC = permute.slice(2, 3) as Reverse
+    const reverseD = permute.slice(1, 3) as Reverse
 
-    const occlusionMapB = computeUnidirectionalOcclusionMap(volumeMap)
+    const occlusionMaps = [
+        computeBidirectionalOcclusionMap(volumeMap, permute, reverseA),
+        computeBidirectionalOcclusionMap(volumeMap, permute, reverseB),
+        computeBidirectionalOcclusionMap(volumeMap, permute, reverseC),
+        computeBidirectionalOcclusionMap(volumeMap, permute, reverseD),
+    ]
 
-    const occlusionMaps = [occlusionMapA, occlusionMapB]
-
-    const merge = new GPGPUBidirectionalOcclusionMap(occlusionMapA.shape)
-    const occlusionMap = runWebGLProgram(merge, occlusionMaps, 'float32', [], true) as tf.Tensor3D
+    const anisotropicBidirectionalProgram = new GPGPUAnisotropicBidirectionalOcclusionMap(occlusionMaps[0].shape)
+    const occlusionMap = runWebGLProgram(anisotropicBidirectionalProgram, occlusionMaps, 'float32', [], true) as tf.Tensor3D
     tf.dispose(occlusionMaps)
-
-    console.log('occlusionMap', tf.tidy(() => occlusionMap.mean([0,1,2]).dataSync())) 
-
-    return occlusionMap as tf.Tensor3D
-}
-
-export function computeAnisotropicBidirectionalOcclusionMap(volumeMap: tf.Tensor3D) : tf.Tensor3D
-{
-    const reversedVolumeMapD = tf.reverse(volumeMap, [1, 2])
-    const reversedOcclusionMapD = computeBidirectionalOcclusionMap(reversedVolumeMapD) as tf.Tensor3D
-    tf.dispose(reversedVolumeMapD)
-
-    const occlusionMapD = tf.reverse(reversedOcclusionMapD, [1, 2])
-    tf.dispose(reversedOcclusionMapD)
-
-    const reversedVolumeMapC = tf.reverse(volumeMap, [2])
-    const reversedOcclusionMapC = computeBidirectionalOcclusionMap(reversedVolumeMapC) as tf.Tensor3D
-    tf.dispose(reversedVolumeMapC)
-    
-    const occlusionMapC = tf.reverse(reversedOcclusionMapC, [2])
-    tf.dispose(reversedOcclusionMapC)
-
-    const reversedVolumeMapB = tf.reverse(volumeMap, [1])
-    const reversedOcclusionMapB = computeBidirectionalOcclusionMap(reversedVolumeMapB) as tf.Tensor3D
-    tf.dispose(reversedVolumeMapB)
-    
-    const occlusionMapB = tf.reverse(reversedOcclusionMapB, [1])
-    tf.dispose(reversedOcclusionMapB)
-
-    const occlusionMapA = computeBidirectionalOcclusionMap(volumeMap) as tf.Tensor3D
-
-    const occlusionMaps = [occlusionMapA, occlusionMapB, occlusionMapC, occlusionMapD]
-
-    const bitpack = new GPGPUAnisotropicBidirectionalOcclusionMap(occlusionMapA.shape)
-    const occlusionMap = runWebGLProgram(bitpack, occlusionMaps, 'float32', [], true) as tf.Tensor3D
-    tf.dispose(occlusionMaps)
-
     // logAnisotropicBidirectionalOcclusionMaps(occlusionMap)
 
     return occlusionMap 
@@ -1179,125 +1186,133 @@ export function computeAnisotropicBidirectionalOcclusionMap(volumeMap: tf.Tensor
 
 export function computeExtendedAnisotropicBidirectionalOcclusionMap(volumeMap: tf.Tensor3D) : tf.Tensor3D
 {
-    const transposedVolumeMapX = tf.transpose(volumeMap, [2,1,0])
-    const transposedOcclusionMapX = computeAnisotropicBidirectionalOcclusionMap(transposedVolumeMapX)
-    tf.dispose(transposedVolumeMapX)
+    const permuteX = [2,1,0] as Permute
+    const permuteY = [1,2,0] as Permute
+    const permuteZ = [0,1,2] as Permute
 
-    const occlusionMapX = tf.transpose(transposedOcclusionMapX, [2,1,0])
-    tf.dispose(transposedOcclusionMapX)
+    const occlusionMaps = [
+        computeAnisotropicBidirectionalOcclusionMap(volumeMap, permuteX),
+        computeAnisotropicBidirectionalOcclusionMap(volumeMap, permuteY),
+        computeAnisotropicBidirectionalOcclusionMap(volumeMap, permuteZ),
+    ]
 
-    const transposedVolumeMapY = tf.transpose(volumeMap, [1,0,2])
-    const transposedOcclusionMapY = computeAnisotropicBidirectionalOcclusionMap(transposedVolumeMapY)
-    tf.dispose(transposedVolumeMapY)
-
-    const occlusionMapY = tf.transpose(transposedOcclusionMapY, [1,0,2])
-    tf.dispose(transposedOcclusionMapY)
-
-    const occlusionMapZ = computeAnisotropicBidirectionalOcclusionMap(volumeMap)
-
-    const occlusionMaps = [occlusionMapX, occlusionMapY, occlusionMapZ]
-
-    const bitpack = new GPGPUExtendedAnisotropicBidirectionalOcclusionMap(occlusionMaps[0].shape)
-    const occlusionMap = runWebGLProgram(bitpack, occlusionMaps, 'float32', [], true) as tf.Tensor3D
+    const extendedAnisotropicBidirectionalProgram = new GPGPUExtendedAnisotropicBidirectionalOcclusionMap(occlusionMaps[0].shape)
+    const occlusionMap = runWebGLProgram(extendedAnisotropicBidirectionalProgram, occlusionMaps, 'float32', [], true) as tf.Tensor3D
     tf.dispose(occlusionMaps)
-
-    logExtendedAnisotropicBidirectionalOcclusionMaps(occlusionMap)
+    // logExtendedAnisotropicBidirectionalOcclusionMaps(occlusionMap)
 
     return occlusionMap 
 }
 
 // async functions
 
-export async function computeUnidirectionalOcclusionMapAsync(volumeMap: tf.Tensor3D) : Promise<tf.Tensor3D>
+export async function computeUnidirectionalOcclusionMapAsync(volume: tf.Tensor3D, permute: Permute, reverse: Reverse) : Promise<tf.Tensor3D>
 {
-    const minimaProgram = new GPGPUUnidirectionalMinimaMap(volumeMap.shape)
-    let minimaMap = runWebGLProgram(minimaProgram, [volumeMap], 'float32', [], true)
-    // console.log('minimaStart', tf.tidy(() => minimaMap.mean([0,1,2]).dataSync())) 
+    const reversed = volume.reverse(reverse) as tf.Tensor3D
+    const transposed = reversed.transpose(permute) as tf.Tensor3D
+    reversed.dispose()
 
-    const minimaMapShape = minimaMap.shape as [number, number, number, 2, 2]
-    const updateProgram = new GPGPUUpdateUnidirectionalMinimaMap(minimaMapShape)
+    const minimaProgram = new GPGPUUnidirectionalMinimaMap(transposed.shape)
+    let minima = runWebGLProgram(minimaProgram, [transposed], 'float32', [], true)
+    // logTensor('minimaRaw', minima) 
 
-    for (let i = 0; i < minimaMapShape[0]; i++)
+    const minimaShape = minima.shape as [number, number, number, 2, 2]
+    const updateProgram = new GPGPUUpdateUnidirectionalMinimaMap(minimaShape)
+
+    const updates = minimaShape[permute[0]]
+    for (let i = 0; i < updates; i++)
     {
-        const map = runWebGLProgram(updateProgram, [minimaMap], 'float32', [], true)
-        tf.dispose(minimaMap)
-        minimaMap = map
+        const t = runWebGLProgram(updateProgram, [minima], 'float32', [], true)
+        tf.dispose(minima)
+        minima = t
 
         await tf.nextFrame()
     }
-    // console.log('minimaMap', tf.tidy(() => minimaMap.mean([0,1,2]).dataSync())) 
+    // logTensor('minima', minima) 
 
-    const maximaProgram = new GPGPUUnidirectionalMaximaMap(volumeMap.shape)
-    const maximaMap = runWebGLProgram(maximaProgram, [volumeMap], 'float32', [], true)
-    // console.log('maximaMap', tf.tidy(() => maximaMap.mean([0,1,2]).dataSync())) 
+    const maximaProgram = new GPGPUUnidirectionalMaximaMap(transposed.shape)
+    const maxima = runWebGLProgram(maximaProgram, [transposed], 'float32', [], true)
+    // logTensor('maxima', maxima) 
+    tf.dispose(transposed)
 
-    const occlusionMapShape = minimaMapShape.slice(0,3) as [number, number, number]
-    const occlusionProgram = new GPGPUUnidirectionalOcclusionMap(occlusionMapShape)
-    const occlusionMap = runWebGLProgram(occlusionProgram, [minimaMap, maximaMap], 'float32', [], true)
-    tf.dispose([minimaMap, maximaMap])
-    // console.log('occlusionMap', tf.tidy(() => occlusionMap.mean().dataSync()))
+    const occlusionShape = minimaShape.slice(0,3) as [number, number, number]
+    const occlusionProgram = new GPGPUUnidirectionalOcclusionMap(occlusionShape)
+    const occlusion = runWebGLProgram(occlusionProgram, [minima, maxima], 'float32', [], true)
+    tf.dispose([minima, maxima])
+    // logTensor('occlusion', occlusion) 
 
-    return occlusionMap as tf.Tensor3D
+    const untransposed = occlusion.transpose(inversePermute(permute))
+    tf.dispose(occlusion)
+
+    const unreversed = untransposed.reverse(reverse)
+    tf.dispose(untransposed)
+
+    return unreversed as tf.Tensor3D
 }
 
-export async function computeBidirectionalOcclusionMapAsync(volumeMap: tf.Tensor3D) : Promise<tf.Tensor3D>
+export async function computeBidirectionalOcclusionMapAsync(volumeMap: tf.Tensor3D, permute: Permute, reverse: Reverse): Promise<tf.Tensor3D>
 {
-    const reversedVolumeMap = tf.reverse(volumeMap)
-    const reversedOcclusionMapA = await computeUnidirectionalOcclusionMapAsync(reversedVolumeMap)
-    tf.dispose(reversedVolumeMap)
-    
-    const occlusionMapA = tf.reverse(reversedOcclusionMapA)
-    tf.dispose(reversedOcclusionMapA)
+    const occlusionMaps = [
+        await computeUnidirectionalOcclusionMapAsync(volumeMap, permute, reverse),
+        await computeUnidirectionalOcclusionMapAsync(volumeMap, permute, complementReverse(reverse)),
+    ]
 
-    const occlusionMapB = await computeUnidirectionalOcclusionMapAsync(volumeMap)
-
-    const occlusionMaps = [occlusionMapA, occlusionMapB]
-
-    const bidirectionalProgram = new GPGPUBidirectionalOcclusionMap(occlusionMapA.shape)
+    const bidirectionalProgram = new GPGPUBidirectionalOcclusionMap(occlusionMaps[0].shape)
     const occlusionMap = runWebGLProgram(bidirectionalProgram, occlusionMaps, 'float32', [], true) as tf.Tensor3D
     tf.dispose(occlusionMaps)
-    // console.log('occlusionMap', tf.tidy(() => occlusionMap.mean([0,1,2]).dataSync())) 
+    // logTensor('bidirectionalOcclusion', occlusionMap)
 
     return occlusionMap as tf.Tensor3D
 }
 
-export async function computeAnisotropicBidirectionalOcclusionMapAsync(volumeMap: tf.Tensor3D) : Promise<tf.Tensor3D>
+export async function computeAnisotropicBidirectionalOcclusionMapAsync(volumeMap: tf.Tensor3D, permute: Permute) : Promise<tf.Tensor3D>
 {
-    const reversedVolumeMapD = tf.reverse(volumeMap, [1, 2])
-    const reversedOcclusionMapD = await computeBidirectionalOcclusionMapAsync(reversedVolumeMapD) as tf.Tensor3D
-    tf.dispose(reversedVolumeMapD)
+    const reverseA = permute.slice(1, 1) as Reverse
+    const reverseB = permute.slice(1, 2) as Reverse
+    const reverseC = permute.slice(2, 3) as Reverse
+    const reverseD = permute.slice(1, 3) as Reverse
 
-    const occlusionMapD = tf.reverse(reversedOcclusionMapD, [1, 2])
-    tf.dispose(reversedOcclusionMapD)
+    const occlusionMaps = [
+        await computeBidirectionalOcclusionMapAsync(volumeMap, permute, reverseA),
+        await computeBidirectionalOcclusionMapAsync(volumeMap, permute, reverseB),
+        await computeBidirectionalOcclusionMapAsync(volumeMap, permute, reverseC),
+        await computeBidirectionalOcclusionMapAsync(volumeMap, permute, reverseD),
+    ]
 
-    const reversedVolumeMapC = tf.reverse(volumeMap, [2])
-    const reversedOcclusionMapC = await computeBidirectionalOcclusionMapAsync(reversedVolumeMapC) as tf.Tensor3D
-    tf.dispose(reversedVolumeMapC)
-    
-    const occlusionMapC = tf.reverse(reversedOcclusionMapC, [2])
-    tf.dispose(reversedOcclusionMapC)
-
-    const reversedVolumeMapB = tf.reverse(volumeMap, [1])
-    const reversedOcclusionMapB = await computeBidirectionalOcclusionMapAsync(reversedVolumeMapB) as tf.Tensor3D
-    tf.dispose(reversedVolumeMapB)
-    
-    const occlusionMapB = tf.reverse(reversedOcclusionMapB, [1])
-    tf.dispose(reversedOcclusionMapB)
-
-    const occlusionMapA = await computeBidirectionalOcclusionMapAsync(volumeMap) as tf.Tensor3D
-
-    const occlusionMaps = [occlusionMapA, occlusionMapB, occlusionMapC, occlusionMapD]
-
-    const anisotropicBidirectionalProgram = new GPGPUAnisotropicBidirectionalOcclusionMap(occlusionMapA.shape)
+    const anisotropicBidirectionalProgram = new GPGPUAnisotropicBidirectionalOcclusionMap(occlusionMaps[0].shape)
     const occlusionMap = runWebGLProgram(anisotropicBidirectionalProgram, occlusionMaps, 'float32', [], true) as tf.Tensor3D
     tf.dispose(occlusionMaps)
+    // logAnisotropicBidirectionalOcclusionMaps(occlusionMap)
 
-    logAnisotropicBidirectionalOcclusionMaps(occlusionMap)
+    return occlusionMap 
+}
+
+export async function computeExtendedAnisotropicBidirectionalOcclusionMapAsync(volumeMap: tf.Tensor3D): Promise<tf.Tensor3D>
+{
+    const permuteX = [2,1,0] as Permute
+    const permuteY = [1,2,0] as Permute
+    const permuteZ = [0,1,2] as Permute
+
+    const occlusionMaps = [
+        await computeAnisotropicBidirectionalOcclusionMapAsync(volumeMap, permuteX),
+        await computeAnisotropicBidirectionalOcclusionMapAsync(volumeMap, permuteY),
+        await computeAnisotropicBidirectionalOcclusionMapAsync(volumeMap, permuteZ),
+    ]
+
+    const extendedAnisotropicBidirectionalProgram = new GPGPUExtendedAnisotropicBidirectionalOcclusionMap(occlusionMaps[0].shape)
+    const occlusionMap = runWebGLProgram(extendedAnisotropicBidirectionalProgram, occlusionMaps, 'float32', [], true) as tf.Tensor3D
+    tf.dispose(occlusionMaps)
+    // logExtendedAnisotropicBidirectionalOcclusionMaps(occlusionMap)
 
     return occlusionMap 
 }
 
 // helper function
+
+function logTensor(name: string, tensor: tf.Tensor)
+{
+    console.log(name, tf.tidy(() => tensor.mean([0,1,2]).dataSync())) 
+}
 
 function logAnisotropicBidirectionalOcclusionMaps(occlusionMaps: tf.Tensor3D)
 {
@@ -1327,13 +1342,13 @@ function logExtendedAnisotropicBidirectionalOcclusionMaps(occlusionMaps: tf.Tens
     console.log('occlusionMapZ3', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[11]]).mean([0,1,2]).dataSync())) 
 }
 
-function runWebGLProgram
-(
+function runWebGLProgram(
     prog: GPGPUProgram, 
     inputs: tf.Tensor[], 
-    outputDtype?: tf.DataType, 
-    customUniformValues?: number[][], 
-    preventEagerUnpackingOfOutput?: boolean): tf.Tensor
+    outputDtype: tf.DataType = 'float32', 
+    customUniformValues: number[][] = [], 
+    preventEagerUnpackingOfOutput: boolean = true
+): tf.Tensor
 {
     const backend = tf.backend() as MathBackendWebGL
     const info = backend.compileAndRun(prog, inputs, outputDtype, customUniformValues, preventEagerUnpackingOfOutput)
