@@ -1219,8 +1219,7 @@ export async function computeUnidirectionalOcclusionMapAsync(volume: tf.Tensor3D
     const minimaShape = minima.shape as [number, number, number, 2, 2]
     const updateProgram = new GPGPUUpdateUnidirectionalMinimaMap(minimaShape)
 
-    const updates = minimaShape[permute[0]]
-    for (let i = 0; i < updates; i++)
+    for (let i = 1; i < minimaShape[0]; i++)
     {
         const t = runWebGLProgram(updateProgram, [minima], 'float32', [], true)
         tf.dispose(minima)

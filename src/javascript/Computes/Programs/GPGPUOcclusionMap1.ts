@@ -1198,7 +1198,7 @@ export function computeAnisotropicBidirectionalOcclusionMap(volumeMap: tf.Tensor
     const reverseB = permutation.slice(1, 2) as Reverse
     const reverseC = permutation.slice(2, 3) as Reverse
     const reverseD = permutation.slice(1, 3) as Reverse
-    
+
     const occlusionMaps = [
         computeBidirectionalOcclusionMap(volumeMap, permutation, reverseA),
         computeBidirectionalOcclusionMap(volumeMap, permutation, reverseB),
@@ -1247,8 +1247,7 @@ export async function computeUnidirectionalOcclusionMapAsync(volume: tf.Tensor3D
     const minimaShape = minima.shape as [number, number, number, 2, 2]
     const updateProgram = new GPGPUUpdateUnidirectionalMinimaMap(minimaShape, permutation, reverse)
 
-    const updates = minimaShape[permutation[0]]
-    for (let i = 0; i < updates; i++)
+    for (let i = 1; i < minimaShape[permutation[0]]; i++)
     {
         const map = runWebGLProgram(updateProgram, [minima], 'float32', [], true)
         tf.dispose(minima)
@@ -1281,8 +1280,7 @@ export async function computeBidirectionalOcclusionMapAsync(volumeMap: tf.Tensor
     const bidirectionalProgram = new GPGPUBidirectionalOcclusionMap(occlusionMaps[0].shape)
     const occlusionMap = runWebGLProgram(bidirectionalProgram, occlusionMaps, 'float32', [], true) as tf.Tensor3D
     tf.dispose(occlusionMaps)
-
-    // console.log('occlusionMap', tf.tidy(() => occlusionMap.mean([0,1,2]).dataSync())) 
+    logTensor('bidirectionalOcclusion', occlusionMap)
 
     return occlusionMap as tf.Tensor3D
 }
@@ -1356,23 +1354,15 @@ function inversePermutation(permutation: Permute): Permute
     return inv as Permute
 }
 
-function composePermutation(after: Permute, before: Permute): Permute 
+export function applyPermutation(newOffset: [number, number, number], permutation: Permute): [number, number, number] 
 {
-    return (after.map(a => before[a]) as unknown) as Permute
-}
+    const oldOffset: [number, number, number] = [0, 0, 0]
 
-function conjugatePermutation(p: Permute, r: Permute): Permute 
-{
-    return composePermutation(r, composePermutation(p, inversePermutation(r)))
-}
-
-export function applyPermutation(newAxes: [number, number, number], permutation: Permute): [number, number, number] 
-{
-    const oldAxes: [number, number, number] = [0, 0, 0]
-    oldAxes[permutation[0]] = newAxes[0]
-    oldAxes[permutation[1]] = newAxes[1]
-    oldAxes[permutation[2]] = newAxes[2]
-    return oldAxes
+    oldOffset[permutation[0]] = newOffset[0]
+    oldOffset[permutation[1]] = newOffset[1]
+    oldOffset[permutation[2]] = newOffset[2]
+    
+    return oldOffset
 }
 
 // helper functions
