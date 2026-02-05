@@ -2,14 +2,8 @@ import * as tf from '@tensorflow/tfjs'
 import EventEmitter from '../Utils/EventEmitter'
 import Experience from '../Experience'
 import VolumeMap from './Maps/VolumeMap'
-import InterpolationMap from './Maps/InterpolationMap'
-import { OcclusionMap } from './Maps/OcclusionMap'
-import ExtremaMap from './Maps/ExtremaMap'
-import OccupancyMap from './Maps/OccupancyMap'
-import IsotropicDistanceMap from './Maps/IsotropicDistanceMap'
-import AnisotropicDistanceMap from './Maps/AnisotropicDistanceMap'
-import ExtendedIsotropicDistanceMap from './Maps/ExtendedIsotropicDistanceMap'
-import ExtendedAnisotropicDistanceMap from './Maps/ExtendedAnisotropicDistanceMap'
+// import OcclusionMap from './Maps/OcclusionMap'
+// import ExtendedAnisotropicDistanceMap from './Maps/ExtendedAnisotropicDistanceMap'
 
 export default class Computes extends EventEmitter
 {
@@ -36,30 +30,8 @@ export default class Computes extends EventEmitter
     setMaps()
     {
         this.volumeMap = new VolumeMap()
-        this.occlusionMap = new OcclusionMap()
-        this.interpolationMap = new InterpolationMap()
-        this.extremaMap = new ExtremaMap()
-        this.occupancyMap = new OccupancyMap()
-        this.isotropicDistanceMap = new IsotropicDistanceMap()
-        this.anisotropicDistanceMap = new AnisotropicDistanceMap()
-        this.extendedIsotropicDistanceMap = new ExtendedIsotropicDistanceMap()
-        this.extendedAnisotropicDistanceMap = new ExtendedAnisotropicDistanceMap()
-        this.resolveDistanceMap()
-    }
-
-    resolveDistanceMap()
-    {
-        this.skippingMethod = this.configs.skippingMethod
-        this.distanceMap = this.isotropicDistanceMap
-
-        if (this.skippingMethod === 'anisotropicDistance')
-            this.distanceMap = this.anisotropicDistanceMap
-        
-        if (this.skippingMethod === 'extendedIsotropicDistance')
-            this.distanceMap = this.extendedIsotropicDistanceMap
-
-        if (this.skippingMethod === 'extendedAnisotropicDistance')
-            this.distanceMap = this.extendedAnisotropicDistanceMap
+        // this.occlusionMap = new OcclusionMap()
+        // this.distanceMap = new ExtendedAnisotropicDistanceMap()
     }
 
     async start()
@@ -67,30 +39,18 @@ export default class Computes extends EventEmitter
         console.time('start@Computes') 
 
         this.volumeMap.computeTensor()
-
-        await this.occlusionMap.computeTensor()
-        this.occlusionMap.computeTexture()
-        this.occlusionMap.tensor.dispose()
-
         await tf.nextFrame()
 
-        // this.interpolationMap.computeTensor()
-        // this.volumeMap.tensor.dispose()
+        // this.occlusionMap.computeTensor()
+        // this.occlusionMap.computeTexture()
+        // this.occlusionMap.tensor.dispose()
         // await tf.nextFrame()
 
-        // this.extremaMap.computeTensor()
-        // this.interpolationMap.computeTexture()
-        // this.interpolationMap.tensor.dispose()
-        // await tf.nextFrame()
+        this.volumeMap.computeTexture()
+        this.volumeMap.tensor.dispose()
+        await tf.nextFrame()
 
-        // this.occupancyMap.computeTensor()
         // this.distanceMap.computeTensor()
-        // await tf.nextFrame()
-
-        // this.occupancyMap.computeTexture()
-        // this.occupancyMap.tensor.dispose()
-        // await tf.nextFrame()
-
         // this.distanceMap.computeTexture()
         // this.distanceMap.tensor.dispose()
         // await tf.nextFrame()
@@ -101,53 +61,31 @@ export default class Computes extends EventEmitter
 
     async change(event)
     {
-        if      (event.key === 'isosurfaceValue'    ) await this.onChangeIsosurfaceValue(event)
-        else if (event.key === 'blockSize'          ) await this.onChangeBlockSize(event)
+        if      (event.key === 'blockSize'          ) await this.onChangeBlockSize(event)
         else if (event.key === 'downscaleFactor'    ) await this.onChangeDownscaleFactor(event)
         else if (event.key === 'skippingMethod'     ) await this.onChangeSkippingMethod(event)
-    }
-
-    async onChangeIsosurfaceValue(event)
-    {
-        console.time('onChangeIsosurfaceValue@Computes') 
-
-        this.occupancyMap.computeTensor()
-        this.distanceMap.computeTensor()
-
-        this.occupancyMap.updateTexture()
-        this.occupancyMap.tensor.dispose()
-
-        this.distanceMap.updateTexture()
-        this.distanceMap.tensor.dispose()
-
-        console.timeEnd('onChangeIsosurfaceValue@Computes')
-        this.printResources() 
     }
 
     async onChangeBlockSize(event)
     {
         console.time('onChangeBlockSize@Computes') 
 
-        this.extremaMap.tensor.dispose()
-        this.occupancyMap.texture.dispose()
-        this.distanceMap.texture.dispose()
+        this.volumeMap.computeTensor()
         await tf.nextFrame()
 
-        this.interpolationMap.restoreTensor()
-        this.extremaMap.computeTensor()
-        this.interpolationMap.tensor.dispose()
+        // this.occlusionMap.computeTensor()
+        // this.occlusionMap.computeTexture()
+        // this.occlusionMap.tensor.dispose()
+        // await tf.nextFrame()
+
+        this.volumeMap.computeTexture()
+        this.volumeMap.tensor.dispose()
         await tf.nextFrame()
 
-        this.occupancyMap.computeTensor()
-        this.distanceMap.computeTensor()
-
-        this.occupancyMap.computeTexture()
-        this.occupancyMap.tensor.dispose()
-        await tf.nextFrame()
-
-        this.distanceMap.computeTexture()
-        this.distanceMap.tensor.dispose()
-        await tf.nextFrame()
+        // this.distanceMap.computeTensor()
+        // this.distanceMap.computeTexture()
+        // this.distanceMap.tensor.dispose()
+        // await tf.nextFrame()
 
         console.timeEnd('onChangeBlockSize@Computes')
         this.printResources() 
@@ -157,33 +95,22 @@ export default class Computes extends EventEmitter
     {
         console.time('onChangeDownscaleFactor@Computes') 
 
-        this.extremaMap.tensor.dispose()
-        this.interpolationMap.texture.dispose()
-        this.occupancyMap.texture.dispose()
-        this.distanceMap.texture.dispose()
+        this.volumeMap.computeTensor()
         await tf.nextFrame()
 
-        this.volumeMap.computeTensor()
-        this.interpolationMap.computeTensor()
+        // this.occlusionMap.computeTensor()
+        // this.occlusionMap.computeTexture()
+        // this.occlusionMap.tensor.dispose()
+        // await tf.nextFrame()
+
+        this.volumeMap.computeTexture()
         this.volumeMap.tensor.dispose()
         await tf.nextFrame()
 
-        this.extremaMap.computeTensor()
-        this.interpolationMap.computeTexture()
-        this.interpolationMap.tensor.dispose()
-        await tf.nextFrame()
-
-        this.occupancyMap.computeTensor()
-        this.distanceMap.computeTensor()
-        await tf.nextFrame()
-
-        this.occupancyMap.computeTexture()
-        this.occupancyMap.tensor.dispose()
-        await tf.nextFrame()
-
-        this.distanceMap.computeTexture()
-        this.distanceMap.tensor.dispose()
-        await tf.nextFrame()
+        // this.distanceMap.computeTensor()
+        // this.distanceMap.computeTexture()
+        // this.distanceMap.tensor.dispose()
+        // await tf.nextFrame()
 
         console.timeEnd('onChangeDownscaleFactor@Computes') 
         this.printResources()
@@ -193,15 +120,22 @@ export default class Computes extends EventEmitter
     {
         console.time('onChangeSkippingMethod@Computes') 
 
-        this.distanceMap.texture.dispose()
-        this.resolveDistanceMap()
+        this.volumeMap.computeTensor()
+        await tf.nextFrame()
 
-        this.occupancyMap.computeTensor()
-        this.distanceMap.computeTensor()
-        this.occupancyMap.tensor.dispose()
+        // this.occlusionMap.computeTensor()
+        // this.occlusionMap.computeTexture()
+        // this.occlusionMap.tensor.dispose()
+        // await tf.nextFrame()
 
-        this.distanceMap.computeTexture()
-        this.distanceMap.tensor.dispose()
+        this.volumeMap.computeTexture()
+        this.volumeMap.tensor.dispose()
+        await tf.nextFrame()
+
+        // this.distanceMap.computeTensor()
+        // this.distanceMap.computeTexture()
+        // this.distanceMap.tensor.dispose()
+        // await tf.nextFrame()
 
         console.timeEnd('onChangeSkippingMethod@Computes') 
         console.log('')
@@ -210,20 +144,12 @@ export default class Computes extends EventEmitter
     destroy()
     {
         this.volumeMap.dispose()
-        this.interpolationMap.dispose()
-        this.extremaMap.dispose()
-        this.occupancyMap.dispose()
-        this.isotropicDistanceMap.dispose()
-        this.anisotropicDistanceMap.dispose()
-        this.extendedAnisotropicDistanceMap.dispose()
+        this.occlusionMap.dispose()
+        // this.distanceMap.dispose()
 
         this.volumeMap = null
-        this.interpolationMap = null
-        this.extremaMap = null
-        this.occupancyMap = null
-        this.isotropicDistanceMap = null
-        this.anisotropicDistanceMap = null
-        this.extendedAnisotropicDistanceMap = null
+        this.occlusionMap = null
+        // this.distanceMap = null
 
         this.experience = null
         this.renderer = null

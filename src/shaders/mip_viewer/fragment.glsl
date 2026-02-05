@@ -21,11 +21,11 @@ void main()
     #include "./chunks/march/compute_march"
     #include "./chunks/shade/compute_shade"
 
-    #if DEBUG_ENABLED == 1
-    #include "./chunks/debug/compute_debug"
-    #endif
+    // #if DEBUG_ENABLED == 1
+    // #include "./chunks/debug/compute_debug"
+    // #endif
 
-    #if DISCARDING_ENABLED == 1
-    fragColor.a *= hit.discarded ? 0.0 : 1.0;
-    #endif
+    // #if DISCARDING_ENABLED == 1
+    // fragColor.a *= hit.discarded ? 0.0 : 1.0;
+    // #endif
 }

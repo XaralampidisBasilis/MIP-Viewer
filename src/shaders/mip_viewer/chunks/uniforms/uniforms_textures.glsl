@@ -3,8 +3,8 @@
 
 struct UniformsTextures 
 {
-    sampler3D interpolation_map;
-    usampler3D occupancy_map;
+    sampler3D volume_map;
+    usampler3D occlusion_map;
     usampler3D distance_map;
 };
 

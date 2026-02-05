@@ -3,6 +3,7 @@ set_box();
 set_ray();
 set_trace();
 set_hit();
+set_mip();
 set_cell();
 set_block();
 set_frag();

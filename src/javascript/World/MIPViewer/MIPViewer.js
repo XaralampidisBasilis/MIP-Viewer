@@ -79,7 +79,7 @@ export default class MIPViewer extends EventEmitter
         const sum = (y, x) => y + x
         const defines = this.material.defines
         defines.MAX_CELLS = this.computes.volumeMap.dimensions.toArray().reduce(sum, 0)
-        defines.MAX_BLOCKS = this.computes.occupancyMap.dimensions.toArray().reduce(sum, 0)
+        // defines.MAX_BLOCKS = this.computes.occupancyMap.dimensions.toArray().reduce(sum, 0)
         defines.MAX_TRACES = defines.MAX_CELLS * 5
         defines.MAX_CELLS_IN_BLOCK = this.configs.blockSize * 3
         defines.MAX_TRACES_IN_BLOCK = defines.MAX_CELLS_IN_BLOCK * 5
@@ -91,20 +91,19 @@ export default class MIPViewer extends EventEmitter
     setUniformsTextures()
     {
         const uniforms = this.material.uniforms
-        uniforms.u_textures.value.interpolation_map = this.computes.interpolationMap.texture
-        uniforms.u_textures.value.occupancy_map = this.computes.occupancyMap.texture
-        uniforms.u_textures.value.distance_map = this.computes.distanceMap.texture
+        uniforms.u_textures.value.volume_map = this.computes.volumeMap.texture
+        // uniforms.u_textures.value.occupancy_map = this.computes.occupancyMap.texture
+        // uniforms.u_textures.value.distance_map = this.computes.distanceMap.texture
     }
 
     setUniformsVolume()
     {
         const uniforms = this.material.uniforms
-        uniforms.u_volume.value.isovalue = this.configs.isosurfaceValue
         uniforms.u_volume.value.dimensions.copy(this.computes.volumeMap.dimensions)
         uniforms.u_volume.value.spacing.copy(this.computes.volumeMap.spacing)
         uniforms.u_volume.value.spacing_normalized.copy(this.computes.volumeMap.spacing).normalize()
         uniforms.u_volume.value.block_size = this.configs.blockSize
-        uniforms.u_volume.value.blocked_dimensions.copy(this.computes.occupancyMap.dimensions)
+        // uniforms.u_volume.value.blocked_dimensions.copy(this.computes.occupancyMap.dimensions)
         uniforms.u_volume.value.inv_dimensions.fromArray(uniforms.u_volume.value.dimensions.toArray().map(x => 1/x))
     }
 
@@ -112,13 +111,6 @@ export default class MIPViewer extends EventEmitter
     {
         const uniforms = this.material.uniforms
         uniforms.u_shading.value.colormap = Configs.Colormaps.findIndex((x) => x === this.configs.colormap)
-        uniforms.u_shading.value.shininess = 60.0,
-        uniforms.u_shading.value.reflect_ambient = 0.2
-        uniforms.u_shading.value.reflect_diffuse = 1.0
-        uniforms.u_shading.value.reflect_specular = 0.4
-        uniforms.u_shading.value.modulate_edges = 1.0,
-        uniforms.u_shading.value.modulate_gradient  = 1.0
-        uniforms.u_shading.value.modulate_curvature = 1.0
     }
 
     setUniformsDebug()
@@ -131,10 +123,8 @@ export default class MIPViewer extends EventEmitter
 
     change(event)
     {
-        if      (event.key === 'isosurfaceValue'    ) this.onChangeIsosurfaceValue(event)
-        else if (event.key === 'blockSize'          ) this.onChangeBlockSize(event)
+        if      (event.key === 'blockSize'          ) this.onChangeBlockSize(event)
         else if (event.key === 'downscaleFactor'    ) this.onChangeDownscaleFactor(event)
-        else if (event.key === 'intersectionTest'   ) this.onChangeIntersectionTest(event)
         else if (event.key === 'skippingStrategy'   ) this.onChangeSkippingStrategy(event)
         else if (event.key === 'skippingMethod'     ) this.onChangeSkippingMethod(event)
         else if (event.key === 'gradientsMethod'    ) this.onChangeGradientsMethod(event)
@@ -146,19 +136,13 @@ export default class MIPViewer extends EventEmitter
         console.log(this)
     }
 
-    onChangeIsosurfaceValue(event)
-    {
-        const uniforms = this.material.uniforms
-        uniforms.u_volume.value.isovalue = this.configs.isosurfaceValue
-    }
-
     onChangeBlockSize(event)
     {
         const uniforms = this.material.uniforms
         uniforms.u_volume.value.block_size = this.configs.blockSize
         uniforms.u_volume.value.blocked_dimensions.copy(this.computes.occupancyMap.dimensions)
         uniforms.u_textures.value.occupancy_map.dispose()
-        uniforms.u_textures.value.occupancy_map = this.computes.occupancyMap.texture
+        uniforms.u_textures.value.occupancy_map = this.computes.occupancyMap.texture    
         uniforms.u_textures.value.distance_map.dispose()
         uniforms.u_textures.value.distance_map = this.computes.distanceMap.texture
         this.setDefinesIterators()
@@ -167,7 +151,7 @@ export default class MIPViewer extends EventEmitter
     onChangeDownscaleFactor(event)
     {
         const uniforms = this.material.uniforms
-        uniforms.u_textures.value.interpolation_map.dispose()
+        uniforms.u_textures.value.volume_map.dispose()
         uniforms.u_textures.value.occupancy_map.dispose()
         uniforms.u_textures.value.distance_map.dispose()
 
@@ -191,12 +175,6 @@ export default class MIPViewer extends EventEmitter
     onChangeGradientsMethod(event)
     {
         this.material.defines.GRADIENTS_METHOD = Configs.GradientsMethods.findIndex((x) => x === this.configs.gradientsMethod)
-        this.material.needsUpdate = true
-    }
-
-    onChangeIntersectionTest(event)
-    {
-        this.material.defines.INTERSECTION_TEST = Configs.IntersectionTests.findIndex((x) => x === this.configs.intersectionTest)
         this.material.needsUpdate = true
     }
 

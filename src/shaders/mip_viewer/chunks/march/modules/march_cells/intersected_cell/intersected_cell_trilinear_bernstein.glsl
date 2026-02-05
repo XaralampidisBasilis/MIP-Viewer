@@ -25,5 +25,5 @@ if (sign_change(cubic.bernstein_coeffs))
 
 // update stats
 #if DEBUG_ENABLED == 1
-stats.num_texture_fetches += 3;
+stats.num_fetches += 3;
 #endif

@@ -93,7 +93,7 @@ export default class Experience
     async start()
     {
         await this.computes.start()
-        // this.world.start()
+        this.world.start()
         // this.gui.start()
     }
 

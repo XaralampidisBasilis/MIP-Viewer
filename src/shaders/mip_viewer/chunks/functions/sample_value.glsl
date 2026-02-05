@@ -1,3 +1,3 @@
 
-#include "./sample_value/sample_value_trilinear"
+#include "./sample_value/sample_volume"
 

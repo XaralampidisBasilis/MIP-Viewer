@@ -15,6 +15,6 @@ cell.coords = ivec3(round(cell.exit_position));
 cubic.residuals[3] = sample_residue_trilinear(cell.exit_position);
 
 #if DEBUG_ENABLED == 1
-stats.num_texture_fetches += 1;
+stats.num_fetches += 1;
 #endif
 

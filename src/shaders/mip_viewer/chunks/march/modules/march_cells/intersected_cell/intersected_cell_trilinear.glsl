@@ -14,6 +14,6 @@ cell.intersected = sign_change(cubic.residuals) || cubic_has_root_sample(cubic.c
 
 // update stats
 #if DEBUG_ENABLED == 1
-stats.num_texture_fetches += 3;
+stats.num_fetches += 3;
 stats.num_intersection_tests += 1;
 #endif

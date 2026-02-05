@@ -16,19 +16,12 @@ export default function()
 
         u_volume: new THREE.Uniform
         ({
-            isovalue          : 0.69,
             dimensions        : new THREE.Vector3(),
             spacing           : new THREE.Vector3(),
             spacing_normalized: new THREE.Vector3(),
             inv_dimensions    : new THREE.Vector3(),
             blocked_dimensions: new THREE.Vector3(),
             block_size        : 0,
-        }),
-
-        u_bbox: new THREE.Uniform
-        ({
-            min_position: new THREE.Vector3(),
-            max_position: new THREE.Vector3(),
         }),
 
         u_textures: new THREE.Uniform

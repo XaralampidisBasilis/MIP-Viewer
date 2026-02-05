@@ -1,6 +1,7 @@
 
 #include "../march_blocks/start_block"
 #include "./start_trace"
+#include "./start_mip"
 
 for (int j = 0; j < MAX_BLOCKS; j++) 
 {
@@ -9,16 +10,17 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     if (!(block.occupied || block.terminated)) continue;
 
     #include "./start_trace"
+    #include "./start_mip"
 
     for (int i = 0; i < MAX_TRACES_IN_BLOCK; i++) 
     {
         #include "./update_trace"
-        #include "./intersected_trace"
+        #include "./update_mip"
 
-        if (trace.intersected || trace.terminated || trace.distance > block.exit_distance) break;
+        if (trace.terminated || trace.distance > block.exit_distance) break;
     }   
 
-    if (trace.intersected || trace.terminated) break; 
+    if (trace.terminated) break; 
 }
 
-#include "./end_trace"
+#include "./compute_mip"

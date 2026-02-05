@@ -2,7 +2,7 @@
 #define COMPUTE_GRADIENT_TRILINEAR_ANALYTIC
 
 #ifndef SAMPLE_TRILINEAR_VOLUME
-#include "../sample_value/sample_value_trilinear"
+#include "../sample_value/sample_volume"
 #endif
 
 vec3 compute_gradient(in vec3 p)
@@ -17,14 +17,14 @@ vec3 compute_gradient(in vec3 p)
     vec3 p1 = i + 1.5;
 
     // Take cube samples
-    float f_x0y0z0 = sample_value_trilinear(vec3(p0.x, p0.y, p0.z));
-    float f_x0y1z0 = sample_value_trilinear(vec3(p0.x, p1.y, p0.z));
-    float f_x0y0z1 = sample_value_trilinear(vec3(p0.x, p0.y, p1.z));
-    float f_x0y1z1 = sample_value_trilinear(vec3(p0.x, p1.y, p1.z));
-    float f_x1y0z0 = sample_value_trilinear(vec3(p1.x, p0.y, p0.z));
-    float f_x1y1z0 = sample_value_trilinear(vec3(p1.x, p1.y, p0.z));
-    float f_x1y0z1 = sample_value_trilinear(vec3(p1.x, p0.y, p1.z));
-    float f_x1y1z1 = sample_value_trilinear(vec3(p1.x, p1.y, p1.z));
+    float f_x0y0z0 = sample_volume(vec3(p0.x, p0.y, p0.z));
+    float f_x0y1z0 = sample_volume(vec3(p0.x, p1.y, p0.z));
+    float f_x0y0z1 = sample_volume(vec3(p0.x, p0.y, p1.z));
+    float f_x0y1z1 = sample_volume(vec3(p0.x, p1.y, p1.z));
+    float f_x1y0z0 = sample_volume(vec3(p1.x, p0.y, p0.z));
+    float f_x1y1z0 = sample_volume(vec3(p1.x, p1.y, p0.z));
+    float f_x1y0z1 = sample_volume(vec3(p1.x, p0.y, p1.z));
+    float f_x1y1z1 = sample_volume(vec3(p1.x, p1.y, p1.z));
 
     // Interpolate along x
     float f_xy0z0 = mix(f_x0y0z0, f_x1y0z0, a0.x);
@@ -76,14 +76,14 @@ vec3 compute_gradient(in vec3 p, out mat3 hessian)
     vec3 p1 = i + 1.5;
 
     // Take cube samples
-    float f_x0y0z0 = sample_value_trilinear(vec3(p0.x, p0.y, p0.z));
-    float f_x0y1z0 = sample_value_trilinear(vec3(p0.x, p1.y, p0.z));
-    float f_x0y0z1 = sample_value_trilinear(vec3(p0.x, p0.y, p1.z));
-    float f_x0y1z1 = sample_value_trilinear(vec3(p0.x, p1.y, p1.z));
-    float f_x1y0z0 = sample_value_trilinear(vec3(p1.x, p0.y, p0.z));
-    float f_x1y1z0 = sample_value_trilinear(vec3(p1.x, p1.y, p0.z));
-    float f_x1y0z1 = sample_value_trilinear(vec3(p1.x, p0.y, p1.z));
-    float f_x1y1z1 = sample_value_trilinear(vec3(p1.x, p1.y, p1.z));
+    float f_x0y0z0 = sample_volume(vec3(p0.x, p0.y, p0.z));
+    float f_x0y1z0 = sample_volume(vec3(p0.x, p1.y, p0.z));
+    float f_x0y0z1 = sample_volume(vec3(p0.x, p0.y, p1.z));
+    float f_x0y1z1 = sample_volume(vec3(p0.x, p1.y, p1.z));
+    float f_x1y0z0 = sample_volume(vec3(p1.x, p0.y, p0.z));
+    float f_x1y1z0 = sample_volume(vec3(p1.x, p1.y, p0.z));
+    float f_x1y0z1 = sample_volume(vec3(p1.x, p0.y, p1.z));
+    float f_x1y1z1 = sample_volume(vec3(p1.x, p1.y, p1.z));
 
     // Interpolate along x
     float f_xy0z0 = mix(f_x0y0z0, f_x1y0z0, a0.x);

@@ -21,7 +21,7 @@ hit.distance = mix(cell.entry_distance, cell.exit_distance, cubic.root);
 hit.position = camera.position + ray.direction * hit.distance;
 
 // Sample value/residue
-hit.value = sample_value_trilinear(hit.position);
+hit.value = sample_volume(hit.position);
 hit.residue = hit.value - u_volume.isovalue;
 
 // Compute gradients and hessian

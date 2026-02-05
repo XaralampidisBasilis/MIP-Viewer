@@ -15,12 +15,8 @@ export default class Configs extends EventEmitter
         'tricubicBspline',
     ])
     static MarchingMethods = Object.freeze([
-        'digitalDifferentialAnalyzer',
-        'uniformStepping',
-    ])
-    static IntersectionTests = Object.freeze([
-        'uniformSamples',
-        'hierarchicalBrackets',
+        'cells',
+        'traces',
     ])
     static SkippingStrategies = Object.freeze([
         'singleBlocks',
@@ -28,23 +24,19 @@ export default class Configs extends EventEmitter
     ])
     static SkippingMethods = Object.freeze([
         'occupancy',
-        'isotropicDistance',
-        'anisotropicDistance',
-        'extendedIsotropicDistance',
-        'extendedAnisotropicDistance',
+        'distanceMap',
     ])
 
     constructor() 
     {
         super()
 
-        this.blockSize = 2
+        this.blockSize = 1
         this.downscaleFactor = 0.8  
         this.isosurfaceValue = 0.4
         
         this.gradientsMethod = 'triquadraticBspline'
-        this.marchingMethod = 'digitalDifferentialAnalyzer'
-        this.intersectionTest = 'uniformSamples'
+        this.marchingMethod = 'cells'
         this.skippingStrategy = 'multipleBlocks'
         this.skippingMethod = 'occupancy'
         this.colormap = 'pasteljet'
