@@ -1133,6 +1133,8 @@ class GPGPUUnpackFromExtendedAnisotropicBidirectionalOcclusionMap implements GPG
     }
 }
 
+// sync functions
+
 export function computeUnidirectionalOcclusionMap(volume: tf.Tensor3D, permutation: Permute, reverse: Reverse) : tf.Tensor3D
 {
     const axis = permutation[0]
@@ -1231,7 +1233,7 @@ export function computeExtendedAnisotropicBidirectionalOcclusionMap(volumeMap: t
     const occlusionMap = runWebGLProgram(extendedAnisotropicBidirectionalProgram, occlusionMaps, 'int32', [], true) as tf.Tensor3D
     tf.dispose(occlusionMaps)
 
-    // logExtendedAnisotropicBidirectionalOcclusionMaps(occlusionMap)
+    logExtendedAnisotropicBidirectionalOcclusionMaps(occlusionMap)
 
     return occlusionMap 
 }
@@ -1328,6 +1330,10 @@ export async function computeExtendedAnisotropicBidirectionalOcclusionMapAsync(v
 
     return occlusionMap 
 }
+
+// ground truth functions for comparisons
+
+
 
 // transform functions
 

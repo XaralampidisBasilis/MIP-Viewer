@@ -81,7 +81,7 @@ class GPGPUMinDiffMap implements GPGPUProgram
 
         float getMinDiffOnFaceX(CellValues c)
         {
-            float m = 1.0/0.0;
+            float m = 1.0;
 
             m = min(m, c.v000 - c.v111);
             m = min(m, c.v010 - c.v111);
@@ -95,7 +95,7 @@ class GPGPUMinDiffMap implements GPGPUProgram
 
         float getMinDiffOnFaceY(CellValues c)
         {
-            float m = 1.0/0.0;
+            float m = 1.0;
 
             m = min(m, c.v000 - c.v111);
             m = min(m, c.v100 - c.v111);
@@ -109,7 +109,7 @@ class GPGPUMinDiffMap implements GPGPUProgram
             
         float getMinDiffOnFaceZ(CellValues c)
         {
-            float m = 1.0/0.0;
+            float m = 1.0;
 
             m = min(m, c.v000 - c.v111);
             m = min(m, c.v010 - c.v111);
@@ -211,7 +211,7 @@ class GPGPUMaxDiffMap implements GPGPUProgram
 
         float getMaxOnFaceX(CellValues c)
         {
-            float m = -1.0/0.0;
+            float m = -1.0;
 
             m = max(m, avg3(c.v001, c.v010, c.v011) - c.v000);
             m = max(m, avg3(c.v001, c.v010, c.v100) - c.v000);
@@ -233,7 +233,7 @@ class GPGPUMaxDiffMap implements GPGPUProgram
     
         float getMaxOnFaceY(CellValues c)
         {
-            float m = -1.0/0.0;
+            float m = -1.0;
 
             m = max(m, avg3(c.v001, c.v010, c.v011) - c.v000);
             m = max(m, avg3(c.v001, c.v010, c.v100) - c.v000);
@@ -255,7 +255,7 @@ class GPGPUMaxDiffMap implements GPGPUProgram
 
         float getMaxOnFaceZ(CellValues c)
         {
-            float m = -1.0/0.0;
+            float m = -1.0;
 
             m = max(m, avg3(c.v001, c.v010, c.v011) - c.v000);
             m = max(m, avg3(c.v001, c.v010, c.v100) - c.v000);
@@ -345,7 +345,7 @@ class GPGPUUpdateMinDiffSlices implements GPGPUProgram
             float t10 = c100.z;
             
             t10 = max(c101.y + t10, 0.0);
-            t10 = min(c110.z, t10);
+            t10 = min(c110.z,  t10);
             t10 = max(c111.x + t10, 0.0);
 
             return t10;
@@ -356,7 +356,7 @@ class GPGPUUpdateMinDiffSlices implements GPGPUProgram
             float t01 = c010.z;
 
             t01 = max(c011.x + t01, 0.0);
-            t01 = min(c110.z, t01);
+            t01 = min(c110.z,  t01);
             t01 = max(c111.y + t01, 0.0);
 
             return t01;
@@ -365,19 +365,18 @@ class GPGPUUpdateMinDiffSlices implements GPGPUProgram
         float getMinOnFaceZ(vec4 c111, vec4 c110, vec4 c101, vec4 c011, vec4 c100, vec4 c010, vec4 c001, vec4 c000)
         {
             float t00, t01, t10, t11;
-
             t00 = c000.z;
 
             t01 = max(c001.y + t00, 0.0);
-            t01 = min(c010.z, t01);
+            t01 = min(c010.z,  t01);
             t01 = max(c011.x + t01, 0.0);
 
             t10 = max(c001.x + t00, 0.0);
-            t10 = min(c100.z, t10);
+            t10 = min(c100.z,  t10);
             t10 = max(c101.y + t10, 0.0);
 
             t11 = min(t01, t10);
-            t11 = min(c110.z, t11);
+            t11 = min(c110.z,  t11);
             t11 = max(c111.z + t11, 0.0);
 
             return t11;

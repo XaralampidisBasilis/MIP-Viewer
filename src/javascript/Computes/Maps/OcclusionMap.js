@@ -32,8 +32,6 @@ export class OcclusionMap
         this.texture.generateMipmaps = false
         this.texture.unpackAlignment = 1
         this.texture.needsUpdate = true
-
-        console.log(this.texture.image.data)
         console.timeEnd('computeTexture') 
     }   
 
