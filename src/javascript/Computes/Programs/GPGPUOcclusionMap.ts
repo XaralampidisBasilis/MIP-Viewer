@@ -1142,11 +1142,11 @@ export function computeUnidirectionalOcclusionMapBase(volume: tf.Tensor3D, permu
     reversed.dispose()
 
     const minimaProgram = new GPGPUUnidirectionalMinimaMap(transposed.shape)
-    const minimaRaw = runWebGLProgram(minimaProgram, [transposed], 'float32', [], true) 
-    // logTensor('minimaRaw', minimaRaw)
+    const minimaStack = runWebGLProgram(minimaProgram, [transposed], 'float32', [], true) 
+    // logTensor('minimaStack', minimaStack)
 
-    const slices = unstackPacked(minimaRaw, 0) 
-    minimaRaw.dispose()
+    const slices = unstackPacked(minimaStack, 0) 
+    minimaStack.dispose()
 
     const sliceShape = slices[0].shape as [number, number, number, 2, 2]
     const updateProgram = new GPGPUUpdateUnidirectionalMinimaSlices(sliceShape)
@@ -1170,7 +1170,7 @@ export function computeUnidirectionalOcclusionMapBase(volume: tf.Tensor3D, permu
     const occlusionShape = minima.shape.slice(0, 3) as [number, number, number]
     const occlusionProgram = new GPGPUUnidirectionalOcclusionMap(occlusionShape)
     const occlusion = runWebGLProgram(occlusionProgram, [minima, maxima], 'float32', [], true) as tf.Tensor3D
-    // logTensor('occlusion', occlusion)
+    logTensor('occlusion', occlusion)
     tf.dispose([minima, maxima])
 
     const untransposed = occlusion.transpose(inversePermutation(permutation))
@@ -1250,16 +1250,15 @@ export function computeUnidirectionalOcclusionMap(volume: tf.Tensor3D, permutati
     const reverseAxis = reverse.includes(axis)
 
     const minimaProgram = new GPGPUUnidirectionalMinimaMap(volume.shape, permutation, reverse)
-    const minimaRaw = runWebGLProgram(minimaProgram, [volume], 'float32', [], true)
-    // logTensor('minimaRaw', minimaRaw)
+    const minimaStack = runWebGLProgram(minimaProgram, [volume], 'float32', [], true)
+    // logTensor('minimaStack', minimaStack)
 
-    const slices = unstackPacked(minimaRaw, axis) 
-    minimaRaw.dispose()
+    const slices = unstackPacked(minimaStack, axis) 
+    minimaStack.dispose()
+    if (reverseAxis) slices.reverse()
 
     const sliceShape = slices[0].shape as [number, number, number, 2, 2]
     const sliceProgram = new GPGPUUpdateUnidirectionalMinimaSlices(sliceShape, permutation, reverse)
-
-    if (reverseAxis) slices.reverse()
 
     for (let i = 1; i < slices.length; i++)
     {
@@ -1269,17 +1268,16 @@ export function computeUnidirectionalOcclusionMap(volume: tf.Tensor3D, permutati
     }
 
     if (reverseAxis) slices.reverse()
-        
     const minima = stackPacked(slices, axis) 
-    // logTensor('minima', minima)
     tf.dispose(slices)
+    // logTensor('minima', minima)
 
     const maximaProgram = new GPGPUUnidirectionalMaximaMap(volume.shape, permutation, reverse)
     const maxima = runWebGLProgram(maximaProgram, [volume], 'float32', [], true)
     // logTensor('maxima', maxima)
 
-    const occlusionMapShape = minimaRaw.shape.slice(0,3) as [number, number, number]
-    const occlusionProgram = new GPGPUUnidirectionalOcclusionMap(occlusionMapShape)
+    const occlusionShape = minima.shape.slice(0,3) as [number, number, number]
+    const occlusionProgram = new GPGPUUnidirectionalOcclusionMap(occlusionShape)
     const occlusion = runWebGLProgram(occlusionProgram, [minima, maxima], 'float32', [], true) as tf.Tensor3D
     tf.dispose([minima, maxima])
     // logTensor('occlusion', occlusion)

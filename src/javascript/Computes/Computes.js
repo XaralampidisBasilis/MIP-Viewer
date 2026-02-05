@@ -2,7 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import EventEmitter from '../Utils/EventEmitter'
 import Experience from '../Experience'
 import VolumeMap from './Maps/VolumeMap'
-// import OcclusionMap from './Maps/OcclusionMap'
+import OcclusionMap from './Maps/OcclusionMap'
 // import ExtendedAnisotropicDistanceMap from './Maps/ExtendedAnisotropicDistanceMap'
 
 export default class Computes extends EventEmitter
@@ -30,7 +30,7 @@ export default class Computes extends EventEmitter
     setMaps()
     {
         this.volumeMap = new VolumeMap()
-        // this.occlusionMap = new OcclusionMap()
+        this.occlusionMap = new OcclusionMap()
         // this.distanceMap = new ExtendedAnisotropicDistanceMap()
     }
 
@@ -41,10 +41,10 @@ export default class Computes extends EventEmitter
         this.volumeMap.computeTensor()
         await tf.nextFrame()
 
-        // this.occlusionMap.computeTensor()
-        // this.occlusionMap.computeTexture()
-        // this.occlusionMap.tensor.dispose()
-        // await tf.nextFrame()
+        this.occlusionMap.computeTensor()
+        this.occlusionMap.computeTexture()
+        this.occlusionMap.tensor.dispose()
+        await tf.nextFrame()
 
         this.volumeMap.computeTexture()
         this.volumeMap.tensor.dispose()
