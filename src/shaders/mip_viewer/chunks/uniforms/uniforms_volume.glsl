@@ -3,7 +3,6 @@
 
 struct UniformsVolume 
 {
-    float isovalue;
     ivec3 dimensions;    
     vec3  spacing;           
     vec3  spacing_normalized;           

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
-import vertexShader from '../../../shaders/iso_viewer/vertex.glsl'
-import fragmentShader from '../../../shaders/iso_viewer/fragment.glsl'
+import vertexShader from '../../../shaders/mip_viewer/vertex.glsl'
+import fragmentShader from '../../../shaders/mip_viewer/fragment.glsl'
 
 // console.log('vertexShader: ', vertexShader)
 // console.log('fragmentShader: ', fragmentShader)

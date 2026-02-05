@@ -16,7 +16,7 @@ class GPGPUUnidirectionalMinimaMapDeprecated implements GPGPUProgram
     packedInputs = false
     packedOutput = true
 
-    constructor(inputShape: [number, number, number], permutation: Permute, reverse: Reverse) 
+    constructor(inputShape: [number, number, number], permutation: Permute = [0,1,2], reverse: Reverse = []) 
     {
         const [inDepth, inHeight, inWidth] = inputShape
         const [outDepth, outHeight, outWidth] = inputShape.map(x => x + 1)
@@ -124,7 +124,7 @@ class GPGPUUnidirectionalMaximaMapDeprecated implements GPGPUProgram
     packedInputs = false
     packedOutput = true
 
-    constructor(inputShape: [number, number, number], permutation: Permute, reverse: Reverse) 
+    constructor(inputShape: [number, number, number], permutation: Permute = [0,1,2], reverse: Reverse = []) 
     {
         const [inDepth, inHeight, inWidth] = inputShape
         const [outDepth, outHeight, outWidth] = inputShape.map(x => x + 1)
@@ -231,7 +231,7 @@ class GPGPUUnidirectionalMinimaMap implements GPGPUProgram
     packedInputs = false
     packedOutput = true
 
-    constructor(inputShape: [number, number, number], permutation: Permute, reverse: Reverse) 
+    constructor(inputShape: [number, number, number], permutation: Permute = [0,1,2], reverse: Reverse = []) 
     {
         const [inDepth, inHeight, inWidth] = inputShape
         const [outDepth, outHeight, outWidth] = inputShape.map(x => x + 1)
@@ -417,7 +417,7 @@ class GPGPUUnidirectionalMaximaMap implements GPGPUProgram
     packedInputs = false
     packedOutput = true
 
-    constructor(inputShape: [number, number, number], permutation: Permute, reverse: Reverse) 
+    constructor(inputShape: [number, number, number], permutation: Permute = [0,1,2], reverse: Reverse = []) 
     {
         const [inDepth, inHeight, inWidth] = inputShape
         const [outDepth, outHeight, outWidth] = inputShape.map(x => x + 1)
@@ -592,7 +592,7 @@ class GPGPUUpdateUnidirectionalMinimaSlices implements GPGPUProgram
     packedInputs = true
     packedOutput = true
 
-    constructor(outputShape: [number, number, number, 2, 2], permutation: Permute, reverse: Reverse) 
+    constructor(outputShape: [number, number, number, 2, 2], permutation: Permute = [0,1,2], reverse: Reverse = []) 
     {
         const [outDepth, outHeight, outWidth] = outputShape.slice(0, 3)
         this.outputShape = outputShape 
@@ -708,7 +708,7 @@ class GPGPUUpdateUnidirectionalMinimaMap implements GPGPUProgram
     packedInputs = true
     packedOutput = true
 
-    constructor(outputShape: [number, number, number, 2, 2], permutation: Permute, reverse: Reverse) 
+    constructor(outputShape: [number, number, number, 2, 2], permutation: Permute = [0,1,2], reverse: Reverse = []) 
     {
         const [outDepth, outHeight, outWidth] = outputShape.slice(0,3)
         this.outputShape = outputShape  
@@ -1141,7 +1141,7 @@ export function computeUnidirectionalOcclusionMapBase(volume: tf.Tensor3D, permu
     const transposed = reversed.transpose(permutation) as tf.Tensor3D
     reversed.dispose()
 
-    const minimaProgram = new GPGPUUnidirectionalMinimaMap(transposed.shape, [0,1,2], [])
+    const minimaProgram = new GPGPUUnidirectionalMinimaMap(transposed.shape)
     const minimaRaw = runWebGLProgram(minimaProgram, [transposed], 'float32', [], true) 
     // logTensor('minimaRaw', minimaRaw)
 
@@ -1149,7 +1149,7 @@ export function computeUnidirectionalOcclusionMapBase(volume: tf.Tensor3D, permu
     minimaRaw.dispose()
 
     const sliceShape = slices[0].shape as [number, number, number, 2, 2]
-    const updateProgram = new GPGPUUpdateUnidirectionalMinimaSlices(sliceShape, [0,1,2], [])
+    const updateProgram = new GPGPUUpdateUnidirectionalMinimaSlices(sliceShape)
 
     for (let i = 1; i < slices.length; i++)
     {
@@ -1162,7 +1162,7 @@ export function computeUnidirectionalOcclusionMapBase(volume: tf.Tensor3D, permu
     // logTensor('minima', minima)
     tf.dispose(slices)
     
-    const maximaProgram = new GPGPUUnidirectionalMaximaMap(transposed.shape, [0,1,2], [])
+    const maximaProgram = new GPGPUUnidirectionalMaximaMap(transposed.shape)
     const maxima = runWebGLProgram(maximaProgram, [transposed], 'float32', [], true)
     // logTensor('maxima', maxima)
     tf.dispose(transposed)
