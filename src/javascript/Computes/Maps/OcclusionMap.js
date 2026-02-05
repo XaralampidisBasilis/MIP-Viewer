@@ -20,8 +20,8 @@ export default class OcclusionMap
         // this.dimensions = new THREE.Vector3(...this.tensor.shape.slice(0,3).toReversed())
 
         // const t1 = occ0.computeUnidirectionalOcclusionMapBase(this.volumeMap.tensor, [0,1,2], [])
-        const t2 = occ1.computeUnidirectionalOcclusionMap(this.volumeMap.tensor, [0,1,2], [])
-        const t3 = occ1.computeUnidirectionalOcclusionMapBase(this.volumeMap.tensor, [0,1,2], [])
+        // const t2 = occ1.computeExtendedAnisotropicBidirectionalOcclusionMap(this.volumeMap.tensor, true)
+        const t3 = occ1.computeUnidirectionalOcclusionMapBase(this.volumeMap.tensor, [0,1,2], [], true)
 
         console.timeEnd('computeTensor') 
     }
