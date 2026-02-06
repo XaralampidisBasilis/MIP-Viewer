@@ -55,7 +55,7 @@ export default class GUI
     addControls()
     {
         this.controllers = {}
-        // this.addControlsConfigs() 
+        this.addControlsConfigs() 
         this.addControlsShading()
         this.addControlsDebug() 
     }
@@ -187,8 +187,9 @@ export default class GUI
                 ray_span_distance       : 107,
                 ray_start_position      : 108,
                 ray_end_position        : 109,
+                ray_map                 : 110,
 
-                block_occupied          : 402,
+                block_occluded          : 402,
                 block_terminated        : 403,
                 block_coords            : 404,
                 block_skip_coords       : 401,
@@ -289,9 +290,9 @@ export default class GUI
                 material.needsUpdate = true 
             }),
 
-            // maxGroups: folder.add(uniforms, 'max_groups').min(0).max(defines.MAX_GROUPS).step(1),
-            // maxBlocks: folder.add(uniforms, 'max_blocks').min(0).max(defines.MAX_BLOCKS_IN_GROUP).step(1),
-            // maxCells : folder.add(uniforms, 'max_cells').min(0).max(defines.MAX_CELLS_IN_BLOCK).step(1),
+            maxGroups: folder.add(uniforms, 'max_groups').min(0).max(defines.MAX_GROUPS).step(1),
+            maxBlocks: folder.add(uniforms, 'max_blocks').min(0).max(defines.MAX_BLOCKS).step(1),
+            maxCells : folder.add(uniforms, 'max_cells').min(0).max(defines.MAX_TRACES_IN_BLOCK).step(1),
             variable1 : folder.add(uniforms, 'variable1').min(0).max(1).step(1e-6),
             variable2 : folder.add(uniforms, 'variable2').min(0).max(1).step(1e-6),
             variable3 : folder.add(uniforms, 'variable3').min(0).max(1).step(1e-6),

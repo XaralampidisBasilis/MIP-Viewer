@@ -5,4 +5,5 @@
 // #include "./march_traces_in_traces"
 // #endif
 
-#include "./march_traces_in_traces"
+// #include "./march_traces_in_traces"
+#include "./march_traces_in_blocks"

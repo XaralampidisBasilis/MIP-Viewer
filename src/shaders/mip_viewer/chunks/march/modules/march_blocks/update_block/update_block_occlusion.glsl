@@ -1,6 +1,6 @@
 
 // compute occupancy
-block.occupied = sample_occupancy(block.coords);
+block.occluded = sample_occlusion(block.coords, ray.map);
 
 // compute min/max coords
 block.min_coords = block.coords - (block.skip_coords - 1);

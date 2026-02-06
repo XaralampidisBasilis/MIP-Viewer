@@ -8,6 +8,8 @@
 #include "./mmin" 
 #include "./mmix" 
 #include "./mmix2" 
+#include "./argmax" 
+#include "./argmin" 
 #include "./ssign" 
 #include "./sum"
 #include "./eval_poly"

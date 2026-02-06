@@ -79,20 +79,22 @@ export default class MIPViewer extends EventEmitter
         const sum = (y, x) => y + x
         const defines = this.material.defines
         defines.MAX_CELLS = this.computes.volumeMap.dimensions.toArray().reduce(sum, 0)
-        // defines.MAX_BLOCKS = this.computes.occlusionMap.dimensions.toArray().reduce(sum, 0)
+        defines.MAX_BLOCKS = this.computes.occlusionMap.dimensions.toArray().reduce(sum, 0)
         defines.MAX_TRACES = defines.MAX_CELLS * 5
         defines.MAX_CELLS_IN_BLOCK = this.configs.blockSize * 3
         defines.MAX_TRACES_IN_BLOCK = defines.MAX_CELLS_IN_BLOCK * 5
         defines.MAX_GROUPS = Math.ceil(defines.MAX_CELLS / defines.MAX_CELLS_IN_BLOCK)
         defines.MAX_BLOCKS_IN_GROUP = Math.ceil(defines.MAX_BLOCKS / defines.MAX_GROUPS)
         this.material.needsUpdate = true
+
+        console.log(defines)
     }
 
     setUniformsTextures()
     {
         const uniforms = this.material.uniforms
         uniforms.u_textures.value.volume_map = this.computes.volumeMap.texture
-        // uniforms.u_textures.value.occlusion_map = this.computes.occlusionMap.texture
+        uniforms.u_textures.value.occlusion_map = this.computes.occlusionMap.texture
         // uniforms.u_textures.value.distance_map = this.computes.distanceMap.texture
     }
 
@@ -103,7 +105,7 @@ export default class MIPViewer extends EventEmitter
         uniforms.u_volume.value.spacing.copy(this.computes.volumeMap.spacing)
         uniforms.u_volume.value.spacing_normalized.copy(this.computes.volumeMap.spacing).normalize()
         uniforms.u_volume.value.block_size = this.configs.blockSize
-        // uniforms.u_volume.value.blocked_dimensions.copy(this.computes.occlusionMap.dimensions)
+        uniforms.u_volume.value.blocked_dimensions.copy(this.computes.occlusionMap.dimensions)
         uniforms.u_volume.value.inv_dimensions.fromArray(uniforms.u_volume.value.dimensions.toArray().map(x => 1/x))
     }
 
@@ -140,9 +142,9 @@ export default class MIPViewer extends EventEmitter
     {
         const uniforms = this.material.uniforms
         uniforms.u_volume.value.block_size = this.configs.blockSize
-        // uniforms.u_volume.value.blocked_dimensions.copy(this.computes.occlusionMap.dimensions)
+        uniforms.u_volume.value.blocked_dimensions.copy(this.computes.occlusionMap.dimensions)
         uniforms.u_textures.value.occlusion_map.dispose()
-        // uniforms.u_textures.value.occlusion_map = this.computes.occlusionMap.texture    
+        uniforms.u_textures.value.occlusion_map = this.computes.occlusionMap.texture    
         uniforms.u_textures.value.distance_map.dispose()
         uniforms.u_textures.value.distance_map = this.computes.distanceMap.texture
         this.setDefinesIterators()

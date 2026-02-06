@@ -3,6 +3,8 @@
 
 struct Ray 
 {
+    int   map;       
+    int   axis;       
     bool  discarded;       // flag indicating if the ray has been discarded
     vec3  direction;       // direction vector for each step along the ray
     vec3  inv_direction;   // inverse of the direction vector
@@ -20,6 +22,8 @@ Ray ray; // Global mutable struct
 
 void set_ray()
 {
+    ray.map      = 0;
+    ray.axis      = 0;
     ray.discarded      = false;
     ray.direction      = vec3(0.0);
     ray.inv_direction  = vec3(0.0);

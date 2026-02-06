@@ -1044,7 +1044,7 @@ class GPGPUExtendedAnisotropicBidirectionalOcclusionMap implements GPGPUProgram
     }
 }
 
-class GPGPUUnpackFromAnisotropicBidirectionalOcclusionMap implements GPGPUProgram 
+class GPGPUUnpackAnisotropicBidirectionalOcclusionMap implements GPGPUProgram 
 {
     variableNames = ['A'] 
     outputShape: number[]
@@ -1088,7 +1088,7 @@ class GPGPUUnpackFromAnisotropicBidirectionalOcclusionMap implements GPGPUProgra
     }
 }
 
-class GPGPUUnpackFromExtendedAnisotropicBidirectionalOcclusionMap implements GPGPUProgram 
+class GPGPUUnpackExtendedAnisotropicBidirectionalOcclusionMap implements GPGPUProgram 
 {
     variableNames = ['A'] 
     outputShape: number[]
@@ -1200,16 +1200,16 @@ export function computeBidirectionalOcclusionMapBase(volumeMap: tf.Tensor3D, per
 
 export function computeAnisotropicBidirectionalOcclusionMapBase(volumeMap: tf.Tensor3D, permutation: Permute, verbose: boolean = false) : tf.Tensor3D
 {
-    const reverseA = permutation.slice(1, 1) as Reverse
-    const reverseB = permutation.slice(1, 2) as Reverse
-    const reverseC = permutation.slice(2, 3) as Reverse
-    const reverseD = permutation.slice(1, 3) as Reverse
+    const reversePP = permutation.slice(1, 1) as Reverse
+    const reversePN = permutation.slice(1, 2) as Reverse
+    const reverseNP = permutation.slice(2, 3) as Reverse
+    const reverseNN = permutation.slice(1, 3) as Reverse
 
     const occlusionMaps = [
-        computeBidirectionalOcclusionMapBase(volumeMap, permutation, reverseA),
-        computeBidirectionalOcclusionMapBase(volumeMap, permutation, reverseB),
-        computeBidirectionalOcclusionMapBase(volumeMap, permutation, reverseC),
-        computeBidirectionalOcclusionMapBase(volumeMap, permutation, reverseD),
+        computeBidirectionalOcclusionMapBase(volumeMap, permutation, reversePP),
+        computeBidirectionalOcclusionMapBase(volumeMap, permutation, reversePN),
+        computeBidirectionalOcclusionMapBase(volumeMap, permutation, reverseNP),
+        computeBidirectionalOcclusionMapBase(volumeMap, permutation, reverseNN),
     ]
 
     const anisotropicBidirectionalProgram = new GPGPUAnisotropicBidirectionalOcclusionMap(occlusionMaps[0].shape)
@@ -1303,16 +1303,16 @@ export function computeBidirectionalOcclusionMap(volumeMap: tf.Tensor3D, permuta
 
 export function computeAnisotropicBidirectionalOcclusionMap(volumeMap: tf.Tensor3D, permutation: Permute, verbose: boolean = false) : tf.Tensor3D
 {
-    const reverseA = permutation.slice(1, 1) as Reverse
-    const reverseB = permutation.slice(1, 2) as Reverse
-    const reverseC = permutation.slice(2, 3) as Reverse
-    const reverseD = permutation.slice(1, 3) as Reverse
+    const reversePP = permutation.slice(1, 1) as Reverse
+    const reversePN = permutation.slice(1, 2) as Reverse
+    const reverseNP = permutation.slice(2, 3) as Reverse
+    const reverseNN = permutation.slice(1, 3) as Reverse
 
     const occlusionMaps = [
-        computeBidirectionalOcclusionMap(volumeMap, permutation, reverseA),
-        computeBidirectionalOcclusionMap(volumeMap, permutation, reverseB),
-        computeBidirectionalOcclusionMap(volumeMap, permutation, reverseC),
-        computeBidirectionalOcclusionMap(volumeMap, permutation, reverseD),
+        computeBidirectionalOcclusionMap(volumeMap, permutation, reversePP),
+        computeBidirectionalOcclusionMap(volumeMap, permutation, reversePN),
+        computeBidirectionalOcclusionMap(volumeMap, permutation, reverseNP),
+        computeBidirectionalOcclusionMap(volumeMap, permutation, reverseNN),
     ]
 
     const anisotropicBidirectionalProgram = new GPGPUAnisotropicBidirectionalOcclusionMap(occlusionMaps[0].shape)
@@ -1396,16 +1396,16 @@ export async function computeBidirectionalOcclusionMapAsync(volumeMap: tf.Tensor
 
 export async function computeAnisotropicBidirectionalOcclusionMapAsync(volumeMap: tf.Tensor3D, permutation: Permute, verbose: boolean = false) : Promise<tf.Tensor3D>
 {
-    const reverseA = permutation.slice(1, 1) as Reverse
-    const reverseB = permutation.slice(1, 2) as Reverse
-    const reverseC = permutation.slice(2, 3) as Reverse
-    const reverseD = permutation.slice(1, 3) as Reverse
+    const reversePP = permutation.slice(1, 1) as Reverse
+    const reversePN = permutation.slice(1, 2) as Reverse
+    const reverseNP = permutation.slice(2, 3) as Reverse
+    const reverseNN = permutation.slice(1, 3) as Reverse
 
     const occlusionMaps = [
-        await computeBidirectionalOcclusionMapAsync(volumeMap, permutation, reverseA),
-        await computeBidirectionalOcclusionMapAsync(volumeMap, permutation, reverseB),
-        await computeBidirectionalOcclusionMapAsync(volumeMap, permutation, reverseC),
-        await computeBidirectionalOcclusionMapAsync(volumeMap, permutation, reverseD),
+        await computeBidirectionalOcclusionMapAsync(volumeMap, permutation, reversePP),
+        await computeBidirectionalOcclusionMapAsync(volumeMap, permutation, reversePN),
+        await computeBidirectionalOcclusionMapAsync(volumeMap, permutation, reverseNP),
+        await computeBidirectionalOcclusionMapAsync(volumeMap, permutation, reverseNN),
     ]
 
     const anisotropicBidirectionalProgram = new GPGPUAnisotropicBidirectionalOcclusionMap(occlusionMaps[0].shape)
@@ -1483,7 +1483,7 @@ function logTensor(name: string, tensor: tf.Tensor)
 
 function logAnisotropicBidirectionalOcclusionMaps(occlusionMaps: tf.Tensor3D)
 {
-    const unpack = new GPGPUUnpackFromAnisotropicBidirectionalOcclusionMap(occlusionMaps.shape)
+    const unpack = new GPGPUUnpackAnisotropicBidirectionalOcclusionMap(occlusionMaps.shape)
 
     console.log('occlusionMap0', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[0]]).mean([0,1,2]).dataSync())) 
     console.log('occlusionMap1', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[1]]).mean([0,1,2]).dataSync())) 
@@ -1493,7 +1493,7 @@ function logAnisotropicBidirectionalOcclusionMaps(occlusionMaps: tf.Tensor3D)
 
 function logExtendedAnisotropicBidirectionalOcclusionMaps(occlusionMaps: tf.Tensor3D)
 {
-    const unpack = new GPGPUUnpackFromExtendedAnisotropicBidirectionalOcclusionMap(occlusionMaps.shape)
+    const unpack = new GPGPUUnpackExtendedAnisotropicBidirectionalOcclusionMap(occlusionMaps.shape)
 
     console.log('occlusionMapX0', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[ 0]]).mean([0,1,2]).dataSync())) 
     console.log('occlusionMapX1', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[ 1]]).mean([0,1,2]).dataSync())) 

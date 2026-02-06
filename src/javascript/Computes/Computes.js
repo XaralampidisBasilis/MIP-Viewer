@@ -41,10 +41,10 @@ export default class Computes extends EventEmitter
         this.volumeMap.computeTensor()
         await tf.nextFrame()
 
-        // this.occlusionMap.computeTensor()
-        // this.occlusionMap.computeTexture()
-        // this.occlusionMap.tensor.dispose()
-        // await tf.nextFrame()
+        this.occlusionMap.computeTensor()
+        this.occlusionMap.computeTexture()
+        this.occlusionMap.tensor.dispose()
+        await tf.nextFrame()
 
         this.volumeMap.computeTexture()
         this.volumeMap.tensor.dispose()

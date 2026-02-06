@@ -1,7 +1,7 @@
 
-trace.spacing = ray.spacing;
+trace.spacing = ray.spacing / 5.0;
 
-// // start trace
+// start trace
 // #if SKIPPING_ENABLED == 1
 // trace.distance = block.entry_distance;
 // // trace.distance -= trace.spacing * random(block.entry_position);
@@ -12,7 +12,8 @@ trace.spacing = ray.spacing;
 // #endif
 
 // start interpolant
-trace.distance = ray.start_distance;
+trace.distance = block.entry_distance;
+
 trace.position = camera.position + ray.direction * trace.distance; 
 trace.value = sample_volume(trace.position);
 

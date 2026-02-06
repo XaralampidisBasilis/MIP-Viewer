@@ -27,6 +27,8 @@ vec4 debug_ray_start_position = to_color(map(box.min_position, box.max_position,
 // end position
 vec4 debug_ray_end_position = to_color(map(box.min_position, box.max_position, ray.end_position));
 
+// map
+vec4 debug_ray_map = to_color(hsv(float(ray.map)/16.0));
 
 // PRINT DEBUG
 switch (u_debug.option - 100)
@@ -40,4 +42,5 @@ switch (u_debug.option - 100)
     case  7: fragColor = debug_ray_span_distance;   break;
     case  8: fragColor = debug_ray_start_position;  break;
     case  9: fragColor = debug_ray_end_position;    break;
+    case 10: fragColor = debug_ray_map;    break;
 }

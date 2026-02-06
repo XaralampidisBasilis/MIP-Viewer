@@ -4,7 +4,7 @@
 struct UniformsTextures 
 {
     sampler3D volume_map;
-    // usampler3D occlusion_map;
+    isampler3D occlusion_map;
     // usampler3D distance_map;
 };
 

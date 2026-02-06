@@ -22,7 +22,6 @@ export default class OcclusionMap
         // const t1 = occ0.computeUnidirectionalOcclusionMapBase(this.volumeMap.tensor, [0,1,2], [])
         // const t2 = occ1.computeExtendedAnisotropicBidirectionalOcclusionMap(this.volumeMap.tensor, true)
         // const t3 = occ1.computeUnidirectionalOcclusionMapBase(this.volumeMap.tensor, [0,1,2], [], true)
-
     }
 
     computeTexture()
