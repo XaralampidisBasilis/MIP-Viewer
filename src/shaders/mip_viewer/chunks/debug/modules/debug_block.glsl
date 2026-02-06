@@ -35,7 +35,7 @@ vec4 debug_block_max_position = to_color(map(box.min_position, box.max_position,
 // PRINT DEBUG
 switch (u_debug.option - 400)
 {
-    case  1: fragColor = debug_block_skip_coords;  break;
+    case  1: fragColor = debug_block_skip_coords;    break;
     case  2: fragColor = debug_block_occluded;       break;
     case  3: fragColor = debug_block_terminated;     break;
     case  4: fragColor = debug_block_coords;         break;

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
-import { computeExtendedAnisotropicBidirectionalOcclusionMap } from '../Programs/GPGPUOcclusionMap1'
+import { computeExtendedAnisotropicBidirectionalOcclusionMap } from '../Programs/GPGPUOcclusionMap'
 
 export default class OcclusionMap
 {
