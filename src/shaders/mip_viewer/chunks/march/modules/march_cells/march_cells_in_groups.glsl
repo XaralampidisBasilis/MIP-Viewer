@@ -8,10 +8,10 @@ for (int k = 0; k < MAX_GROUPS; k++)
     {
         #include "../march_blocks/update_block"
 
-        if (block.occupied || block.terminated) break;
+        if (block.terminated) break;
     }
 
-    if (!(block.occupied || block.terminated)) continue;
+    if (block.occluded && !block.terminated) continue;
     
     #include "./start_cell"
 
@@ -20,14 +20,14 @@ for (int k = 0; k < MAX_GROUPS; k++)
         #include "./update_cell"
         #include "./intersected_cell"
 
-        if (cell.intersected || cell.terminated || cell.exit_distance > block.exit_distance) break; 
+        if (cell.terminated || cell.exit_distance > block.exit_distance) break; 
     }   
 
-    if (cell.intersected || cell.terminated) break;
+    if (cell.terminated) break;
 
     #if DEBUG_ENABLED == 1
     stats.num_groups += 1;
     #endif
 }
 
-#include "./end_cell"
+#include "./compute_mip"

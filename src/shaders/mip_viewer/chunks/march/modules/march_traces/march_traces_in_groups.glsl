@@ -15,7 +15,7 @@ for (int k = 0; k < MAX_GROUPS; k++)
     if (block.occluded && !block.terminated) continue;
 
     #include "./start_trace"
-    #include "./start_mip"
+    #include "./update_mip"
 
     for (int i = 0; i < MAX_TRACES_IN_BLOCK; i++) 
     {

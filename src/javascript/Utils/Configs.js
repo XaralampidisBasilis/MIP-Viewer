@@ -19,8 +19,8 @@ export default class Configs extends EventEmitter
         'traces',
     ])
     static SkippingStrategies = Object.freeze([
-        'singleBlocks',
-        'multipleBlocks',
+        'blocks',
+        'blockGroups',
     ])
     static SkippingMethods = Object.freeze([
         'occupancy',
@@ -36,7 +36,7 @@ export default class Configs extends EventEmitter
         
         this.gradientsMethod = 'triquadraticBspline'
         this.marchingMethod = 'traces'
-        this.skippingStrategy = 'multipleBlocks'
+        this.skippingStrategy = 'blockGroups'
         this.skippingMethod = 'occupancy'
         this.colormap = 'viridis'
 

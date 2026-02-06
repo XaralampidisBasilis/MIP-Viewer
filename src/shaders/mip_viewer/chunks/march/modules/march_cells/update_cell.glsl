@@ -22,5 +22,7 @@ cell.terminated = cell.exit_distance > ray.end_distance;
 
 // update stats
 #if DEBUG_ENABLED == 1
-stats.num_cells += 1;
+
+    stats.num_cells += 1;
+    
 #endif

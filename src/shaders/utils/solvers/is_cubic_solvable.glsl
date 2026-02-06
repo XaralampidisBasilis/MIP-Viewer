@@ -21,7 +21,7 @@ cyPolynomial.h class (https://github.com/cemyuksel/cyCodeBase/blob/master/cyPoly
 bool is_cubic_solvable(in vec4 c, in vec2 xa_xb)
 {
     // compute cubic derivative coefficients
-    vec3 d = vec3(c.y, c.z * 2.0, c.w * 3.0);;
+    vec3 d = vec3(c.y, c.z * 2.0, c.w * 3.0);
 
     // solve for the critical points of the cubic polynomial
     vec2 x0_x1 = quadratic_roots(d);

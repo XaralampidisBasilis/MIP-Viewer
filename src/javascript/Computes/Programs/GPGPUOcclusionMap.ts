@@ -1484,8 +1484,8 @@ export function computeUnidirectionalOcclusionMapDeprecated(volume: tf.Tensor3D,
 export function computeBidirectionalOcclusionMapDeprecated(volumeMap: tf.Tensor3D, permutation: Permute, reverse: Reverse, verbose: boolean = false) : tf.Tensor3D
 {
     const occlusionMaps = [
-        computeUnidirectionalOcclusionMap(volumeMap, permutation, reverse),
-        computeUnidirectionalOcclusionMap(volumeMap, permutation, complementReverse(reverse)),
+        computeUnidirectionalOcclusionMapDeprecated(volumeMap, permutation, reverse),
+        computeUnidirectionalOcclusionMapDeprecated(volumeMap, permutation, complementReverse(reverse)),
     ]
 
     const bidirectionalProgram = new GPGPUBidirectionalOcclusionMap(occlusionMaps[0].shape)
@@ -1505,10 +1505,10 @@ export function computeAnisotropicBidirectionalOcclusionMapDeprecated(volumeMap:
     const reverseNN = permutation.slice(1, 3) as Reverse
 
     const occlusionMaps = [
-        computeBidirectionalOcclusionMap(volumeMap, permutation, reversePP),
-        computeBidirectionalOcclusionMap(volumeMap, permutation, reversePN),
-        computeBidirectionalOcclusionMap(volumeMap, permutation, reverseNP),
-        computeBidirectionalOcclusionMap(volumeMap, permutation, reverseNN),
+        computeBidirectionalOcclusionMapDeprecated(volumeMap, permutation, reversePP),
+        computeBidirectionalOcclusionMapDeprecated(volumeMap, permutation, reversePN),
+        computeBidirectionalOcclusionMapDeprecated(volumeMap, permutation, reverseNP),
+        computeBidirectionalOcclusionMapDeprecated(volumeMap, permutation, reverseNN),
     ]
 
     const anisotropicBidirectionalProgram = new GPGPUAnisotropicBidirectionalOcclusionMap(occlusionMaps[0].shape)
@@ -1527,9 +1527,9 @@ export function computeExtendedAnisotropicBidirectionalOcclusionMapDeprecated(vo
     const permuteZ = [0,1,2] as Permute
 
     const occlusionMaps = [
-        computeAnisotropicBidirectionalOcclusionMap(volumeMap, permuteX),
-        computeAnisotropicBidirectionalOcclusionMap(volumeMap, permuteY),
-        computeAnisotropicBidirectionalOcclusionMap(volumeMap, permuteZ),
+        computeAnisotropicBidirectionalOcclusionMapDeprecated(volumeMap, permuteX),
+        computeAnisotropicBidirectionalOcclusionMapDeprecated(volumeMap, permuteY),
+        computeAnisotropicBidirectionalOcclusionMapDeprecated(volumeMap, permuteZ),
     ]
 
     const extendedAnisotropicBidirectionalProgram = new GPGPUExtendedAnisotropicBidirectionalOcclusionMap(occlusionMaps[0].shape)

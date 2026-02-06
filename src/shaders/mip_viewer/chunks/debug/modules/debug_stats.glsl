@@ -2,22 +2,22 @@
 // COMPUTE DEBUG
 
 // num cells
-vec4 debug_stats_num_cells = to_color(float(stats.num_cells) / float(MAX_CELLS) * 10.0);
+vec4 debug_stats_num_cells = to_color(float(stats.num_cells) / float(MAX_CELLS));
 
 // num traces
-vec4 debug_stats_num_traces = to_color(float(stats.num_traces) / float(MAX_TRACES) * 10.0);
+vec4 debug_stats_num_traces = to_color(float(stats.num_traces) / float(MAX_TRACES));
 
 // num blocks
-vec4 debug_stats_num_blocks = to_color(float(stats.num_blocks) / float(MAX_BLOCKS) * 10.0);
+vec4 debug_stats_num_blocks = to_color(float(stats.num_blocks) / float(MAX_BLOCKS));
 
 // num groups
-vec4 debug_stats_num_groups = to_color(float(stats.num_groups) / float(MAX_GROUPS) * 10.0);
+vec4 debug_stats_num_groups = to_color(float(stats.num_groups) / float(MAX_GROUPS));
 
 // num fetches
-vec4 debug_stats_num_fetches = to_color(float(stats.num_fetches) / float(MAX_CELLS) * 10.0);
+vec4 debug_stats_num_fetches = to_color(float(stats.num_fetches) / float(MAX_CELLS));
 
 // num tests
-// vec4 debug_stats_num_intersection_tests = to_color(float(stats.num_intersection_tests) / float(MAX_BLOCKS) * 10.0);
+// vec4 debug_stats_num_intersection_tests = to_color(float(stats.num_intersection_tests) / float(MAX_BLOCKS));
 vec4 debug_stats_num_intersection_tests = to_color(inferno(float(stats.num_intersection_tests) / (u_debug.variable1 * 100.0)));
 
 

@@ -3,18 +3,19 @@
 #include "./start_trace"
 #include "./start_mip"
 
-for (int j = 0; j < int(u_debug.max_blocks); j++) 
+for (int j = 0; j < MAX_BLOCKS; j++) 
 {
     #include "../march_blocks/update_block"
 
     if (block.occluded && !block.terminated) continue;
 
     #include "./start_trace"
+    #include "./update_mip"
 
-    for (int i = 0; i < int(u_debug.max_cells); i++) 
+    for (int i = 0; i < MAX_TRACES_IN_BLOCK; i++) 
     {
-        #include "./update_mip"
         #include "./update_trace"
+        #include "./update_mip"
 
         if (trace.terminated || trace.distance > block.exit_distance) break;
     }   
