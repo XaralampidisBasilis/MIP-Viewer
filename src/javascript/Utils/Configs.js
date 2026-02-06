@@ -33,16 +33,15 @@ export default class Configs extends EventEmitter
 
         this.blockSize = 1
         this.downscaleFactor = 0.8  
-        this.isosurfaceValue = 0.4
         
         this.gradientsMethod = 'triquadraticBspline'
-        this.marchingMethod = 'cells'
+        this.marchingMethod = 'traces'
         this.skippingStrategy = 'multipleBlocks'
         this.skippingMethod = 'occupancy'
-        this.colormap = 'pasteljet'
+        this.colormap = 'viridis'
 
-        this.bernsteinEnabled = true
-        this.skippingEnabled = true
+        this.bernsteinEnabled = false
+        this.skippingEnabled = false
 
         this.debugEnabled = true
         this.statsEnabled = true

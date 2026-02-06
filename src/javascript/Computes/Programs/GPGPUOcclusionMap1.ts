@@ -1029,7 +1029,7 @@ export async function computeUnidirectionalOcclusionMapAsync(volume: tf.Tensor3D
 {
     const minimaProgram = new GPGPUUnidirectionalDifferenceMap(volume.shape, permutation, reverse)
     let minima = runWebGLProgram(minimaProgram, [volume], 'float32', [], true)
-    // logTensor('minimaRaw', minima)
+    if (verbose) logTensor('minimaRaw', minima)
 
     const minimaShape = minima.shape as [number, number, number, 2, 2]
     const updateProgram = new GPGPUUpdateUnidirectionalDifferenceMap(minimaShape, permutation, reverse)
@@ -1042,17 +1042,17 @@ export async function computeUnidirectionalOcclusionMapAsync(volume: tf.Tensor3D
 
         await tf.nextFrame()
     }
-    // logTensor('minima', minima)
+    if (verbose) logTensor('minima', minima)
 
     const maximaProgram = new GPGPUUnidirectionalMaximaMap(volume.shape, permutation, reverse)
     const maxima = runWebGLProgram(maximaProgram, [volume], 'float32', [], true)
-    // logTensor('maxima', maxima)
+    if (verbose) logTensor('maxima', maxima)
 
     const occlusionShape = minimaShape.slice(0,3) as [number, number, number]
     const occlusionProgram = new GPGPUUnidirectionalOcclusionMap(occlusionShape)
     const occlusion = runWebGLProgram(occlusionProgram, [minima, maxima], 'float32', [], true)
     tf.dispose([minima, maxima])
-    // logTensor('occlusion', occlusion)
+    if (verbose) logTensor('occlusion', occlusion)
 
     return occlusion as tf.Tensor3D
 }
@@ -1067,7 +1067,7 @@ export async function computeBidirectionalOcclusionMapAsync(volumeMap: tf.Tensor
     const bidirectionalProgram = new GPGPUBidirectionalOcclusionMap(occlusionMaps[0].shape)
     const occlusionMap = runWebGLProgram(bidirectionalProgram, occlusionMaps, 'float32', [], true) as tf.Tensor3D
     tf.dispose(occlusionMaps)
-    logTensor('bidirectionalOcclusion', occlusionMap)
+    if (verbose) logTensor('bidirectionalOcclusion', occlusionMap)
 
     return occlusionMap as tf.Tensor3D
 }
@@ -1090,7 +1090,7 @@ export async function computeAnisotropicBidirectionalOcclusionMapAsync(volumeMap
     const occlusionMap = runWebGLProgram(anisotropicBidirectionalProgram, occlusionMaps, 'float32', [], true) as tf.Tensor3D
     tf.dispose(occlusionMaps)
 
-    // logAnisotropicBidirectionalOcclusionMaps(occlusionMap)
+    if (verbose) logAnisotropicBidirectionalOcclusionMaps(occlusionMap)
 
     return occlusionMap 
 }
@@ -1111,7 +1111,7 @@ export async function computeExtendedAnisotropicBidirectionalOcclusionMapAsync(v
     const occlusionMap = runWebGLProgram(extendedAnisotropicBidirectionalProgram, occlusionMaps, 'float32', [], true) as tf.Tensor3D
     tf.dispose(occlusionMaps)
 
-    // logExtendedAnisotropicBidirectionalOcclusionMaps(occlusionMap)
+    if (verbose) logExtendedAnisotropicBidirectionalOcclusionMaps(occlusionMap)
 
     return occlusionMap 
 }

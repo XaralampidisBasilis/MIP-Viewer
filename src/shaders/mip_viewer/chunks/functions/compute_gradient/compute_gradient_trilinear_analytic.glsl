@@ -2,7 +2,7 @@
 #define COMPUTE_GRADIENT_TRILINEAR_ANALYTIC
 
 #ifndef SAMPLE_TRILINEAR_VOLUME
-#include "../sample_value/sample_volume"
+#include "../sample_volume"
 #endif
 
 vec3 compute_gradient(in vec3 p)

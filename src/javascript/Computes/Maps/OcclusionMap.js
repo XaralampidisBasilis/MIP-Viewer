@@ -1,8 +1,7 @@
 import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
-import * as occ0 from '../Programs/GPGPUOcclusionMap'
-import * as occ1 from '../Programs/GPGPUOcclusionMap1'
+import { computeExtendedAnisotropicBidirectionalOcclusionMap } from '../Programs/GPGPUOcclusionMap1'
 
 export default class OcclusionMap
 {
@@ -16,14 +15,14 @@ export default class OcclusionMap
     async computeTensor()
     {
         console.time('computeTensor') 
-        // this.tensor = computeExtendedAnisotropicBidirectionalOcclusionMap(this.volumeMap.tensor)
-        // this.dimensions = new THREE.Vector3(...this.tensor.shape.slice(0,3).toReversed())
+        this.tensor = computeExtendedAnisotropicBidirectionalOcclusionMap(this.volumeMap.tensor)
+        this.dimensions = new THREE.Vector3(...this.tensor.shape.slice(0,3).toReversed())
+        console.timeEnd('computeTensor') 
 
         // const t1 = occ0.computeUnidirectionalOcclusionMapBase(this.volumeMap.tensor, [0,1,2], [])
         // const t2 = occ1.computeExtendedAnisotropicBidirectionalOcclusionMap(this.volumeMap.tensor, true)
-        const t3 = occ1.computeUnidirectionalOcclusionMapBase(this.volumeMap.tensor, [0,1,2], [], true)
+        // const t3 = occ1.computeUnidirectionalOcclusionMapBase(this.volumeMap.tensor, [0,1,2], [], true)
 
-        console.timeEnd('computeTensor') 
     }
 
     computeTexture()

@@ -4,3 +4,5 @@
 
 #elif GRADIENTS_METHOD == 2
 #include "./compute_gradient/compute_gradient_triquadratic_bspline"
+
+#endif

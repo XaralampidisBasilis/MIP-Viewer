@@ -55,7 +55,7 @@ export default class GUI
     addControls()
     {
         this.controllers = {}
-        this.addControlsConfigs() 
+        // this.addControlsConfigs() 
         this.addControlsShading()
         this.addControlsDebug() 
     }
@@ -65,7 +65,6 @@ export default class GUI
         const folder = this.folders.configs
         const objects = 
         { 
-            isosurfaceValue     : this.configs.isosurfaceValue,
             blockSize           : this.configs.blockSize,
             downscaleFactor     : this.configs.downscaleFactor,
             intersectionTest    : this.configs.intersectionTest,
@@ -79,12 +78,6 @@ export default class GUI
     
         this.controllers.configs = 
         {
-            isosurfaceValue: folder.add(objects, 'isosurfaceValue').min(0).max(1).step(0.0001)
-            .onFinishChange((value) => 
-            { 
-                this.configs.set('isosurfaceValue', value) 
-            }),
-
             // blockSize : folder.add(objects, 'blockSize').min(2).max(8).step(1)
             // .onFinishChange((value) => 
             // { 
@@ -161,14 +154,6 @@ export default class GUI
             { 
                 this.configs.set('colormap', option) 
             }),
-
-            shininess        : folder.add(uniforms, 'shininess').min(0).max(60.0).step(0.1),
-            reflectAmbient   : folder.add(uniforms, 'reflect_ambient').min(0).max(1).step(0.001),
-            reflectDiffuse   : folder.add(uniforms, 'reflect_diffuse').min(0).max(1).step(0.001),
-            reflectSpecular  : folder.add(uniforms, 'reflect_specular').min(0).max(1).step(0.001),
-            modulateEdges    : folder.add(uniforms, 'modulate_edges').min(0).max(1).step(0.001),
-            modulateGradient : folder.add(uniforms, 'modulate_gradient').min(0).max(1).step(0.001),
-            modulateCurvature: folder.add(uniforms, 'modulate_curvature').min(0).max(1).step(0.001),
         } 
     }
     
@@ -230,26 +215,16 @@ export default class GUI
                 trace_position          : 304,
                 trace_residue           : 305,
 
-                hit_discarded           : 451,
-                hit_escaped             : 452,
-                hit_undefined           : 453,
-                hit_distance            : 454,
-                hit_position            : 455,
-                hit_residue             : 456,
-                hit_derivative          : 457,
-                hit_orientation         : 458,
-                hit_normal              : 459,
-                hit_gradient            : 460,
-                hit_steepness           : 461,
-                hit_curvatures          : 462,
+                mip_distance            : 454,
+                mip_position            : 455,
+                mip_value               : 456,
+                mip_normal              : 459,
+                mip_gradient            : 460,
+                mip_steepness           : 461,
+                mip_curvatures          : 462,
         
                 frag_color_material     : 511,
-                frag_color_ambient      : 512,
-                frag_color_diffuse      : 513,
-                frag_color_specular     : 514,
-                frag_color_directional  : 515,
                 frag_color              : 516,
-                frag_luminance          : 517,
 
                 box_entry_distance: 601,
                 box_exit_distance : 602,
@@ -266,13 +241,6 @@ export default class GUI
                 cubic_weights:           804,
                 cubic_bernstein_weights: 805,
                 cubic_bernstein_spread:  806,
-
-                quintic_root:              851,
-                quintic_num_roots:         852,
-                quintic_degree:            853,
-                quintic_weights:           854,
-                quintic_bernstein_weights: 855,
-                quintic_bernstein_spread:  856,
 
                 stats_num_cells             : 901,
                 stats_num_traces            : 902,

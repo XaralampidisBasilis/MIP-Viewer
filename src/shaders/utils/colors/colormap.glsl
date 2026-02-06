@@ -22,7 +22,7 @@
 #include "./colormap/magma"
 #include "./colormap/cividis"
 
-vec3 colormap(in float t, in int type)
+vec3 colormap(in int type, in float t)
 {
     if      (type == COLORMAP_PARULA) return parula(t);
     else if (type == COLORMAP_TURBO) return turbo(t);

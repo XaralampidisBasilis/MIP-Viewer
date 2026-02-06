@@ -2,7 +2,7 @@
 #define COMPUTE_SECOND_DERIVATIVES
 
 #ifndef SAMPLE_TRILINEAR_VOLUME
-#include "../sample_value/sample_volume"
+#include "../sample_volume"
 #endif
 
 vec3 compute_second_derivatives(in vec3 p)

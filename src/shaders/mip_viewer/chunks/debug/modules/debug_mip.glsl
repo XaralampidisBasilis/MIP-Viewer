@@ -1,0 +1,40 @@
+// COMPUTE DEBUG 
+
+// distance
+vec4 debug_mip_distance = to_color(map(box.min_entry_distance, box.max_exit_distance, mip.distance));
+
+// position
+vec4 debug_mip_position = to_color(map(box.min_position, box.max_position, mip.position));
+
+// value
+vec4 debug_mip_value = to_color(mmix(COLOR.BLUE, COLOR.BLACK, COLOR.RED, map(-0.001, 0.001, mip.value)));
+
+// normal
+vec4 debug_mip_normal = to_color((map(-1.0, 1.0, mip.normal)));
+
+// gradient
+vec4 debug_mip_gradient = to_color(map(-1.0, 1.0, normalize(mip.gradient)) * length(mip.gradient));
+
+// steepness
+vec4 debug_mip_steepness = to_color(map(0.0, 1.0, length(mip.gradient)));
+
+// curvatures
+vec4 debug_mip_curvatures = to_color(mmix2(                
+    COLOR.DARK_CYAN, COLOR.DARK_BLUE, COLOR.MAGENTA, // | < 0     | concave ellipsoid   | concave cylinder | hyperboloid Surface |                  
+    COLOR.DARK_BLUE, COLOR.DARK_GRAY, COLOR.ORANGE,  // | = 0     | concave cylinder    | flap plane       | convex cylinder     |
+    COLOR.MAGENTA,   COLOR.ORANGE,    COLOR.GOLD,    // | > 0     | hyperboloid Surface | convex cylinder  | convex ellipsoid    |
+    map(-2.0, 2.0, mip.curvatures)                   // | k2 \ k1 | < 0                 | ~ 0              | > 0                 |
+));                 
+
+
+// PRINT DEBUG
+switch (u_debug.option - 450)
+{ 
+    case  4: fragColor = debug_mip_distance;        break;
+    case  5: fragColor = debug_mip_position;        break;
+    case  6: fragColor = debug_mip_value;           break;
+    case  9: fragColor = debug_mip_normal;          break;
+    case 10: fragColor = debug_mip_gradient;        break;
+    case 11: fragColor = debug_mip_steepness;       break;
+    case 12: fragColor = debug_mip_curvatures;      break;
+}

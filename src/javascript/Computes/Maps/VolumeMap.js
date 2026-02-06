@@ -43,13 +43,13 @@ export default class VolumeMap
             return tensor
         })  
         console.timeEnd('computeTensor') 
-        console.log(this)
+        // console.log(this)
     }
 
     computeTexture()
     {
         console.time('computeTexture') 
-        this.texture = new THREE.Data3DTexture(this.getTextureData, ...this.dimensions)
+        this.texture = new THREE.Data3DTexture(this.getTextureData(), ...this.dimensions)
         this.texture.format = THREE.RedFormat
         this.texture.type = THREE.FloatType
         this.texture.internalFormat = 'R32F'

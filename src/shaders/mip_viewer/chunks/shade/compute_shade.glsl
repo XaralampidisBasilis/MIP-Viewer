@@ -1,4 +1,4 @@
 
 // Compose colors
-frag.color = colormap(mip.value, u_shading.colormap);
+frag.color = colormap(u_shading.colormap, mip.value);
 fragColor = vec4(frag.color, 1.0);
