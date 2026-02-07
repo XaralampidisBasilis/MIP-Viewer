@@ -61,10 +61,10 @@ class GPGPUUnidirectionalDifferenceMap implements GPGPUProgram
             float v010 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-1,-0,-1)}));
             float v000 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-1,-1,-1)}));
 
-            float d000 = max(v000 - v111, 0.0);
-            float d010 = max(v010 - v111, 0.0);
-            float d100 = max(v100 - v111, 0.0);
-            float d110 = max(v110 - v111, 0.0);
+            float d000 = v000 - v111;
+            float d010 = v010 - v111;
+            float d100 = v100 - v111;
+            float d110 = v110 - v111;
 
             setOutput(vec4(d000, d010, d100, d110));
         }
@@ -98,7 +98,11 @@ class GPGPUUpdateUnidirectionalDifferenceSlices implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
+        float min4(float a, float b, float c, float d) { return min(min(min(a, b), c), d); }
         float min4(vec4 v) { return min(min(min(v.x, v.y), v.z), v.w); }
+
+        float avg4(float a, float b, float c, float d) { return (a + b + c + d) * 0.25; }
+        float avg2(float a, float b) { return (a + b) * 0.5; }
 
         ivec3 getOutCoords()
         {
@@ -133,10 +137,36 @@ class GPGPUUpdateUnidirectionalDifferenceSlices implements GPGPUProgram
             vec4 d010 = getB(getVoxelCoords(coords, ${transformVoxelOffset(-1,-0,-1)}));
             vec4 d000 = getB(getVoxelCoords(coords, ${transformVoxelOffset(-1,-1,-1)}));
 
-            d111.x = max(d111.x + min4(d000), 0.0);
-            d111.y = max(d111.y + min4(d010), 0.0);
-            d111.z = max(d111.z + min4(d100), 0.0);
-            d111.w = max(d111.w + min4(d110), 0.0);
+            // d000.x += max(d111.x, 0.0);
+            // d010.y += max(d111.y, 0.0);
+            // d100.z += max(d111.z, 0.0);
+            // d110.w += max(d111.w, 0.0);
+
+            // d000.yzw += d111.x;
+            // d010.xzw += d111.y;
+            // d100.xyw += d111.z;
+            // d110.xyz += d111.w;
+
+            d000 += d111.x;
+            d010 += d111.y;
+            d100 += d111.z;
+            d110 += d111.w;
+
+            // float a = avg4(d111.x, d111.y, d111.z, d111.w);
+            // float axy = avg2(d111.x, d111.y);
+            // float axz = avg2(d111.x, d111.z);
+            // float ayw = avg2(d111.y, d111.w);
+            // float azw = avg2(d111.z, d111.w);
+
+            // d000 = max(d000, vec4(d111.x, axy,    axz,    a     ));
+            // d010 = max(d010, vec4(axy,    d111.y, a,      ayw   ));
+            // d100 = max(d100, vec4(axz,    a,      d111.z, azw   ));
+            // d110 = max(d110, vec4(a,      ayw,    azw,    d111.w));
+
+            d111.x = max(d111.x, min4(d000));
+            d111.y = max(d111.y, min4(d010));
+            d111.z = max(d111.z, min4(d100));
+            d111.w = max(d111.w, min4(d110));
 
             setOutput(d111);
         }
@@ -170,6 +200,7 @@ class GPGPUUpdateUnidirectionalDifferenceMap implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
+        float min4(float a, float b, float c, float d) { return min(min(min(a, b), c), d); }
         float min4(vec4 v) { return min(min(min(v.x, v.y), v.z), v.w); }
 
         ivec3 getOutCoords()
