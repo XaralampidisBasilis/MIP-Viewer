@@ -1133,114 +1133,6 @@ class GPGPUUnpackExtendedAnisotropicBidirectionalOcclusionMap implements GPGPUPr
     }
 }
 
-// ground truth
-
-export function computeUnidirectionalOcclusionMapBase(volume: tf.Tensor3D, permutation: Permute, reverse: Reverse, verbose: boolean = false) : tf.Tensor3D
-{
-    const reversed = volume.reverse(reverse) as tf.Tensor3D
-    const transposed = reversed.transpose(permutation) as tf.Tensor3D
-    reversed.dispose()
-
-    const minimaProgram = new GPGPUUnidirectionalMinimaMap(transposed.shape)
-    const minimaStack = runWebGLProgram(minimaProgram, [transposed], 'float32', [], true) 
-    if (verbose) logTensor('minimaStack', minimaStack)
-
-    const slices = unstackPacked(minimaStack, 0) 
-    minimaStack.dispose()
-
-    const sliceShape = slices[0].shape as [number, number, number, 2, 2]
-    const updateProgram = new GPGPUUpdateUnidirectionalMinimaSlices(sliceShape)
-
-    for (let i = 1; i < slices.length; i++)
-    {
-        const updatedSlice = runWebGLProgram(updateProgram, [slices[i], slices[i-1]], 'float32', [], true)
-        tf.dispose(slices[i])
-        slices[i] = updatedSlice
-    }
-
-    const minima = stackPacked(slices, 0) 
-    if (verbose) logTensor('minima', minima)
-    tf.dispose(slices)
-    
-    const maximaProgram = new GPGPUUnidirectionalMaximaMap(transposed.shape)
-    const maxima = runWebGLProgram(maximaProgram, [transposed], 'float32', [], true)
-    if (verbose) logTensor('maxima', maxima)
-    tf.dispose(transposed)
-
-    const occlusionShape = minima.shape.slice(0, 3) as [number, number, number]
-    const occlusionProgram = new GPGPUUnidirectionalOcclusionMap(occlusionShape)
-    const occlusion = runWebGLProgram(occlusionProgram, [minima, maxima], 'float32', [], true) as tf.Tensor3D
-    if (verbose) logTensor('occlusion', occlusion)
-    tf.dispose([minima, maxima])
-
-    const untransposed = occlusion.transpose(inversePermutation(permutation))
-    tf.dispose(occlusion)
-
-    const unreversed = untransposed.reverse(reverse)
-    tf.dispose(untransposed)
-
-    return unreversed as tf.Tensor3D
-}
-
-export function computeBidirectionalOcclusionMapBase(volumeMap: tf.Tensor3D, permutation: Permute, reverse: Reverse, verbose: boolean = false) : tf.Tensor3D
-{
-    const occlusionMaps = [
-        computeUnidirectionalOcclusionMapBase(volumeMap, permutation, reverse),
-        computeUnidirectionalOcclusionMapBase(volumeMap, permutation, complementReverse(reverse)),
-    ]
-
-    const bidirectionalProgram = new GPGPUBidirectionalOcclusionMap(occlusionMaps[0].shape)
-    const occlusionMap = runWebGLProgram(bidirectionalProgram, occlusionMaps, 'float32', [], true) as tf.Tensor3D
-    tf.dispose(occlusionMaps)
-
-    if (verbose) logTensor('bidirectionalOcclusion', occlusionMap)
-
-    return occlusionMap as tf.Tensor3D
-}
-
-export function computeAnisotropicBidirectionalOcclusionMapBase(volumeMap: tf.Tensor3D, permutation: Permute, verbose: boolean = false) : tf.Tensor3D
-{
-    const reversePP = permutation.slice(1, 1) as Reverse
-    const reversePN = permutation.slice(1, 2) as Reverse
-    const reverseNP = permutation.slice(2, 3) as Reverse
-    const reverseNN = permutation.slice(1, 3) as Reverse
-
-    const occlusionMaps = [
-        computeBidirectionalOcclusionMapBase(volumeMap, permutation, reversePP),
-        computeBidirectionalOcclusionMapBase(volumeMap, permutation, reversePN),
-        computeBidirectionalOcclusionMapBase(volumeMap, permutation, reverseNP),
-        computeBidirectionalOcclusionMapBase(volumeMap, permutation, reverseNN),
-    ]
-
-    const anisotropicBidirectionalProgram = new GPGPUAnisotropicBidirectionalOcclusionMap(occlusionMaps[0].shape)
-    const occlusionMap = runWebGLProgram(anisotropicBidirectionalProgram, occlusionMaps, 'float32', [], true) as tf.Tensor3D
-    tf.dispose(occlusionMaps)
-
-    if (verbose) logAnisotropicBidirectionalOcclusionMaps(occlusionMap)
-
-    return occlusionMap 
-}
-
-export function computeExtendedAnisotropicBidirectionalOcclusionMapBase(volumeMap: tf.Tensor3D, verbose: boolean = false) : tf.Tensor3D
-{
-    const permuteX = [2,1,0] as Permute
-    const permuteY = [1,2,0] as Permute
-    const permuteZ = [0,1,2] as Permute
-
-    const occlusionMaps = [
-        computeAnisotropicBidirectionalOcclusionMapBase(volumeMap, permuteX),
-        computeAnisotropicBidirectionalOcclusionMapBase(volumeMap, permuteY),
-        computeAnisotropicBidirectionalOcclusionMapBase(volumeMap, permuteZ),
-    ]
-
-    const extendedAnisotropicBidirectionalProgram = new GPGPUExtendedAnisotropicBidirectionalOcclusionMap(occlusionMaps[0].shape)
-    const occlusionMap = runWebGLProgram(extendedAnisotropicBidirectionalProgram, occlusionMaps, 'int32', [], true) as tf.Tensor3D
-    tf.dispose(occlusionMaps)
-
-    if (verbose) logExtendedAnisotropicBidirectionalOcclusionMaps(occlusionMap)
-
-    return occlusionMap 
-}
 
 // sync functions 
 
@@ -1343,6 +1235,46 @@ export function computeExtendedAnisotropicBidirectionalOcclusionMap(volumeMap: t
     if (verbose) logExtendedAnisotropicBidirectionalOcclusionMaps(occlusionMap)
 
     return occlusionMap 
+}
+
+export function computeExtendedAnisotropicBidirectionalOcclusionMapDebug(volumeMap: tf.Tensor3D, verbose: boolean = false) : tf.Tensor3D
+{
+    let t,o1,o2,o3,o4,ox,oy,oz
+
+    t = computeUnidirectionalOcclusionMap(volumeMap, [0,1,2], [])
+
+    o1 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [0,1,2], [   ])
+    o2 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [0,1,2], [  1])
+    o3 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [0,1,2], [  2])
+    o4 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [0,1,2], [1,2])
+
+    oz = runWebGLProgram(new GPGPUAnisotropicBidirectionalOcclusionMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
+    tf.dispose([o1,o2,o3,o4])
+
+    o1 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [1,2,0], [   ])
+    o2 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [1,2,0], [  2])
+    o3 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [1,2,0], [  0])
+    o4 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [1,2,0], [2,0])
+
+    oy = runWebGLProgram(new GPGPUAnisotropicBidirectionalOcclusionMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
+    tf.dispose([o1,o2,o3,o4])
+
+    o1 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [   ])
+    o2 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [  1])
+    o3 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [  0])
+    o4 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [1,0])
+
+    ox = runWebGLProgram(new GPGPUAnisotropicBidirectionalOcclusionMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
+    tf.dispose([o1,o2,o3,o4])
+
+    const o = runWebGLProgram(new GPGPUExtendedAnisotropicBidirectionalOcclusionMap(t.shape), [ox,oy,oz], 'int32', [], true) as tf.Tensor3D
+    tf.dispose([ox,oy,oz])
+
+    if (verbose) logExtendedAnisotropicBidirectionalOcclusionMaps(o)
+
+    tf.dispose(t)
+
+    return o 
 }
 
 // async functions
@@ -1541,6 +1473,114 @@ export function computeExtendedAnisotropicBidirectionalOcclusionMapDeprecated(vo
     return occlusionMap 
 }
 
+// ground truth
+
+export function computeUnidirectionalOcclusionMapBase(volume: tf.Tensor3D, permutation: Permute, reverse: Reverse, verbose: boolean = false) : tf.Tensor3D
+{
+    const reversed = volume.reverse(reverse) as tf.Tensor3D
+    const transposed = reversed.transpose(permutation) as tf.Tensor3D
+    reversed.dispose()
+
+    const minimaProgram = new GPGPUUnidirectionalMinimaMap(transposed.shape)
+    const minimaStack = runWebGLProgram(minimaProgram, [transposed], 'float32', [], true) 
+    if (verbose) logTensor('minimaStack', minimaStack)
+
+    const slices = unstackPacked(minimaStack, 0) 
+    minimaStack.dispose()
+
+    const sliceShape = slices[0].shape as [number, number, number, 2, 2]
+    const updateProgram = new GPGPUUpdateUnidirectionalMinimaSlices(sliceShape)
+
+    for (let i = 1; i < slices.length; i++)
+    {
+        const updatedSlice = runWebGLProgram(updateProgram, [slices[i], slices[i-1]], 'float32', [], true)
+        tf.dispose(slices[i])
+        slices[i] = updatedSlice
+    }
+
+    const minima = stackPacked(slices, 0) 
+    if (verbose) logTensor('minima', minima)
+    tf.dispose(slices)
+    
+    const maximaProgram = new GPGPUUnidirectionalMaximaMap(transposed.shape)
+    const maxima = runWebGLProgram(maximaProgram, [transposed], 'float32', [], true)
+    if (verbose) logTensor('maxima', maxima)
+    tf.dispose(transposed)
+
+    const occlusionShape = minima.shape.slice(0, 3) as [number, number, number]
+    const occlusionProgram = new GPGPUUnidirectionalOcclusionMap(occlusionShape)
+    const occlusion = runWebGLProgram(occlusionProgram, [minima, maxima], 'float32', [], true) as tf.Tensor3D
+    if (verbose) logTensor('occlusion', occlusion)
+    tf.dispose([minima, maxima])
+
+    const untransposed = occlusion.transpose(inversePermutation(permutation))
+    tf.dispose(occlusion)
+
+    const unreversed = untransposed.reverse(reverse)
+    tf.dispose(untransposed)
+
+    return unreversed as tf.Tensor3D
+}
+
+export function computeBidirectionalOcclusionMapBase(volumeMap: tf.Tensor3D, permutation: Permute, reverse: Reverse, verbose: boolean = false) : tf.Tensor3D
+{
+    const occlusionMaps = [
+        computeUnidirectionalOcclusionMapBase(volumeMap, permutation, reverse),
+        computeUnidirectionalOcclusionMapBase(volumeMap, permutation, complementReverse(reverse)),
+    ]
+
+    const bidirectionalProgram = new GPGPUBidirectionalOcclusionMap(occlusionMaps[0].shape)
+    const occlusionMap = runWebGLProgram(bidirectionalProgram, occlusionMaps, 'float32', [], true) as tf.Tensor3D
+    tf.dispose(occlusionMaps)
+
+    if (verbose) logTensor('bidirectionalOcclusion', occlusionMap)
+
+    return occlusionMap as tf.Tensor3D
+}
+
+export function computeAnisotropicBidirectionalOcclusionMapBase(volumeMap: tf.Tensor3D, permutation: Permute, verbose: boolean = false) : tf.Tensor3D
+{
+    const reversePP = permutation.slice(1, 1) as Reverse
+    const reversePN = permutation.slice(1, 2) as Reverse
+    const reverseNP = permutation.slice(2, 3) as Reverse
+    const reverseNN = permutation.slice(1, 3) as Reverse
+
+    const occlusionMaps = [
+        computeBidirectionalOcclusionMapBase(volumeMap, permutation, reversePP),
+        computeBidirectionalOcclusionMapBase(volumeMap, permutation, reversePN),
+        computeBidirectionalOcclusionMapBase(volumeMap, permutation, reverseNP),
+        computeBidirectionalOcclusionMapBase(volumeMap, permutation, reverseNN),
+    ]
+
+    const anisotropicBidirectionalProgram = new GPGPUAnisotropicBidirectionalOcclusionMap(occlusionMaps[0].shape)
+    const occlusionMap = runWebGLProgram(anisotropicBidirectionalProgram, occlusionMaps, 'float32', [], true) as tf.Tensor3D
+    tf.dispose(occlusionMaps)
+
+    if (verbose) logAnisotropicBidirectionalOcclusionMaps(occlusionMap)
+
+    return occlusionMap 
+}
+
+export function computeExtendedAnisotropicBidirectionalOcclusionMapBase(volumeMap: tf.Tensor3D, verbose: boolean = false) : tf.Tensor3D
+{
+    const permuteX = [2,1,0] as Permute
+    const permuteY = [1,2,0] as Permute
+    const permuteZ = [0,1,2] as Permute
+
+    const occlusionMaps = [
+        computeAnisotropicBidirectionalOcclusionMapBase(volumeMap, permuteX),
+        computeAnisotropicBidirectionalOcclusionMapBase(volumeMap, permuteY),
+        computeAnisotropicBidirectionalOcclusionMapBase(volumeMap, permuteZ),
+    ]
+
+    const extendedAnisotropicBidirectionalProgram = new GPGPUExtendedAnisotropicBidirectionalOcclusionMap(occlusionMaps[0].shape)
+    const occlusionMap = runWebGLProgram(extendedAnisotropicBidirectionalProgram, occlusionMaps, 'int32', [], true) as tf.Tensor3D
+    tf.dispose(occlusionMaps)
+
+    if (verbose) logExtendedAnisotropicBidirectionalOcclusionMaps(occlusionMap)
+
+    return occlusionMap 
+}
 
 // transform functions
 

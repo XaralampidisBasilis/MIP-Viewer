@@ -3,6 +3,7 @@
         "aabb",
         "aabbdim",
         "alligned",
+        "aniso",
         "argmax",
         "argmin",
         "axyzw",

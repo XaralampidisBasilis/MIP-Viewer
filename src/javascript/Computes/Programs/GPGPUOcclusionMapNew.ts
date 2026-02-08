@@ -147,11 +147,6 @@ class GPGPUUpdateUnidirectionalDifferenceSlices implements GPGPUProgram
             // d100.xyw += d111.z;
             // d110.xyz += d111.w;
 
-            d000 += d111.x;
-            d010 += d111.y;
-            d100 += d111.z;
-            d110 += d111.w;
-
             // float a = avg4(d111.x, d111.y, d111.z, d111.w);
             // float axy = avg2(d111.x, d111.y);
             // float axz = avg2(d111.x, d111.z);
@@ -163,10 +158,10 @@ class GPGPUUpdateUnidirectionalDifferenceSlices implements GPGPUProgram
             // d100 = max(d100, vec4(axz,    a,      d111.z, azw   ));
             // d110 = max(d110, vec4(a,      ayw,    azw,    d111.w));
 
-            d111.x = max(d111.x, min4(d000));
-            d111.y = max(d111.y, min4(d010));
-            d111.z = max(d111.z, min4(d100));
-            d111.w = max(d111.w, min4(d110));
+            d111.x += max(min4(d000), 0.0);
+            d111.y += max(min4(d010), 0.0);
+            d111.z += max(min4(d100), 0.0);
+            d111.w += max(min4(d110), 0.0);
 
             setOutput(d111);
         }
@@ -306,14 +301,14 @@ class GPGPUUnidirectionalMinimaMap implements GPGPUProgram
 
             coords = coords - 1;
 
-            c.d000 = min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,0)})));
-            c.d100 = min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,0)})));
-            c.d010 = min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,0)})));
-            c.d001 = min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,1)})));
-            c.d011 = min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,1)})));
-            c.d101 = min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,1)})));
-            c.d110 = min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,0)})));
-            c.d111 = min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,1)})));
+            c.d000 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,0)}))), 0.0);
+            c.d100 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,0)}))), 0.0);
+            c.d010 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,0)}))), 0.0);
+            c.d001 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,1)}))), 0.0);
+            c.d011 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,1)}))), 0.0);
+            c.d101 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,1)}))), 0.0);
+            c.d110 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,0)}))), 0.0);
+            c.d111 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,1)}))), 0.0);
 
             return c;
         }
