@@ -1546,9 +1546,11 @@ export function computeExtendedAnisotropicBidirectionalOcclusionMapBase(volumeMa
 
 export function computeExtendedAnisotropicBidirectionalOcclusionMapDebug(volumeMap: tf.Tensor3D, verbose: boolean = false) : tf.Tensor3D
 {
-    let t,o1,o2,o3,o4,ox,oy,oz
+    let o1,o2,o3,o4,ox,oy,oz
 
-    t = computeUnidirectionalOcclusionMap(volumeMap, [0,1,2], [])
+    // let t = computeUnidirectionalOcclusionMap(volumeMap, [0,1,2], [])
+    // let t = computeUnidirectionalOcclusionMap(volumeMap, [0,1,2], [0,1,2])
+    let t = computeBidirectionalOcclusionMap(volumeMap,  [0,1,2], [])
 
     o1 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [   ])
     o2 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [  1])
