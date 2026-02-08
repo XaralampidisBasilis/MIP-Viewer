@@ -28,7 +28,11 @@ vec4 debug_ray_start_position = to_color(map(box.min_position, box.max_position,
 vec4 debug_ray_end_position = to_color(map(box.min_position, box.max_position, ray.end_position));
 
 // map
-vec4 debug_ray_map = to_color(hsv(float(ray.map)/16.0));
+vec4 debug_ray_map = to_color(vec3[12](
+    COLOR.RED,   COLOR.LIGHT_RED,   COLOR.DARK_RED,   COLOR.PASTEL_RED, 
+    COLOR.GREEN, COLOR.LIGHT_GREEN, COLOR.DARK_GREEN, COLOR.PASTEL_GREEN,
+    COLOR.BLUE,  COLOR.LIGHT_BLUE,  COLOR.DARK_BLUE,  COLOR.PASTEL_BLUE
+)[ray.map]);
 
 // PRINT DEBUG
 switch (u_debug.option - 100)

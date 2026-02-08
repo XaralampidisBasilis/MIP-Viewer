@@ -25,7 +25,7 @@ export default class World extends EventEmitter
     {
         this.viewer.start()
         this.scene.add(this.viewer.mesh)
-        this.camera.instance.position.copy(this.viewer.size)
+        this.camera.instance.position.copy(this.viewer.size).negate()
         this.camera.instance.lookAt(0, 0, 0)
     }
 

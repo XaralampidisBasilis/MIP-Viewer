@@ -149,7 +149,7 @@ const ColorConstants COLOR = ColorConstants(
     vec3(0.3, 0.0, 0.3),    // DARK_PURPLE
     vec3(0.4, 0.2, 0.0),    // DARK_BROWN
     vec3(0.0, 0.3, 0.3),    // DARK_TEAL
-    vec3(0.2, 0.0, 0.4),     // DARK_INDIGO
+    vec3(0.2, 0.0, 0.4),    // DARK_INDIGO
 
     // Rich tones
     vec3(0.0, 0.0, 0.3),       // NAVY
@@ -160,7 +160,7 @@ const ColorConstants COLOR = ColorConstants(
     vec3(0.13, 0.55, 0.13),    // FOREST
 
     // Metallics
-    vec3(1.0, 0.84, 0.0),      // GOLD
+    vec3(1.0, 0.84, 0.0),       // GOLD
     vec3(0.75, 0.75, 0.75),     // SILVER
 
     // Color brewer set1

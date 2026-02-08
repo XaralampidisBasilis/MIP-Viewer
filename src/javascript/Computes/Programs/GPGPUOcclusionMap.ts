@@ -1237,46 +1237,6 @@ export function computeExtendedAnisotropicBidirectionalOcclusionMap(volumeMap: t
     return occlusionMap 
 }
 
-export function computeExtendedAnisotropicBidirectionalOcclusionMapDebug(volumeMap: tf.Tensor3D, verbose: boolean = false) : tf.Tensor3D
-{
-    let t,o1,o2,o3,o4,ox,oy,oz
-
-    t = computeUnidirectionalOcclusionMap(volumeMap, [0,1,2], [])
-
-    o1 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [0,1,2], [   ])
-    o2 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [0,1,2], [  1])
-    o3 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [0,1,2], [  2])
-    o4 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [0,1,2], [1,2])
-
-    oz = runWebGLProgram(new GPGPUAnisotropicBidirectionalOcclusionMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
-    tf.dispose([o1,o2,o3,o4])
-
-    o1 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [1,2,0], [   ])
-    o2 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [1,2,0], [  2])
-    o3 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [1,2,0], [  0])
-    o4 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [1,2,0], [2,0])
-
-    oy = runWebGLProgram(new GPGPUAnisotropicBidirectionalOcclusionMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
-    tf.dispose([o1,o2,o3,o4])
-
-    o1 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [   ])
-    o2 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [  1])
-    o3 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [  0])
-    o4 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [1,0])
-
-    ox = runWebGLProgram(new GPGPUAnisotropicBidirectionalOcclusionMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
-    tf.dispose([o1,o2,o3,o4])
-
-    const o = runWebGLProgram(new GPGPUExtendedAnisotropicBidirectionalOcclusionMap(t.shape), [ox,oy,oz], 'int32', [], true) as tf.Tensor3D
-    tf.dispose([ox,oy,oz])
-
-    if (verbose) logExtendedAnisotropicBidirectionalOcclusionMaps(o)
-
-    tf.dispose(t)
-
-    return o 
-}
-
 // async functions
 
 export async function computeUnidirectionalOcclusionMapAsync(volume: tf.Tensor3D, permutation: Permute, reverse: Reverse, verbose: boolean = false) : Promise<tf.Tensor3D>
@@ -1582,6 +1542,49 @@ export function computeExtendedAnisotropicBidirectionalOcclusionMapBase(volumeMa
     return occlusionMap 
 }
 
+// debug
+
+export function computeExtendedAnisotropicBidirectionalOcclusionMapDebug(volumeMap: tf.Tensor3D, verbose: boolean = false) : tf.Tensor3D
+{
+    let t,o1,o2,o3,o4,ox,oy,oz
+
+    t = computeUnidirectionalOcclusionMapDeprecated(volumeMap, [0,1,2], [])
+
+    o1 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [   ])
+    o2 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [  1])
+    o3 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [  0])
+    o4 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [1,0])
+
+    ox = runWebGLProgram(new GPGPUAnisotropicBidirectionalOcclusionMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
+    tf.dispose([o1,o2,o3,o4])
+   
+    o1 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [1,2,0], [   ])
+    o2 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [1,2,0], [  2])
+    o3 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [1,2,0], [  0])
+    o4 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [1,2,0], [2,0])
+
+    oy = runWebGLProgram(new GPGPUAnisotropicBidirectionalOcclusionMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
+    tf.dispose([o1,o2,o3,o4])
+
+    o1 = tf.clone(t) // computeBidirectionalOcclusionMap(volumeMap, [0,1,2], [   ])
+    o2 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [0,1,2], [  1])
+    o3 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [0,1,2], [  2])
+    o4 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [0,1,2], [1,2])
+
+    oz = runWebGLProgram(new GPGPUAnisotropicBidirectionalOcclusionMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
+    tf.dispose([o1,o2,o3,o4])
+
+
+    const o = runWebGLProgram(new GPGPUExtendedAnisotropicBidirectionalOcclusionMap(t.shape), [ox,oy,oz], 'int32', [], true) as tf.Tensor3D
+    tf.dispose([ox,oy,oz])
+
+    if (verbose) logExtendedAnisotropicBidirectionalOcclusionMaps(o)
+
+    tf.dispose(t)
+
+    return o 
+}
+
 // transform functions
 
 function complementReverse(reverse: Reverse): Reverse 
@@ -1628,6 +1631,7 @@ function logTensor(name: string, tensor: tf.Tensor)
 function logAnisotropicBidirectionalOcclusionMaps(occlusionMaps: tf.Tensor3D)
 {
     const unpack = new GPGPUUnpackAnisotropicBidirectionalOcclusionMap(occlusionMaps.shape)
+    const size = occlusionMaps.size
 
     console.log('occlusionMap0', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[0]]).mean([0,1,2]).dataSync())) 
     console.log('occlusionMap1', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[1]]).mean([0,1,2]).dataSync())) 
@@ -1638,6 +1642,7 @@ function logAnisotropicBidirectionalOcclusionMaps(occlusionMaps: tf.Tensor3D)
 function logExtendedAnisotropicBidirectionalOcclusionMaps(occlusionMaps: tf.Tensor3D)
 {
     const unpack = new GPGPUUnpackExtendedAnisotropicBidirectionalOcclusionMap(occlusionMaps.shape)
+    const size = occlusionMaps.size
 
     console.log('occlusionMapX0', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[ 0]]).mean([0,1,2]).dataSync())) 
     console.log('occlusionMapX1', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[ 1]]).mean([0,1,2]).dataSync())) 

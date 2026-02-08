@@ -26,14 +26,37 @@ ray.axis = argmax(abs(ray.direction));
 ivec3 bits = ivec3(vec3(ray.signs) * 0.5 + 0.5); 
 ray.octant = (bits.z << 2) | (bits.y << 1) | (bits.x << 0);
 
-ray.map = ray.axis * 4;
-
-if (ray.octant == 0) ray.map += 0; // (-, -, -)
-if (ray.octant == 1) ray.map += 4; // (+, -, -)
-if (ray.octant == 2) ray.map += 2; // (-, +, -)
-if (ray.octant == 3) ray.map += 3; // (+, +, -)
-if (ray.octant == 4) ray.map += 3; // (-, -, +)
-if (ray.octant == 5) ray.map += 2; // (+, -, +)
-if (ray.octant == 6) ray.map += 4; // (-, +, +)
-if (ray.octant == 7) ray.map += 0; // (+, +, +)
+if (ray.axis == 0)
+{
+    if (ray.octant == 0) ray.map = 0 + 0; // (-, -, -) 
+    if (ray.octant == 1) ray.map = 0 + 3; // (+, -, -) 
+    if (ray.octant == 2) ray.map = 0 + 1; // (-, +, -) 
+    if (ray.octant == 3) ray.map = 0 + 2; // (+, +, -) 
+    if (ray.octant == 4) ray.map = 0 + 2; // (-, -, +) 
+    if (ray.octant == 5) ray.map = 0 + 1; // (+, -, +) 
+    if (ray.octant == 6) ray.map = 0 + 3; // (-, +, +) 
+    if (ray.octant == 7) ray.map = 0 + 0; // (+, +, +) 
+}
+if (ray.axis == 1)
+{
+    if (ray.octant == 0) ray.map = 4 + 0; // (-, -, -)
+    if (ray.octant == 1) ray.map = 4 + 2; // (+, -, -)
+    if (ray.octant == 2) ray.map = 4 + 3; // (-, +, -)
+    if (ray.octant == 3) ray.map = 4 + 1; // (+, +, -)
+    if (ray.octant == 4) ray.map = 4 + 1; // (-, -, +)
+    if (ray.octant == 5) ray.map = 4 + 3; // (+, -, +)
+    if (ray.octant == 6) ray.map = 4 + 2; // (-, +, +)
+    if (ray.octant == 7) ray.map = 4 + 0; // (+, +, +)
+}
+if (ray.axis == 2)
+{
+    if (ray.octant == 0) ray.map = 8 + 0; // (-, -, -)
+    if (ray.octant == 1) ray.map = 8 + 2; // (+, -, -)
+    if (ray.octant == 2) ray.map = 8 + 1; // (-, +, -)
+    if (ray.octant == 3) ray.map = 8 + 3; // (+, +, -)
+    if (ray.octant == 4) ray.map = 8 + 3; // (-, -, +)
+    if (ray.octant == 5) ray.map = 8 + 1; // (+, -, +)
+    if (ray.octant == 6) ray.map = 8 + 2; // (-, +, +)
+    if (ray.octant == 7) ray.map = 8 + 0; // (+, +, +)
+}
 
