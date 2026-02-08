@@ -17,7 +17,7 @@ export default class OcclusionMap
     async computeTensor()
     {
         console.time('computeTensor') 
-        this.tensor = OCC0.computeExtendedAnisotropicBidirectionalOcclusionMapDeprecated(this.volumeMap.tensor, true)
+        this.tensor = OCC0.computeExtendedAnisotropicBidirectionalOcclusionMapDebug(this.volumeMap.tensor, true)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.slice(0,3).toReversed())
 
         // const t1 = OCC0.computeExtendedAnisotropicBidirectionalOcclusionMapBase(this.volumeMap.tensor, true)

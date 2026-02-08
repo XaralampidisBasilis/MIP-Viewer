@@ -1548,7 +1548,7 @@ export function computeExtendedAnisotropicBidirectionalOcclusionMapDebug(volumeM
 {
     let t,o1,o2,o3,o4,ox,oy,oz
 
-    t = computeUnidirectionalOcclusionMapDeprecated(volumeMap, [0,1,2], [])
+    t = computeUnidirectionalOcclusionMap(volumeMap, [0,1,2], [])
 
     o1 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [   ])
     o2 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [  1])
