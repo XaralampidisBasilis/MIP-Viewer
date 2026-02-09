@@ -1,7 +1,7 @@
 clc,clear
 
-% pkg load symbolic % OCTAVE version
-% pkg load optim % OCTAVE version
+pkg load symbolic % OCTAVE version
+pkg load optim % OCTAVE version
 
 %% --------------------------------------------------------------------
 %% Declare symbols
@@ -167,28 +167,28 @@ maxima = [
 
 maxima = unique(maxima);
 maxima = maxima(:);
-maxima_reduced = reduceMaximaSubconvex(maxima, F, 1e-8, false);
+maxima_reduced = reduceMaximaSubconvex(maxima, F, 1e-8, true);
 
 fprintf('\nReduced symbolic total maxima:\n');
 disp(maxima_reduced);
 
-% maxima_reduced( 0) = (f001 + f010 + f011)/3 - f000;
-% maxima_reduced( 1) = (f001 + f010 + f100)/3 - f000;
+% maxima_reduced( 0) = (f001 + f010 + f100)/3 - f000;
+% maxima_reduced( 1) = (f001 + f010 + f011)/3 - f000;
 % maxima_reduced( 2) = (f001 + f100 + f101)/3 - f000;
 % maxima_reduced( 3) = (f011 + f101 + f110)/3 - f000;
-% maxima_reduced( 4) = (f011 + f110 + f111)/3 - f010;
-% maxima_reduced( 5) = (f101 + f110 + f111)/3 - f100;
-% maxima_reduced( 6) = (f001 + f010 + f000)/3 - f000;
-% maxima_reduced( 7) = (f001 + f100 + f000)/3 - f000;
-% maxima_reduced( 8) = (f011 + f110 + f010)/3 - f010;
-% maxima_reduced( 9) = (f101 + f110 + f100)/3 - f100;
-% maxima_reduced(10) = (f001 - f000);
-% maxima_reduced(11) = (f011 - f000);
-% maxima_reduced(12) = (f011 - f010);
-% maxima_reduced(13) = (f101 - f000);
-% maxima_reduced(14) = (f111 - f000);
-% maxima_reduced(15) = (f111 - f010);
-% maxima_reduced(16) = (f101 - f100);
-% maxima_reduced(17) = (f111 - f100);
-% maxima_reduced(18) = (f111 - f110);
+% maxima_reduced( 4) = (f101 + f110 + f111)/3 - f100;
+% maxima_reduced( 5) = (f011 + f110 + f111)/3 - f010;
+% maxima_reduced( 6) = (f000 + f001 + f010)/3 - f000;
+% maxima_reduced( 7) = (f000 + f001 + f100)/3 - f000;
+% maxima_reduced( 8) = (f100 + f101 + f110)/3 - f100;
+% maxima_reduced( 9) = (f010 + f011 + f110)/3 - f010;
+% maxima_reduced(10) = f001 - f000;
+% maxima_reduced(11) = f011 - f000;
+% maxima_reduced(12) = f101 - f000;
+% maxima_reduced(13) = f111 - f000;
+% maxima_reduced(14) = f101 - f100;
+% maxima_reduced(15) = f111 - f100;
+% maxima_reduced(16) = f011 - f010;
+% maxima_reduced(17) = f111 - f010;
+% maxima_reduced(18) = f111 - f110;
 

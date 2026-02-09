@@ -545,25 +545,25 @@ class GPGPUUnidirectionalMaximaMap implements GPGPUProgram
         {
             float m = -1.0;
 
-            m = max(m, avg3(c.v001, c.v010, c.v011) - c.v000);
-            m = max(m, avg3(c.v001, c.v010, c.v100) - c.v000);
-            m = max(m, avg3(c.v001, c.v100, c.v101) - c.v000);
-            m = max(m, avg3(c.v011, c.v101, c.v110) - c.v000);
-            m = max(m, avg3(c.v011, c.v110, c.v111) - c.v010);
-            m = max(m, avg3(c.v101, c.v110, c.v111) - c.v100);
-            m = max(m, avg3(c.v001, c.v010, c.v000) - c.v000);
-            m = max(m, avg3(c.v001, c.v100, c.v000) - c.v000);
-            m = max(m, avg3(c.v011, c.v110, c.v010) - c.v010);
-            m = max(m, avg3(c.v101, c.v110, c.v100) - c.v100);
-            m = max(m, c.v001 - c.v000);
-            m = max(m, c.v011 - c.v000);
-            m = max(m, c.v011 - c.v010);
-            m = max(m, c.v101 - c.v000);
-            m = max(m, c.v111 - c.v000);
-            m = max(m, c.v111 - c.v010);
-            m = max(m, c.v101 - c.v100);
-            m = max(m, c.v111 - c.v100);
-            m = max(m, c.v111 - c.v110);
+            m = max(m, avg3(c.v001, c.v010, c.v100) - c.v000); 
+            m = max(m, avg3(c.v001, c.v010, c.v011) - c.v000); 
+            m = max(m, avg3(c.v001, c.v100, c.v101) - c.v000); 
+            m = max(m, avg3(c.v011, c.v101, c.v110) - c.v000); 
+            m = max(m, avg3(c.v101, c.v110, c.v111) - c.v100); 
+            m = max(m, avg3(c.v011, c.v110, c.v111) - c.v010); 
+            m = max(m, avg3(c.v000, c.v001, c.v010) - c.v000); 
+            m = max(m, avg3(c.v000, c.v001, c.v100) - c.v000); 
+            m = max(m, avg3(c.v100, c.v101, c.v110) - c.v100); 
+            m = max(m, avg3(c.v010, c.v011, c.v110) - c.v010); 
+            m = max(m, c.v001 - c.v000); 
+            m = max(m, c.v011 - c.v000); 
+            m = max(m, c.v101 - c.v000); 
+            m = max(m, c.v111 - c.v000); 
+            m = max(m, c.v101 - c.v100); 
+            m = max(m, c.v111 - c.v100); 
+            m = max(m, c.v011 - c.v010); 
+            m = max(m, c.v111 - c.v010); 
+            m = max(m, c.v111 - c.v110); 
 
             return m;
         }
@@ -885,62 +885,6 @@ class GPGPUUnidirectionalOcclusionMap implements GPGPUProgram
     }
 }
 
-
-// class GPGPUUnidirectionalOcclusionMap implements GPGPUProgram 
-// {
-//     variableNames = ['A', 'B']
-//     outputShape: number[]
-//     userCode: string
-//     packedInputs = true
-//     packedOutput = false
-
-//     constructor(outputShape: [number, number, number]) 
-//     {
-//         const [outDepth, outHeight, outWidth] = outputShape
-//         this.outputShape = outputShape
-//         this.userCode = `
-//         const ivec3 minCoords = ivec3(0);
-//         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
-
-//         ivec3 getOutCoords()
-//         {
-//             ivec3 coords = getOutputCoords();
-//             return ivec3(coords.z, coords.y, coords.x);
-//         }
-
-//         vec4 getA(ivec3 coords)
-//         {
-//             coords = clamp(coords, minCoords, maxCoords);
-//             return getA(coords.z, coords.y, coords.x, 0, 0);
-//         }
-
-//         vec4 getB(ivec3 coords)
-//         {
-//             coords = clamp(coords, minCoords, maxCoords);
-//             return getB(coords.z, coords.y, coords.x, 0, 0);
-//         }
-
-//         bool getOcclusion(ivec3 coords)
-//         {
-//             vec4 minValues = getA(coords);
-//             vec4 maxValues = getB(coords);
-
-//             bvec4 tests = greaterThanEqual(minValues, maxValues);
-//             bool occlusion = all(tests.xyz) || tests.w;
-
-//             return occlusion;
-//         }
-                
-//         void main()
-//         {
-//             ivec3 coords = getOutCoords();
-
-//             setOutput(float(getOcclusion(coords)));
-//         }
-//         `
-//     }
-// }
-
 class GPGPUBidirectionalOcclusionMap implements GPGPUProgram 
 {
     variableNames = ['A', 'B']
@@ -1257,7 +1201,7 @@ export function computeBidirectionalOcclusionMap(volumeMap: tf.Tensor3D, permuta
 {
     const occlusionMaps = [
         computeUnidirectionalOcclusionMap(volumeMap, permutation, reverse),
-        computeUnidirectionalOcclusionMap(volumeMap, permutation, complementReverse(reverse)),
+        computeUnidirectionalOcclusionMap(volumeMap, permutation, reverse), // complementReverse(reverse)
     ]
 
     const bidirectionalProgram = new GPGPUBidirectionalOcclusionMap(occlusionMaps[0].shape)
@@ -1626,7 +1570,7 @@ export function computeExtendedAnisotropicBidirectionalOcclusionMapDebug(volumeM
 
     // let t = computeUnidirectionalOcclusionMap(volumeMap, [0,1,2], [])
     // let t = computeUnidirectionalOcclusionMap(volumeMap, [0,1,2], [0,1,2])
-    let t = computeBidirectionalOcclusionMap(volumeMap,  [2,1,0], [], true)
+    let t = computeBidirectionalOcclusionMapBase(volumeMap,  [2,1,0], [], true)
 
     o1 = tf.onesLike(t)    // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [   ])
     o2 = tf.onesLike(t) // computeBidirectionalOcclusionMap(volumeMap, [2,1,0], [  1])

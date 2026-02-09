@@ -9,7 +9,7 @@ for (int k = 0; k < MAX_GROUPS; k++)
     {
         #include "../march_blocks/update_block"
 
-        if (block.terminated) break;
+        if (!block.occluded || block.terminated) break;
     }
 
     if (block.occluded && !block.terminated) continue;
@@ -28,7 +28,9 @@ for (int k = 0; k < MAX_GROUPS; k++)
     if (trace.terminated) break; 
 
     #if DEBUG_ENABLED == 1
-    stats.num_groups += 1;
+
+        stats.num_groups += 1;
+        
     #endif
 }
 
