@@ -11,5 +11,6 @@
 #include "./colors/rgb2hsv"
 #include "./colors/hsv2rgb"
 #include "./colors/constants"
+#include "./solvers/quadratic_roots"
 #include "./solvers/cubic_roots"
 #include "./solvers/cubic_has_root"  

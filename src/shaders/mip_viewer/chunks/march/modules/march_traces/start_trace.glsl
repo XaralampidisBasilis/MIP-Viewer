@@ -6,13 +6,13 @@ trace.spacing = ray.spacing / 3.0;
 
     float jitter = random(block.entry_position);
     trace.distance = block.entry_distance;
-    trace.distance -= ray.spacing * jitter;
+    // trace.distance -= ray.spacing * jitter;
 
 #else
 
     float jitter = random(ray.start_position);
     trace.distance = ray.start_distance;
-    trace.distance -= ray.spacing * jitter;
+    // trace.distance -= ray.spacing * jitter;
     
 #endif
 

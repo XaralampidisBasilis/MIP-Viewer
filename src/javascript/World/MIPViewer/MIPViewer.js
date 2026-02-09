@@ -54,6 +54,7 @@ export default class MIPViewer extends EventEmitter
         const scale = new THREE.Matrix4().makeScale(...this.computes.volumeMap.dimensions)
         this.material.uniforms.uCustomModelMatrix.value.multiplyMatrices(scale, translation)
 
+        this.setDefinesEnablers()
         this.setDefinesMethods()
         this.setDefinesIterators()
         this.setUniformsTextures()
@@ -61,6 +62,17 @@ export default class MIPViewer extends EventEmitter
         this.setUniformsDebug()
         this.setUniformsShading()
 
+    }
+
+    setDefinesEnablers()
+    {
+        const configs = this.configs
+        const defines = this.material.defines
+        defines.BERNSTEIN_ENABLED = Number(configs.bernsteinEnabled)
+        defines.SKIPPING_ENABLED = Number(configs.skippingEnabled)
+        defines.DEBUG_ENABLED = Number(configs.debugEnabled)
+        defines.DISCARDING_ENABLED = Number(configs.discardingEnabled)
+        this.material.needsUpdate = true
     }
 
     setDefinesMethods()

@@ -42,7 +42,6 @@ export default class Configs extends EventEmitter
 
         this.bernsteinEnabled = false
         this.skippingEnabled = false
-
         this.debugEnabled = true
         this.statsEnabled = true
         this.discardingEnabled = true

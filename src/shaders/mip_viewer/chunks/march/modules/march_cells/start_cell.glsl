@@ -4,18 +4,15 @@
 
     cell.exit_distance = block.entry_distance;
     cell.exit_position = block.entry_position;
-    cell.coords = ivec3(round(cell.exit_position));
 
 #else
 
     cell.exit_distance = ray.start_distance;
     cell.exit_position = ray.start_position;
-    cell.coords = ivec3(round(cell.exit_position)); 
 
 #endif
 
-// start interpolant
-cubic.values[3] = sample_volume(cell.exit_position);
+cell.coords = ivec3(round(cell.exit_position)); 
 
 #if DEBUG_ENABLED == 1
 
