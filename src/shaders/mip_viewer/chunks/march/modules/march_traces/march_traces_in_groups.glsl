@@ -9,10 +9,10 @@ for (int k = 0; k < MAX_GROUPS; k++)
     {
         #include "../march_blocks/update_block"
 
-        if (!block.occluded || block.terminated) break;
+        if (!block.shadowed || block.terminated) break;
     }
 
-    if (block.occluded && !block.terminated) continue;
+    if (block.shadowed && !block.terminated) continue;
 
     #include "./start_trace"
     #include "./update_mip"

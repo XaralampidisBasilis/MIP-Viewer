@@ -2,7 +2,8 @@ import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import { resizeTrilinear } from '../Programs/GPGPUResizeTrilinear'
-import { normalize } from '../Programs/GPGPUNormalizePacked'
+import { normalizePacked } from '../Programs/normalize_packed'
+import { mapPacked } from '../Programs/map_packed'
 
 export default class VolumeMap
 {
@@ -28,22 +29,46 @@ export default class VolumeMap
         this.setVolume()
         this.downscaleFactor = this.configs.downscaleFactor
 
-        const shape = this.volume.dimensions.toReversed()
-        const newShape = shape.map((x) => Math.ceil(this.downscaleFactor * x))
-        const newSpacing = this.volume.spacing.toReversed().map((x, i) => shape[i]/newShape[i] * x)
-        
-        this.dimensions.fromArray(newShape.toReversed())
-        this.spacing.fromArray(newSpacing.toReversed())
         this.tensor = tf.tidy(() =>
         {
-            let data = new Float32Array(this.volume.data)
-            let tensor = tf.tensor3d(data, shape)
-            tensor = resizeTrilinear(tensor, newShape, false, true)
-            tensor = normalize(tensor)
-            return tensor
+            const shape = this.volume.dimensions.toReversed()
+            const data = new Float32Array(this.volume.data)
+            const tensor = tf.tensor3d(data, shape)
+
+            this.minValue = tf.min(tensor).arraySync()
+            this.maxValue = tf.max(tensor).arraySync()
+
+            const mapped = mapPacked(tensor, this.minValue, this.maxValue)
+            tensor.dispose()
+
+            const newShape = this.volume.dimensions.toReversed().map((x) => Math.ceil(this.downscaleFactor * x))
+            const newSpacing = this.volume.spacing.toReversed().map((x, i) => shape[i]/newShape[i] * x)
+
+            this.dimensions.fromArray(newShape.toReversed())
+            this.spacing.fromArray(newSpacing.toReversed())
+
+            return resizeTrilinear(mapped, newShape, false, true)
         })  
+
         console.timeEnd('computeTensor') 
-        // console.log(this)
+        console.log(this)
+    }
+
+    computeMipmap()
+    {
+        console.time('computeMipmap') 
+        
+        this.mipmap = {}
+        this.mipmap.tensor = tf.tidy(() =>
+        {
+            const shape = this.tensor.shape.map(x => Math.ceil(x / this.mipmap.blockSize))
+            return resizeTrilinear(this.tensor, shape, false, true)
+        })  
+
+        this.mipmap.blockSize = this.configs.blockSize
+        this.mipmap.dimensions = new THREE.Vector3().fromArray(this.mipmap.shape.toReversed())
+
+        console.timeEnd('computeMipmap') 
     }
 
     computeTexture()

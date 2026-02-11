@@ -6,4 +6,4 @@
 // #include "./update_block/update_block_extended_anisotropic"
 // #endif    
 
-#include "./update_block/update_block_occlusion"
+#include "./update_block/update_block_shadow"

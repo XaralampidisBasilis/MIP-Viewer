@@ -1,6 +1,6 @@
 
 // compute occupancy
-block.occluded = sample_occlusion(block.coords, ray.map);
+block.shadowed = sample_shadow(block.coords, ray.map);
 
 // compute min/max positions
 block.min_position = vec3((block.coords + 0) * u_volume.block_size) - 0.5;

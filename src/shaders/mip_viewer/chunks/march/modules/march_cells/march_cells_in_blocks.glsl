@@ -8,7 +8,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 {
     #include "../march_blocks/update_block"
 
-    if (block.occluded && !block.terminated) continue;
+    if (block.shadowed && !block.terminated) continue;
 
     #include "./start_cell"
     #include "./start_cubic"

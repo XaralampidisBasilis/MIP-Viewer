@@ -34,6 +34,18 @@ class GPGPUUnidirectionalDifferenceMap implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
+        struct CellValues 
+        { 
+            float v000; 
+            float v100; 
+            float v010; 
+            float v001; 
+            float v011; 
+            float v101; 
+            float v110; 
+            float v111; 
+        }; 
+
         ivec3 getOutCoords()
         {
             ivec5 coords = getOutputCoords();
@@ -51,22 +63,30 @@ class GPGPUUnidirectionalDifferenceMap implements GPGPUProgram
             return getA(coords.z, coords.y, coords.x);
         }
 
+        CellValues getValues(ivec3 coords)
+        {
+            CellValues c;
+
+            coords = coords - 1;
+
+            c.d000 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,0)}))), 0.0);
+            c.d100 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,0)}))), 0.0);
+            c.d010 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,0)}))), 0.0);
+            c.d001 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,1)}))), 0.0);
+            c.d011 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,1)}))), 0.0);
+            c.d101 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,1)}))), 0.0);
+            c.d110 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,0)}))), 0.0);
+            c.d111 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,1)}))), 0.0);
+
+            return c;
+        }
+
         void main()
         {
             ivec3 coords = getOutCoords();
+            CellValues c = getValues(coords);
 
-            float v111 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-0,-0,-0)}));
-            float v110 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-0,-0,-1)}));
-            float v100 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-0,-1,-1)}));
-            float v010 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-1,-0,-1)}));
-            float v000 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-1,-1,-1)}));
-
-            float d000 = v000 - v111;
-            float d010 = v010 - v111;
-            float d100 = v100 - v111;
-            float d110 = v110 - v111;
-
-            setOutput(vec4(d000, d010, d100, d110));
+            setOutput(vec4(c.v000, c.v010, c.v100, c.v110));
         }
         `
     }
@@ -131,39 +151,18 @@ class GPGPUUpdateUnidirectionalDifferenceSlices implements GPGPUProgram
         {
             ivec3 coords = getOutCoords();
 
-            vec4 d111 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-0,-0,-0)}));
-            vec4 d110 = getB(getVoxelCoords(coords, ${transformVoxelOffset(-0,-0,-1)}));
-            vec4 d100 = getB(getVoxelCoords(coords, ${transformVoxelOffset(-0,-1,-1)}));
-            vec4 d010 = getB(getVoxelCoords(coords, ${transformVoxelOffset(-1,-0,-1)}));
-            vec4 d000 = getB(getVoxelCoords(coords, ${transformVoxelOffset(-1,-1,-1)}));
+            vec4 v111 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-0,-0,-0)}));
+            vec4 v110 = getB(getVoxelCoords(coords, ${transformVoxelOffset(-0,-0,-1)}));
+            vec4 v100 = getB(getVoxelCoords(coords, ${transformVoxelOffset(-0,-1,-1)}));
+            vec4 v010 = getB(getVoxelCoords(coords, ${transformVoxelOffset(-1,-0,-1)}));
+            vec4 v000 = getB(getVoxelCoords(coords, ${transformVoxelOffset(-1,-1,-1)}));
 
-            // d000.x += max(d111.x, 0.0);
-            // d010.y += max(d111.y, 0.0);
-            // d100.z += max(d111.z, 0.0);
-            // d110.w += max(d111.w, 0.0);
+            v111.x = max(v111.x, min4(v000));
+            v111.y = max(v111.y, min4(v010));
+            v111.z = max(v111.z, min4(v100));
+            v111.w = max(v111.w, min4(v110));
 
-            // d000.yzw += d111.x;
-            // d010.xzw += d111.y;
-            // d100.xyw += d111.z;
-            // d110.xyz += d111.w;
-
-            // float a = avg4(d111.x, d111.y, d111.z, d111.w);
-            // float axy = avg2(d111.x, d111.y);
-            // float axz = avg2(d111.x, d111.z);
-            // float ayw = avg2(d111.y, d111.w);
-            // float azw = avg2(d111.z, d111.w);
-
-            // d000 = max(d000, vec4(d111.x, axy,    axz,    a     ));
-            // d010 = max(d010, vec4(axy,    d111.y, a,      ayw   ));
-            // d100 = max(d100, vec4(axz,    a,      d111.z, azw   ));
-            // d110 = max(d110, vec4(a,      ayw,    azw,    d111.w));
-
-            d111.x += max(min4(d000), 0.0);
-            d111.y += max(min4(d010), 0.0);
-            d111.z += max(min4(d100), 0.0);
-            d111.w += max(min4(d110), 0.0);
-
-            setOutput(d111);
+            setOutput(v111);
         }
         `
     }
@@ -219,18 +218,18 @@ class GPGPUUpdateUnidirectionalDifferenceMap implements GPGPUProgram
         {
             ivec3 coords = getOutCoords();
 
-            vec4 d111 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-0,-0,-0)}));
-            vec4 d110 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-0,-0,-1)}));
-            vec4 d100 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-0,-1,-1)}));
-            vec4 d010 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-1,-0,-1)}));
-            vec4 d000 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-1,-1,-1)}));
+            vec4 v111 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-0,-0,-0)}));
+            vec4 v110 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-0,-0,-1)}));
+            vec4 v100 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-0,-1,-1)}));
+            vec4 v010 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-1,-0,-1)}));
+            vec4 v000 = getA(getVoxelCoords(coords, ${transformVoxelOffset(-1,-1,-1)}));
 
-            d111.x = max(d111.x + min4(d000), 0.0);
-            d111.y = max(d111.y + min4(d010), 0.0);
-            d111.z = max(d111.z + min4(d100), 0.0);
-            d111.w = max(d111.w + min4(d110), 0.0);
+            v111.x = max(v111.x, min4(v000));
+            v111.y = max(v111.y, min4(v010));
+            v111.z = max(v111.z, min4(v100));
+            v111.w = max(v111.w, min4(v110));
 
-            setOutput(d111);
+            setOutput(v111);
         }
         `
     }
@@ -268,14 +267,14 @@ class GPGPUUnidirectionalMinimaMap implements GPGPUProgram
 
         struct CellValues 
         { 
-            float d000; 
-            float d100; 
-            float d010; 
-            float d001; 
-            float d011; 
-            float d101; 
-            float d110; 
-            float d111; 
+            float v000; 
+            float v100; 
+            float v010; 
+            float v001; 
+            float v011; 
+            float v101; 
+            float v110; 
+            float v111; 
         }; 
 
         ivec3 getOutCoords()
@@ -301,31 +300,31 @@ class GPGPUUnidirectionalMinimaMap implements GPGPUProgram
 
             coords = coords - 1;
 
-            c.d000 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,0)}))), 0.0);
-            c.d100 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,0)}))), 0.0);
-            c.d010 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,0)}))), 0.0);
-            c.d001 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,1)}))), 0.0);
-            c.d011 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,1)}))), 0.0);
-            c.d101 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,1)}))), 0.0);
-            c.d110 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,0)}))), 0.0);
-            c.d111 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,1)}))), 0.0);
+            c.v000 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,0)}))), 0.0);
+            c.v100 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,0)}))), 0.0);
+            c.v010 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,0)}))), 0.0);
+            c.v001 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,1)}))), 0.0);
+            c.v011 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,1)}))), 0.0);
+            c.v101 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,1)}))), 0.0);
+            c.v110 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,0)}))), 0.0);
+            c.v111 = max(min4(getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,1)}))), 0.0);
 
             return c;
         }
 
         float getMinDifferenceOnFaceX(CellValues c)
         {           
-            return min4(c.d100, c.d110, c.d101, c.d111);
+            return min4(c.v000, c.v010, c.v001, c.v011);
         }
 
         float getMinDifferenceOnFaceY(CellValues c)
         {
-            return min4(c.d010, c.d110, c.d011, c.d111);
+            return min4(c.v000, c.v100, c.v001, c.v101);
         }
             
         float getMinDifferenceOnFaceZ(CellValues c)
         {
-            return min4(c.d001, c.d011, c.d101, c.d111);
+            return min4(c.v000, c.v010, c.v100, c.v110);
         }
 
         void main()
@@ -386,120 +385,133 @@ class GPGPUUnidirectionalMaximaMap implements GPGPUProgram
 
         ivec3 getOutCoords()
         {
-            ivec5 coords = getOutputCoords();
-            return ivec3(coords.z, coords.y, coords.x);
+            ivec5 cCoords = getOutputCoords();
+            return ivec3(cCoords.z, cCoords.y, cCoords.x);
         }
 
-        ivec3 getVoxelCoords(ivec3 coords, int ox, int oy, int oz)
+        ivec3 getVoxelCoords(ivec3 vCoords, int ox, int oy, int oz)
         {
-            return coords + ivec3(ox, oy, oz);
+            return vCoords + ivec3(ox, oy, oz);
         }
 
-        float getA(ivec3 coords)
+        float getA(ivec3 vCoords)
         {
-            coords = clamp(coords, minCoords, maxCoords);
-            return getA(coords.z, coords.y, coords.x);
+            vCoords = clamp(vCoords, minCoords, maxCoords);
+            return getA(vCoords.z, vCoords.y, vCoords.x);
         }
 
-        CellValues getValues(ivec3 coords)
+        CellValues getValues(ivec3 cCoords)
         {
             CellValues c;
 
-            coords = coords - 1;
+            ivec3 vCoords = cCoords - 1;
 
-            c.v000 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,0)}));
-            c.v100 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,0)}));
-            c.v010 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,0)}));
-            c.v001 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,0,1)}));
-            c.v011 = getA(getVoxelCoords(coords, ${transformVoxelOffset(0,1,1)}));
-            c.v101 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,0,1)}));
-            c.v110 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,0)}));
-            c.v111 = getA(getVoxelCoords(coords, ${transformVoxelOffset(1,1,1)}));
+            c.v000 = getA(getVoxelCoords(vCoords, ${transformVoxelOffset(0,0,0)}));
+            c.v100 = getA(getVoxelCoords(vCoords, ${transformVoxelOffset(1,0,0)}));
+            c.v010 = getA(getVoxelCoords(vCoords, ${transformVoxelOffset(0,1,0)}));
+            c.v001 = getA(getVoxelCoords(vCoords, ${transformVoxelOffset(0,0,1)}));
+            c.v011 = getA(getVoxelCoords(vCoords, ${transformVoxelOffset(0,1,1)}));
+            c.v101 = getA(getVoxelCoords(vCoords, ${transformVoxelOffset(1,0,1)}));
+            c.v110 = getA(getVoxelCoords(vCoords, ${transformVoxelOffset(1,1,0)}));
+            c.v111 = getA(getVoxelCoords(vCoords, ${transformVoxelOffset(1,1,1)}));
 
             return c;
         }
 
-        float getMaxDifferenceOnFaceX(CellValues c)
+        float getMaxOnFaceX(CellValues c)
         {
             float m = -1.0;
 
-            m = max(m, avg3(c.v001, c.v010, c.v011) - c.v000);
-            m = max(m, avg3(c.v001, c.v010, c.v100) - c.v000);
-            m = max(m, avg3(c.v001, c.v100, c.v101) - c.v000);
-            m = max(m, avg3(c.v011, c.v101, c.v110) - c.v000);
-            m = max(m, avg3(c.v001, c.v010, c.v000) - c.v000);
-            m = max(m, avg3(c.v001, c.v100, c.v000) - c.v000);
-            m = max(m, avg3(c.v011, c.v110, c.v111) - c.v010);
-            m = max(m, avg3(c.v011, c.v110, c.v010) - c.v010);
-            m = max(m, c.v001 - c.v000);
-            m = max(m, c.v011 - c.v000);
-            m = max(m, c.v101 - c.v000);
-            m = max(m, c.v111 - c.v000);
-            m = max(m, c.v011 - c.v010);
-            m = max(m, c.v111 - c.v010);
-
+            m = max(m, avg3(c.v000, c.v001, c.v100));
+            m = max(m, avg3(c.v001, c.v010, c.v100));
+            m = max(m, avg3(c.v010, c.v011, c.v110));
+            m = max(m, avg3(c.v001, c.v100, c.v101));
+            m = max(m, avg3(c.v011, c.v101, c.v110));
+            m = max(m, avg3(c.v011, c.v110, c.v111));
+            m = max(m, c.v000);
+            m = max(m, c.v001);
+            m = max(m, c.v010);
+            m = max(m, c.v011);
+            m = max(m, c.v101);
+            m = max(m, c.v111);
+            
             return m;
         }
     
-        float getMaxDifferenceOnFaceY(CellValues c)
+        float getMaxOnFaceY(CellValues c)
         {
             float m = -1.0;
 
-            m = max(m, avg3(c.v001, c.v010, c.v011) - c.v000);
-            m = max(m, avg3(c.v001, c.v010, c.v100) - c.v000);
-            m = max(m, avg3(c.v001, c.v100, c.v101) - c.v000);
-            m = max(m, avg3(c.v011, c.v101, c.v110) - c.v000);
-            m = max(m, avg3(c.v001, c.v010, c.v000) - c.v000);
-            m = max(m, avg3(c.v001, c.v100, c.v000) - c.v000);
-            m = max(m, avg3(c.v101, c.v110, c.v111) - c.v100);
-            m = max(m, avg3(c.v101, c.v110, c.v100) - c.v100);
-            m = max(m, c.v001 - c.v000);
-            m = max(m, c.v011 - c.v000);
-            m = max(m, c.v101 - c.v000);
-            m = max(m, c.v111 - c.v000);
-            m = max(m, c.v101 - c.v100);
-            m = max(m, c.v111 - c.v100);
+            m = max(m, avg3(c.v000, c.v001, c.v010));
+            m = max(m, avg3(c.v001, c.v010, c.v011));
+            m = max(m, avg3(c.v001, c.v010, c.v100));
+            m = max(m, avg3(c.v011, c.v101, c.v110));
+            m = max(m, avg3(c.v100, c.v101, c.v110));
+            m = max(m, avg3(c.v101, c.v110, c.v111));
+            m = max(m, c.v000);
+            m = max(m, c.v001);
+            m = max(m, c.v011);
+            m = max(m, c.v100);
+            m = max(m, c.v101);
+            m = max(m, c.v111);
+        
+            return m;
+        }
+
+        float getMaxOnFaceZ(CellValues c)
+        {
+            float m = -1.0;
+
+            m = max(m, c.v000);
+            m = max(m, c.v100);
+            m = max(m, c.v010);
+            m = max(m, c.v001);
+            m = max(m, c.v011);
+            m = max(m, c.v101);
+            m = max(m, c.v110);
+            m = max(m, c.v111);
 
             return m;
         }
 
-        float getMaxDifferenceOnFaceZ(CellValues c)
+        float getMaxDiffOnCell(CellValues c)
         {
             float m = -1.0;
 
-            m = max(m, avg3(c.v001, c.v010, c.v011) - c.v000);
-            m = max(m, avg3(c.v001, c.v010, c.v100) - c.v000);
-            m = max(m, avg3(c.v001, c.v100, c.v101) - c.v000);
-            m = max(m, avg3(c.v011, c.v101, c.v110) - c.v000);
-            m = max(m, avg3(c.v001, c.v010, c.v000) - c.v000);
-            m = max(m, avg3(c.v001, c.v100, c.v000) - c.v000);
-            m = max(m, avg3(c.v011, c.v110, c.v111) - c.v010);
-            m = max(m, avg3(c.v011, c.v110, c.v010) - c.v010);
-            m = max(m, avg3(c.v101, c.v110, c.v111) - c.v100);
-            m = max(m, avg3(c.v101, c.v110, c.v100) - c.v100);
-            m = max(m, c.v001 - c.v000);
-            m = max(m, c.v011 - c.v000);
-            m = max(m, c.v101 - c.v000);
-            m = max(m, c.v111 - c.v000);
-            m = max(m, c.v011 - c.v010);
-            m = max(m, c.v111 - c.v010);
-            m = max(m, c.v101 - c.v100);
-            m = max(m, c.v111 - c.v100);
-            m = max(m, c.v111 - c.v110);
+            m = max(m, avg3(c.v001, c.v010, c.v100) - c.v000); 
+            m = max(m, avg3(c.v001, c.v010, c.v011) - c.v000); 
+            m = max(m, avg3(c.v001, c.v100, c.v101) - c.v000); 
+            m = max(m, avg3(c.v011, c.v101, c.v110) - c.v000); 
+            m = max(m, avg3(c.v101, c.v110, c.v111) - c.v100); 
+            m = max(m, avg3(c.v011, c.v110, c.v111) - c.v010); 
+            m = max(m, avg3(c.v000, c.v001, c.v010) - c.v000); 
+            m = max(m, avg3(c.v000, c.v001, c.v100) - c.v000); 
+            m = max(m, avg3(c.v100, c.v101, c.v110) - c.v100); 
+            m = max(m, avg3(c.v010, c.v011, c.v110) - c.v010); 
+            m = max(m, c.v001 - c.v000); 
+            m = max(m, c.v011 - c.v000); 
+            m = max(m, c.v101 - c.v000); 
+            m = max(m, c.v111 - c.v000); 
+            m = max(m, c.v101 - c.v100); 
+            m = max(m, c.v111 - c.v100); 
+            m = max(m, c.v011 - c.v010); 
+            m = max(m, c.v111 - c.v010); 
+            m = max(m, c.v111 - c.v110); 
 
             return m;
         }
 
         void main()
         {
-            ivec3 coords = getOutCoords();
-            CellValues c = getValues(coords);
+            ivec3 cCoords = getOutCoords();
+            CellValues c = getValues(cCoords);
 
-            float xMax = getMaxDifferenceOnFaceX(c);
-            float yMax = getMaxDifferenceOnFaceY(c);
-            float zMax = getMaxDifferenceOnFaceZ(c);
+            float xMax = getMaxOnFaceX(c);
+            float yMax = getMaxOnFaceY(c);
+            float zMax = getMaxOnFaceZ(c);
+            float wMax = getMaxDiffOnCell(c);
 
-            setOutput(vec4(xMax, yMax, zMax, 0.0));
+            setOutput(vec4(xMax, yMax, zMax, wMax));
         }
         `
     }

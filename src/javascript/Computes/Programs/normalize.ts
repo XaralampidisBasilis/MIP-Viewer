@@ -2,7 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 
-class GPGPUNormalize implements GPGPUProgram 
+class NormalizeProgram implements GPGPUProgram 
 {
     variableNames = ['Input']
     outputShape: number[]
@@ -38,6 +38,6 @@ export function normalize(inputTensor: tf.Tensor3D): tf.Tensor3D
 {
     const globalMin = tf.min(inputTensor).arraySync() as number
     const globalMax = tf.max(inputTensor).arraySync() as number
-    const program = new GPGPUNormalize(inputTensor.shape , globalMin , globalMax)
+    const program = new NormalizeProgram(inputTensor.shape , globalMin , globalMax)
     return runProgram(program, [inputTensor]) as tf.Tensor3D
 }

@@ -26,8 +26,8 @@ export default function()
 
         u_textures: new THREE.Uniform
         ({
-            interpolation_map : null,
-            occupancy_map : null,
+            volume_map : null,
+            shadow_map : null,
             distance_map  : null,
         }),
 

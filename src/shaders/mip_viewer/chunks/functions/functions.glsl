@@ -1,5 +1,5 @@
 #include "./sample_volume"
-#include "./sample_occlusion"
+#include "./sample_shadow"
 // #include "./sample_distance"
 #include "./compute_gradient"
 #include "./compute_curvatures"

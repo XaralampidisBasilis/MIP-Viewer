@@ -2,7 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import EventEmitter from '../Utils/EventEmitter'
 import Experience from '../Experience'
 import VolumeMap from './Maps/VolumeMap'
-import OcclusionMap from './Maps/OcclusionMap'
+import ShadowMap from './Maps/ShadowMap'
 // import ExtendedAnisotropicDistanceMap from './Maps/ExtendedAnisotropicDistanceMap'
 
 export default class Computes extends EventEmitter
@@ -30,7 +30,7 @@ export default class Computes extends EventEmitter
     setMaps()
     {
         this.volumeMap = new VolumeMap()
-        this.occlusionMap = new OcclusionMap()
+        this.shadowMap = new ShadowMap()
         // this.distanceMap = new ExtendedAnisotropicDistanceMap()
     }
 
@@ -41,9 +41,9 @@ export default class Computes extends EventEmitter
         this.volumeMap.computeTensor()
         await tf.nextFrame()
 
-        await this.occlusionMap.computeTensor()
-        this.occlusionMap.computeTexture()
-        this.occlusionMap.tensor.dispose()
+        await this.shadowMap.computeTensor()
+        this.shadowMap.computeTexture()
+        this.shadowMap.tensor.dispose()
         await tf.nextFrame()
 
         this.volumeMap.computeTexture()
@@ -73,9 +73,9 @@ export default class Computes extends EventEmitter
         this.volumeMap.computeTensor()
         await tf.nextFrame()
 
-        // this.occlusionMap.computeTensor()
-        // this.occlusionMap.computeTexture()
-        // this.occlusionMap.tensor.dispose()
+        // this.shadowMap.computeTensor()
+        // this.shadowMap.computeTexture()
+        // this.shadowMap.tensor.dispose()
         // await tf.nextFrame()
 
         this.volumeMap.computeTexture()
@@ -98,9 +98,9 @@ export default class Computes extends EventEmitter
         this.volumeMap.computeTensor()
         await tf.nextFrame()
 
-        // this.occlusionMap.computeTensor()
-        // this.occlusionMap.computeTexture()
-        // this.occlusionMap.tensor.dispose()
+        // this.shadowMap.computeTensor()
+        // this.shadowMap.computeTexture()
+        // this.shadowMap.tensor.dispose()
         // await tf.nextFrame()
 
         this.volumeMap.computeTexture()
@@ -123,9 +123,9 @@ export default class Computes extends EventEmitter
         this.volumeMap.computeTensor()
         await tf.nextFrame()
 
-        // this.occlusionMap.computeTensor()
-        // this.occlusionMap.computeTexture()
-        // this.occlusionMap.tensor.dispose()
+        // this.shadowMap.computeTensor()
+        // this.shadowMap.computeTexture()
+        // this.shadowMap.tensor.dispose()
         // await tf.nextFrame()
 
         this.volumeMap.computeTexture()
@@ -144,11 +144,11 @@ export default class Computes extends EventEmitter
     destroy()
     {
         this.volumeMap.dispose()
-        this.occlusionMap.dispose()
+        this.shadowMap.dispose()
         // this.distanceMap.dispose()
 
         this.volumeMap = null
-        this.occlusionMap = null
+        this.shadowMap = null
         // this.distanceMap = null
 
         this.experience = null

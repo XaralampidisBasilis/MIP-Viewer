@@ -1,9 +1,7 @@
 import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
-import { computeExtendedAnisotropicBidirectionalOcclusionMap } from '../Programs/GPGPUOcclusionMap'
-import * as OCC0 from '../Programs/GPGPUOcclusionMap'
-import * as OCC1 from '../Programs/GPGPUOcclusionMapNew'
+import * as S0 from '../Programs/GPGPUShadowMap'
 
 export default class OcclusionMap
 {
@@ -17,11 +15,11 @@ export default class OcclusionMap
     async computeTensor()
     {
         console.time('computeTensor') 
-        this.tensor = OCC0.computeExtendedAnisotropicBidirectionalOcclusionMap(this.volumeMap.tensor, true)
-        this.dimensions = new THREE.Vector3(...this.tensor.shape.slice(0,3).toReversed())
+        this.tensor = S0.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, true)
+        this.dimensions = new THREE.Vector3(...this.tensor.shape.toReversed())
 
-        // const t1 = OCC0.computeExtendedAnisotropicBidirectionalOcclusionMapDeprecated(this.volumeMap.tensor, true)
-        // const t2 = OCC1.computeExtendedAnisotropicBidirectionalOcclusionMap(this.volumeMap.tensor, true)
+        // const t1 = OCC0.computeExtendedAnisotropicBidirectionalShadowMapDeprecated(this.volumeMap.tensor, true)
+        // const t2 = OCC1.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, true)
         console.timeEnd('computeTensor') 
     }
 

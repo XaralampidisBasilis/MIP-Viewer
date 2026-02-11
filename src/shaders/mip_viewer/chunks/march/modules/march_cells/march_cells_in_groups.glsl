@@ -13,7 +13,7 @@ for (int k = 0; k < MAX_GROUPS; k++)
         if (block.terminated) break;
     }
 
-    if (block.occluded && !block.terminated) continue;
+    if (block.shadowed && !block.terminated) continue;
     
     #include "./start_cell"
     #include "./start_cubic"
