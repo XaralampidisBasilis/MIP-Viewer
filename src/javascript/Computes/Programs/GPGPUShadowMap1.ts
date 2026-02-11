@@ -8,7 +8,7 @@ type Axis = 0 | 1 | 2
 type Permute = [Axis, Axis, Axis]
 type Reverse = Axis[]
 
-class UnidirectionalMinimaMapDeprecated implements GPGPUProgram 
+class UnidirectionalMinimaMap implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -16,21 +16,11 @@ class UnidirectionalMinimaMapDeprecated implements GPGPUProgram
     packedInputs = false
     packedOutput = true
 
-    constructor(inputShape: [number, number, number], permutation: Permute = [0,1,2], reverse: Reverse = []) 
+    constructor(inputShape: [number, number, number]) 
     {
         const [inDepth, inHeight, inWidth] = inputShape
         const [outDepth, outHeight, outWidth] = inputShape.map(x => x + 1)
         this.outputShape = [outDepth, outHeight, outWidth, 2, 2]  
-
-        const transformVoxelOffset = (ox: number, oy: number, oz: number): string => 
-        {
-            const old = applyPermutation([oz, oy, ox], permutation)
-
-            for (const a of reverse) old[a] = 1 - old[a]
-            
-            return old.toReversed().join(',')
-        }
-    
         this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
@@ -72,31 +62,31 @@ class UnidirectionalMinimaMapDeprecated implements GPGPUProgram
 
             ivec3 vCoords = cCoords - 1;
 
-            c.v000 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,0,0)}));
-            c.v100 = getA(getVCoords(vCoords, ${transformVoxelOffset(1,0,0)}));
-            c.v010 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,1,0)}));
-            c.v001 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,0,1)}));
-            c.v011 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,1,1)}));
-            c.v101 = getA(getVCoords(vCoords, ${transformVoxelOffset(1,0,1)}));
-            c.v110 = getA(getVCoords(vCoords, ${transformVoxelOffset(1,1,0)}));
-            c.v111 = getA(getVCoords(vCoords, ${transformVoxelOffset(1,1,1)}));
+            c.v000 = getA(getVCoords(vCoords, 0,0,0));
+            c.v100 = getA(getVCoords(vCoords, 1,0,0));
+            c.v010 = getA(getVCoords(vCoords, 0,1,0));
+            c.v001 = getA(getVCoords(vCoords, 0,0,1));
+            c.v011 = getA(getVCoords(vCoords, 0,1,1));
+            c.v101 = getA(getVCoords(vCoords, 1,0,1));
+            c.v110 = getA(getVCoords(vCoords, 1,1,0));
+            c.v111 = getA(getVCoords(vCoords, 1,1,1));
 
             return c;
         }
 
         float getMinOnFaceX(CellValues c)
         {           
-            return min4(c.v100, c.v110, c.v101, c.v111);
+            return min4(c.v000, c.v010, c.v001, c.v011);
         }
 
         float getMinOnFaceY(CellValues c)
         {
-            return min4(c.v010, c.v110, c.v011, c.v111);
+            return min4(c.v000, c.v100, c.v001, c.v101);
         }
             
         float getMinOnFaceZ(CellValues c)
         {
-            return min4(c.v001, c.v011, c.v101, c.v111);
+            return min4(c.v000, c.v010, c.v100, c.v110);
         }
 
         void main()
@@ -114,7 +104,7 @@ class UnidirectionalMinimaMapDeprecated implements GPGPUProgram
     }
 }
 
-class UnidirectionalMaximaMapDeprecated implements GPGPUProgram 
+class UnidirectionalMaximaMap implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -220,192 +210,6 @@ class UnidirectionalMaximaMapDeprecated implements GPGPUProgram
     }
 }
 
-class UnidirectionalMinimaMap implements GPGPUProgram 
-{
-    variableNames = ['A']
-    outputShape: number[]
-    userCode: string
-    packedInputs = false
-    packedOutput = true
-
-    constructor(inputShape: [number, number, number], permutation: Permute = [0,1,2], reverse: Reverse = []) 
-    {
-        const [inDepth, inHeight, inWidth] = inputShape
-        const [outDepth, outHeight, outWidth] = inputShape.map(x => x + 1)
-        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]   
-        
-        const transformVoxelOffset = (ox: number, oy: number, oz: number): string => 
-        {
-            const old = applyPermutation([oz, oy, ox], permutation)
-
-            for (const a of reverse) old[a] = 1 - old[a]
-            
-            return old.toReversed().join(',')
-        }
-
-        const transformCellOffset = (ox: number, oy: number, oz: number): string => 
-        {
-            const old = applyPermutation([oz, oy, ox], permutation)
-
-            for (const a of reverse) old[a] = - old[a]
-            
-            return old.toReversed().join(',')
-        }
-
-        this.userCode = `
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
-
-        float avg3(float a, float b, float c) { return (a + b + c) * (1.0 / 3.0); }
-        float max3(float a, float b, float c) { return max(max(a, b), c); }
-        float min4(float a, float b, float c, float d) { return min(min(min(a, b), c), d); }
-
-        struct CellValues 
-        { 
-            float v000; 
-            float v100; 
-            float v010; 
-            float v001; 
-            float v011; 
-            float v101; 
-            float v110; 
-            float v111; 
-        }; 
-
-        ivec3 getOutCoords()
-        {
-            ivec5 cCoords = getOutputCoords();
-            return ivec3(cCoords.z, cCoords.y, cCoords.x);
-        }
-
-        ivec3 getVCoords(ivec3 vCoords, int ox, int oy, int oz)
-        {
-            return vCoords + ivec3(ox, oy, oz);
-        }
-
-        ivec3 getCCoords(ivec3 cCoords, int ox, int oy, int oz)
-        {
-            return cCoords + ivec3(ox, oy, oz);
-        }
-
-        float getA(ivec3 vCoords)
-        {
-            vCoords = clamp(vCoords, minCoords, maxCoords);
-            return getA(vCoords.z, vCoords.y, vCoords.x);
-        }
-
-        CellValues getValues(ivec3 cCoords)
-        {
-            CellValues c;
-
-            ivec3 vCoords = cCoords - 1;
-
-            c.v000 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,0,0)}));
-            c.v100 = getA(getVCoords(vCoords, ${transformVoxelOffset(1,0,0)}));
-            c.v010 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,1,0)}));
-            c.v001 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,0,1)}));
-            c.v011 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,1,1)}));
-            c.v101 = getA(getVCoords(vCoords, ${transformVoxelOffset(1,0,1)}));
-            c.v110 = getA(getVCoords(vCoords, ${transformVoxelOffset(1,1,0)}));
-            c.v111 = getA(getVCoords(vCoords, ${transformVoxelOffset(1,1,1)}));
-
-            return c;
-        }
-
-        float getMinOnFaceX(CellValues c000, CellValues c100)
-        {
-            float m0, m1, m2;
-
-            m0 = min4(c000.v100, c000.v110, c000.v101, c000.v111);
-            m1 = min4(c000.v100, c000.v110, c000.v101, c000.v011);
-            m2 = min4(c100.v001, c100.v010, c100.v100, c100.v011);
-
-            m1 = min(m1, avg3(c000.v001, c000.v101, c000.v111));
-            m1 = min(m1, avg3(c000.v001, c000.v011, c000.v111));
-            m1 = min(m1, avg3(c000.v000, c000.v101, c000.v110));
-            m1 = min(m1, avg3(c000.v001, c000.v010, c000.v111));
-            m1 = min(m1, avg3(c000.v010, c000.v110, c000.v111));
-            m1 = min(m1, avg3(c000.v010, c000.v011, c000.v111));
-
-            m2 = min(m2, avg3(c100.v000, c100.v010, c100.v110));
-            m2 = min(m2, avg3(c100.v000, c100.v100, c100.v110));
-            m2 = min(m2, avg3(c100.v000, c100.v001, c100.v101));
-            m2 = min(m2, avg3(c100.v000, c100.v100, c100.v101));
-            m2 = min(m2, avg3(c100.v001, c100.v010, c100.v111));
-            m2 = min(m2, avg3(c100.v000, c100.v101, c100.v110));
-
-            return max3(m0, m1, m2);
-        }
-
-        float getMinOnFaceY(CellValues c000, CellValues c010)
-        {
-            float m0, m1, m2;
-
-            m0 = min4(c000.v010, c000.v110, c000.v011, c000.v111);
-            m1 = min4(c000.v010, c000.v110, c000.v011, c000.v101);  
-            m2 = min4(c010.v001, c010.v100, c010.v010, c010.v101);
-
-            m1 = min(m1, avg3(c000.v001, c000.v011, c000.v111));
-            m1 = min(m1, avg3(c000.v001, c000.v101, c000.v111));
-            m1 = min(m1, avg3(c000.v000, c000.v011, c000.v110));
-            m1 = min(m1, avg3(c000.v001, c000.v100, c000.v111));
-            m1 = min(m1, avg3(c000.v100, c000.v110, c000.v111));
-            m1 = min(m1, avg3(c000.v100, c000.v101, c000.v111));
-
-            m2 = min(m2, avg3(c010.v000, c010.v100, c010.v110));
-            m2 = min(m2, avg3(c010.v000, c010.v010, c010.v110));
-            m2 = min(m2, avg3(c010.v000, c010.v001, c010.v011));
-            m2 = min(m2, avg3(c010.v000, c010.v010, c010.v011));
-            m2 = min(m2, avg3(c010.v001, c010.v100, c010.v111));
-            m2 = min(m2, avg3(c010.v000, c010.v011, c010.v110));
-
-            return max3(m0, m1, m2);
-        }
-            
-        float getMinOnFaceZ(CellValues c000, CellValues c001)
-        {
-            float m0, m1, m2;
-
-            m0 = min4(c000.v001, c000.v011, c000.v101, c000.v111);
-            m1 = min4(c000.v001, c000.v011, c000.v101, c000.v110);
-            m2 = min4(c001.v100, c001.v010, c001.v001, c001.v110);
-
-            m1 = min(m1, avg3(c000.v100, c000.v101, c000.v111));
-            m1 = min(m1, avg3(c000.v100, c000.v110, c000.v111));
-            m1 = min(m1, avg3(c000.v000, c000.v011, c000.v101));
-            m1 = min(m1, avg3(c000.v010, c000.v100, c000.v111));
-            m1 = min(m1, avg3(c000.v010, c000.v110, c000.v111));
-            m1 = min(m1, avg3(c000.v010, c000.v011, c000.v111));
-
-            m2 = min(m2, avg3(c001.v000, c001.v100, c001.v101));
-            m2 = min(m2, avg3(c001.v000, c001.v001, c001.v101));
-            m2 = min(m2, avg3(c001.v000, c001.v010, c001.v011));
-            m2 = min(m2, avg3(c001.v000, c001.v001, c001.v011));
-            m2 = min(m2, avg3(c001.v010, c001.v100, c001.v111));
-            m2 = min(m2, avg3(c001.v000, c001.v011, c001.v101));
-
-            return max3(m0, m1, m2);
-        }
-
-        void main()
-        {
-            ivec3 cCoords = getOutCoords();
-
-            CellValues c000 = getValues(getCCoords(cCoords, ${transformCellOffset(0,0,0)}));
-            CellValues c100 = getValues(getCCoords(cCoords, ${transformCellOffset(1,0,0)}));
-            CellValues c010 = getValues(getCCoords(cCoords, ${transformCellOffset(0,1,0)}));
-            CellValues c001 = getValues(getCCoords(cCoords, ${transformCellOffset(0,0,1)}));
-
-            float xMin = getMinOnFaceX(c000, c100);
-            float yMin = getMinOnFaceY(c000, c010);
-            float zMin = getMinOnFaceZ(c000, c001);
-
-            setOutput(vec4(xMin, yMin, zMin, 0.0));
-        }
-        `
-    }
-}
-
 class MaskUnidirectionalMinimaMap implements GPGPUProgram 
 {
     variableNames = ['A', 'B']
@@ -468,7 +272,7 @@ class MaskUnidirectionalMinimaMap implements GPGPUProgram
     }
 }
 
-class PropagateUnidirectionalMinimaSlices implements GPGPUProgram 
+class UpdateUnidirectionalMinimaSlices implements GPGPUProgram 
 {
     variableNames = ['A', 'B']
     outputShape: number[]
@@ -584,7 +388,7 @@ class PropagateUnidirectionalMinimaSlices implements GPGPUProgram
     }
 }
 
-class PropagateUnidirectionalMinimaMap implements GPGPUProgram 
+class UpdateUnidirectionalMinimaMap implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -689,181 +493,6 @@ class PropagateUnidirectionalMinimaMap implements GPGPUProgram
             c111.z = getMinOnFaceZ(c111, c110, c101, c011, c100, c010, c001, c000);
 
             setOutput(c111);
-        }
-        `
-    }
-}
-
-class UnidirectionalMaximaMap implements GPGPUProgram 
-{
-    variableNames = ['A']
-    outputShape: number[]
-    userCode: string
-    packedInputs = false
-    packedOutput = true
-
-    constructor(inputShape: [number, number, number], permutation: Permute = [0,1,2], reverse: Reverse = []) 
-    {
-        const [inDepth, inHeight, inWidth] = inputShape
-        const [outDepth, outHeight, outWidth] = inputShape.map(x => x + 1)
-        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]   
-
-        const transformVoxelOffset = (ox: number, oy: number, oz: number): string => 
-        {
-            const old = applyPermutation([oz, oy, ox], permutation)
-
-            for (const a of reverse) old[a] = 1 - old[a]
-            
-            return old.toReversed().join(',')
-        }
-
-        this.userCode = `
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
-
-        float avg3(float a, float b, float c) { return (a + b + c) * (1.0 / 3.0); }
-
-        struct CellValues 
-        { 
-            float v000; 
-            float v100; 
-            float v010; 
-            float v001; 
-            float v011; 
-            float v101; 
-            float v110; 
-            float v111; 
-        }; 
-
-        ivec3 getOutCoords()
-        {
-            ivec5 cCoords = getOutputCoords();
-            return ivec3(cCoords.z, cCoords.y, cCoords.x);
-        }
-
-        ivec3 getVCoords(ivec3 vCoords, int ox, int oy, int oz)
-        {
-            return vCoords + ivec3(ox, oy, oz);
-        }
-
-        float getA(ivec3 vCoords)
-        {
-            vCoords = clamp(vCoords, minCoords, maxCoords);
-            return getA(vCoords.z, vCoords.y, vCoords.x);
-        }
-
-        CellValues getValues(ivec3 cCoords)
-        {
-            CellValues c;
-
-            ivec3 vCoords = cCoords - 1;
-
-            c.v000 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,0,0)}));
-            c.v100 = getA(getVCoords(vCoords, ${transformVoxelOffset(1,0,0)}));
-            c.v010 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,1,0)}));
-            c.v001 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,0,1)}));
-            c.v011 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,1,1)}));
-            c.v101 = getA(getVCoords(vCoords, ${transformVoxelOffset(1,0,1)}));
-            c.v110 = getA(getVCoords(vCoords, ${transformVoxelOffset(1,1,0)}));
-            c.v111 = getA(getVCoords(vCoords, ${transformVoxelOffset(1,1,1)}));
-
-            return c;
-        }
-
-        float getMaxOnFaceX(CellValues c)
-        {
-            float m = -1.0;
-
-            m = max(m, avg3(c.v000, c.v001, c.v100));
-            m = max(m, avg3(c.v001, c.v010, c.v100));
-            m = max(m, avg3(c.v010, c.v011, c.v110));
-            m = max(m, avg3(c.v001, c.v100, c.v101));
-            m = max(m, avg3(c.v011, c.v101, c.v110));
-            m = max(m, avg3(c.v011, c.v110, c.v111));
-            m = max(m, c.v000);
-            m = max(m, c.v001);
-            m = max(m, c.v010);
-            m = max(m, c.v011);
-            m = max(m, c.v101);
-            m = max(m, c.v111);
-            
-            return m;
-        }
-    
-        float getMaxOnFaceY(CellValues c)
-        {
-            float m = -1.0;
-
-            m = max(m, avg3(c.v000, c.v001, c.v010));
-            m = max(m, avg3(c.v001, c.v010, c.v011));
-            m = max(m, avg3(c.v001, c.v010, c.v100));
-            m = max(m, avg3(c.v011, c.v101, c.v110));
-            m = max(m, avg3(c.v100, c.v101, c.v110));
-            m = max(m, avg3(c.v101, c.v110, c.v111));
-            m = max(m, c.v000);
-            m = max(m, c.v001);
-            m = max(m, c.v011);
-            m = max(m, c.v100);
-            m = max(m, c.v101);
-            m = max(m, c.v111);
-        
-            return m;
-        }
-
-        float getMaxOnFaceZ(CellValues c)
-        {
-            float m = -1.0;
-
-            m = max(m, c.v000);
-            m = max(m, c.v100);
-            m = max(m, c.v010);
-            m = max(m, c.v001);
-            m = max(m, c.v011);
-            m = max(m, c.v101);
-            m = max(m, c.v110);
-            m = max(m, c.v111);
-
-            return m;
-        }
-
-        float getMaxDiffOnCell(CellValues c)
-        {
-            float m = -1.0;
-
-            m = max(m, avg3(c.v001, c.v010, c.v100) - c.v000); 
-            m = max(m, avg3(c.v001, c.v010, c.v011) - c.v000); 
-            m = max(m, avg3(c.v001, c.v100, c.v101) - c.v000); 
-            m = max(m, avg3(c.v011, c.v101, c.v110) - c.v000); 
-            m = max(m, avg3(c.v101, c.v110, c.v111) - c.v100); 
-            m = max(m, avg3(c.v011, c.v110, c.v111) - c.v010); 
-            m = max(m, avg3(c.v000, c.v001, c.v010) - c.v000); 
-            m = max(m, avg3(c.v000, c.v001, c.v100) - c.v000); 
-            m = max(m, avg3(c.v100, c.v101, c.v110) - c.v100); 
-            m = max(m, avg3(c.v010, c.v011, c.v110) - c.v010); 
-            m = max(m, c.v001 - c.v000); 
-            m = max(m, c.v011 - c.v000); 
-            m = max(m, c.v101 - c.v000); 
-            m = max(m, c.v111 - c.v000); 
-            m = max(m, c.v101 - c.v100); 
-            m = max(m, c.v111 - c.v100); 
-            m = max(m, c.v011 - c.v010); 
-            m = max(m, c.v111 - c.v010); 
-            m = max(m, c.v111 - c.v110); 
-
-            return m;
-        }
-
-        void main()
-        {
-            ivec3 cCoords = getOutCoords();
-            CellValues c = getValues(cCoords);
-
-            float xMax = getMaxOnFaceX(c);
-            float yMax = getMaxOnFaceY(c);
-            float zMax = getMaxOnFaceZ(c);
-            float wMax = getMaxDiffOnCell(c);
-
-            setOutput(vec4(xMax, yMax, zMax, wMax));
         }
         `
     }
@@ -1212,73 +841,45 @@ class UnpackExtendedAnisotropicBidirectionalShadowMap implements GPGPUProgram
     }
 }
 
-function propagateUnidirectionalMinimaSlices(minima: tf.Tensor5D, permutation: Permute, reverse: Reverse): tf.Tensor5D
-{
-    const axis = permutation[0]
-    const slices = unstackPacked(minima, axis) 
-    minima.dispose()
-
-    const shape = slices[0].shape as [number, number, number, 2, 2]
-    const program = new PropagateUnidirectionalMinimaSlices(shape, permutation, reverse)
-
-    const toReverse = reverse.includes(axis)
-    if (toReverse) slices.reverse()
-        
-    for (let i = 1; i < slices.length; i++)
-    {
-        const slice = runWebGLProgram(program, [slices[i], slices[i-1]], 'float32', [[i]], true)
-        tf.dispose(slices[i])
-        slices[i] = slice
-    }
-
-    if (toReverse) slices.reverse()
-
-    minima = stackPacked(slices, axis) as tf.Tensor5D 
-    tf.dispose(slices)
-
-    return minima
-}
-
-async function propagateUnidirectionalMinimaMap(minima: tf.Tensor5D, permutation: Permute, reverse: Reverse): Promise<tf.Tensor5D>
-{
-    const shape = minima.shape as [number, number, number, 2, 2]
-    const program = new PropagateUnidirectionalMinimaMap(shape, permutation, reverse)
-
-    const length = shape[permutation[0]]
-
-    for (let i = 1; i < length; i++)
-    {
-        const tensor = runWebGLProgram(program, [minima], 'float32', [], true)
-        tf.dispose(minima)
-        minima = tensor as tf.Tensor5D
-
-        await tf.nextFrame()
-    }
-    
-    return minima
-}
-
 // sync functions 
 
 export function computeUnidirectionalShadowMap(volume: tf.Tensor3D, permutation: Permute, reverse: Reverse, verbose: boolean = false) : tf.Tensor3D
 {
+    const axis = permutation[0]
+    const reverseAxis = reverse.includes(axis)
+
     const minimaProgram = new UnidirectionalMinimaMap(volume.shape, permutation, reverse)
-    let minima = runWebGLProgram(minimaProgram, [volume], 'float32', [], true) as tf.Tensor5D
+    const minimaStack = runWebGLProgram(minimaProgram, [volume], 'float32', [], true)
+    if (verbose) logTensor('minimaStack', minimaStack)
+
+    const slices = unstackPacked(minimaStack, axis) 
+    minimaStack.dispose()
+    if (reverseAxis) slices.reverse()
+
+    const sliceShape = slices[0].shape as [number, number, number, 2, 2]
+    const sliceProgram = new UpdateUnidirectionalMinimaSlices(sliceShape, permutation, reverse)
+
+    for (let i = 1; i < slices.length; i++)
+    {
+        const t = runWebGLProgram(sliceProgram, [slices[i], slices[i-1]], 'float32', [[i]], true)
+        tf.dispose(slices[i])
+        slices[i] = t
+    }
+
+    if (reverseAxis) slices.reverse()
+    const minima = stackPacked(slices, axis) 
+    tf.dispose(slices)
     if (verbose) logTensor('minima', minima)
 
-    minima = propagateUnidirectionalMinimaSlices(minima, permutation, reverse) as tf.Tensor5D
-    if (verbose) logTensor('minimaPropagated', minima)
-
     const maximaProgram = new UnidirectionalMaximaMap(volume.shape, permutation, reverse)
-    const maxima = runWebGLProgram(maximaProgram, [volume], 'float32', [], true) as tf.Tensor5D
+    const maxima = runWebGLProgram(maximaProgram, [volume], 'float32', [], true)
     if (verbose) logTensor('maxima', maxima)
 
     const shadowShape = minima.shape.slice(0,3) as [number, number, number]
     const shadowProgram = new UnidirectionalShadowMap(shadowShape, permutation, reverse)
     const shadow = runWebGLProgram(shadowProgram, [minima, maxima], 'float32', [], true) as tf.Tensor3D
-    if (verbose) logTensor('shadow', shadow)
-
     tf.dispose([minima, maxima])
+    if (verbose) logTensor('shadow', shadow)
 
     return shadow as tf.Tensor3D
 }
@@ -1288,35 +889,53 @@ export function computeBidirectionalShadowMap(volume: tf.Tensor3D, permutation: 
     const shadowed = computeUnidirectionalShadowMap(volume, permutation, reverse)
     if (verbose) logTensor('shadowed', shadowed)
 
+    const axis = permutation[0]
     const invReverse = complementReverse(reverse)
+    const reverseAxis = invReverse.includes(axis)
 
     const minimaProgram = new UnidirectionalMinimaMap(volume.shape, permutation, invReverse)
-    const minimaStart = runWebGLProgram(minimaProgram, [volume], 'float32', [], true) as tf.Tensor5D
+    const minimaStart = runWebGLProgram(minimaProgram, [volume], 'float32', [], true)
     if (verbose) logTensor('minimaStart', minimaStart)
 
-    const maskProgram = new MaskUnidirectionalMinimaMap(minimaStart.shape as [number, number, number, 2, 2])
-    let minimaMasked = runWebGLProgram(maskProgram, [minimaStart, shadowed], 'float32', [], true) as tf.Tensor5D
+    const maskMinimaProgram = new MaskUnidirectionalMinimaMap(minimaStart.shape as [number, number, number, 2, 2])
+    const minimaMasked = runWebGLProgram(maskMinimaProgram, [minimaStart, shadowed], 'float32', [], true)
     tf.dispose(minimaStart)
 
-    minimaMasked = propagateUnidirectionalMinimaSlices(minimaMasked, permutation, invReverse) as tf.Tensor5D
-    if (verbose) logTensor('minimaPropagated', minimaMasked)
+    const slices = unstackPacked(minimaMasked, axis) 
+    minimaMasked.dispose()
+    if (reverseAxis) slices.reverse()
+
+    const sliceShape = slices[0].shape as [number, number, number, 2, 2]
+    const sliceProgram = new UpdateUnidirectionalMinimaSlices(sliceShape, permutation, invReverse)
+
+    for (let i = 1; i < slices.length; i++)
+    {
+        const t = runWebGLProgram(sliceProgram, [slices[i], slices[i-1]], 'float32', [[i]], true)
+        tf.dispose(slices[i])
+        slices[i] = t
+    }
+
+    if (reverseAxis) slices.reverse()
+    const minima = stackPacked(slices, axis) 
+    tf.dispose(slices)
+    if (verbose) logTensor('minima', minima)
 
     const maximaProgram = new UnidirectionalMaximaMap(volume.shape, permutation, invReverse)
-    const maxima = runWebGLProgram(maximaProgram, [volume], 'float32', [], true) as tf.Tensor5D
+    const maxima = runWebGLProgram(maximaProgram, [volume], 'float32', [], true)
     if (verbose) logTensor('maxima', maxima)
 
-    const shadowShape = minimaMasked.shape.slice(0,3) as [number, number, number]
-    const shadowProgram = new UnidirectionalShadowMap(shadowShape, permutation, invReverse)
-    const invShadowed = runWebGLProgram(shadowProgram, [minimaMasked, maxima], 'float32', [], true) as tf.Tensor3D
-    tf.dispose([minimaMasked, maxima])
+    const shadowedShape = minima.shape.slice(0,3) as [number, number, number]
+    const shadowedProgram = new UnidirectionalShadowMap(shadowedShape, permutation, invReverse)
+    const invShadowed = runWebGLProgram(shadowedProgram, [minima, maxima], 'float32', [], true) as tf.Tensor3D
+    tf.dispose([minima, maxima])
     if (verbose) logTensor('invShadowed', invShadowed)
 
-    const bidirectionalProgram = new BidirectionalShadowMap(shadowed.shape)
-    const bidirectionalShadowed = runWebGLProgram(bidirectionalProgram, [shadowed, invShadowed], 'float32', [], true) as tf.Tensor3D
+    const biProgram = new BidirectionalShadowMap(shadowed.shape)
+    const biShadowed = runWebGLProgram(biProgram, [shadowed, invShadowed], 'float32', [], true) as tf.Tensor3D
     tf.dispose([shadowed, invShadowed])
-    if (verbose) logTensor('bidirectionalShadowed', bidirectionalShadowed)
+    if (verbose) logTensor('biShadowed', biShadowed)
 
-    return bidirectionalShadowed as tf.Tensor3D
+    return biShadowed as tf.Tensor3D
 }
 
 export function computeAnisotropicBidirectionalShadowMap(volume: tf.Tensor3D, permutation: Permute, verbose: boolean = false) : tf.Tensor3D
@@ -1372,7 +991,7 @@ export async function computeUnidirectionalShadowMapAsync(volume: tf.Tensor3D, p
     if (verbose) logTensor('minimaRaw', minima)
 
     const minimaShape = minima.shape as [number, number, number, 2, 2]
-    const updateProgram = new PropagateUnidirectionalMinimaMap(minimaShape, permutation, reverse)
+    const updateProgram = new UpdateUnidirectionalMinimaMap(minimaShape, permutation, reverse)
 
     for (let i = 1; i < minimaShape[permutation[0]]; i++)
     {
@@ -1472,7 +1091,7 @@ export function computeUnidirectionalShadowMapDeprecated(volume: tf.Tensor3D, pe
     if (reverseAxis) slices.reverse()
 
     const sliceShape = slices[0].shape as [number, number, number, 2, 2]
-    const sliceProgram = new PropagateUnidirectionalMinimaSlices(sliceShape, permutation, reverse)
+    const sliceProgram = new UpdateUnidirectionalMinimaSlices(sliceShape, permutation, reverse)
 
     for (let i = 1; i < slices.length; i++)
     {
@@ -1521,7 +1140,7 @@ export function computeBidirectionalShadowMapDeprecated(volume: tf.Tensor3D, per
     if (reverseAxis) slices.reverse()
 
     const sliceShape = slices[0].shape as [number, number, number, 2, 2]
-    const sliceProgram = new PropagateUnidirectionalMinimaSlices(sliceShape, permutation, invReverse)
+    const sliceProgram = new UpdateUnidirectionalMinimaSlices(sliceShape, permutation, invReverse)
 
     for (let i = 1; i < slices.length; i++)
     {
@@ -1613,7 +1232,7 @@ export function computeUnidirectionalShadowMapBase(volume: tf.Tensor3D, permutat
     minimaStack.dispose()
 
     const sliceShape = slices[0].shape as [number, number, number, 2, 2]
-    const updateProgram = new PropagateUnidirectionalMinimaSlices(sliceShape)
+    const updateProgram = new UpdateUnidirectionalMinimaSlices(sliceShape)
 
     for (let i = 1; i < slices.length; i++)
     {

@@ -15,11 +15,11 @@ export default class OcclusionMap
     async computeTensor()
     {
         console.time('computeTensor') 
-        this.tensor = S0.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, true)
+        this.tensor = S0.computeExtendedAnisotropicBidirectionalShadowMapDebug(this.volumeMap.tensor, true)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.toReversed())
 
-        // const t1 = OCC0.computeExtendedAnisotropicBidirectionalShadowMapDeprecated(this.volumeMap.tensor, true)
-        // const t2 = OCC1.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, true)
+        // const t1 = S0.computeUnidirectionalShadowMap(this.volumeMap.tensor, [0,1,2], [], true)
+        // const t2 = S0.computeBidirectionalShadowMap(this.volumeMap.tensor, [0,1,2], [], true)
         console.timeEnd('computeTensor') 
     }
 
