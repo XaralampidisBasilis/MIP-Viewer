@@ -32,12 +32,20 @@ class UnidirectionalMinimaMap implements GPGPUProgram
         }
     
         this.userCode = `
-        const ivec3 minVCoords = ivec3(0);
-        const ivec3 maxVCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
+        const float minValue = 0.0;
+        const float maxValue = 1.0;
+
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
         float min4(float a, float b, float c, float d) 
         {
             return min(min(min(a, b), c), d); 
+        }
+
+        bool inBounds(ivec3 coords)
+        {
+            return all(greaterThanEqual(coords, minCoords)) && all(lessThanEqual(coords, maxCoords));
         }
 
         struct CellValues 
@@ -65,8 +73,10 @@ class UnidirectionalMinimaMap implements GPGPUProgram
 
         float getA(ivec3 vCoords)
         {
-            // vCoords = clamp(vCoords, minVCoords, maxVCoords);
-            return getA(vCoords.z, vCoords.y, vCoords.x);
+            if (inBounds(vCoords)) 
+                return getA(vCoords.z, vCoords.y, vCoords.x);
+            else
+                return minValue;
         }
 
         CellValues getValues(ivec3 cCoords)
@@ -128,7 +138,8 @@ class MaskUnidirectionalMinimaMap implements GPGPUProgram
     {
         this.outputShape = outputShape  
         this.userCode = `
-        const float negInf = uintBitsToFloat(0xff800000u);
+        const float minValue = 0.0;
+        const float maxValue = 1.0;
 
         float min3(float a, float b, float c) { return min(min(a, b), c); }
 
@@ -170,7 +181,9 @@ class MaskUnidirectionalMinimaMap implements GPGPUProgram
             vec4 c = getA(cCoords);
 
             if (getB(cCoords) > 0.5) 
-                c = vec4(vec3(negInf), 1.0);
+            {
+                c = vec4(minValue, minValue, minValue, 1.0);
+            }
         
             setOutput(c);
         }
@@ -204,7 +217,8 @@ class PropagateUnidirectionalMinimaSlices implements GPGPUProgram
         }
 
         this.userCode = `
-        const float negInf = uintBitsToFloat(0xff800000u);
+        const float minValue = 0.0;
+        const float maxValue = 1.0;
 
         const ivec3 minCCoords = ivec3(0);
         const ivec3 maxCCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
@@ -217,11 +231,6 @@ class PropagateUnidirectionalMinimaSlices implements GPGPUProgram
         bool inBounds(ivec3 cCoords)
         {
             return all(greaterThanEqual(cCoords, minCCoords)) && all(lessThanEqual(cCoords, maxCCoords));
-        }
-
-        bool outBounds(ivec3 cCoords)
-        {
-            return any(lessThan(cCoords, minCCoords)) || any(greaterThan(cCoords, maxCCoords));
         }
 
         ivec3 getOutCoords()
@@ -237,14 +246,18 @@ class PropagateUnidirectionalMinimaSlices implements GPGPUProgram
 
         vec4 getA(ivec3 cCoords)
         {
-            // if (outBounds(cCoords)) return vec4(negInf);
-            return getA(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            if (inBounds(cCoords)) 
+                return getA(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            else
+                return vec4(minValue, minValue, minValue, 0.0);
         }
 
         vec4 getB(ivec3 cCoords)
         {
-            // if (outBounds(cCoords)) return vec4(negInf);
-            return getB(cCoords.z, cCoords.y, cCoords.x, 0, 0);        
+            if (inBounds(cCoords)) 
+                return getB(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            else
+                return vec4(minValue, minValue, minValue, 0.0);    
         }
 
         float getMinOnFaceX(vec4 c111, vec4 c110, vec4 c101, vec4 c100)
@@ -309,7 +322,6 @@ class PropagateUnidirectionalMinimaSlices implements GPGPUProgram
             setOutput(c111);
         }
         `
-        console.log(this.userCode)
     }
 }
 
@@ -336,7 +348,8 @@ class PropagateUnidirectionalMinimaMap implements GPGPUProgram
         }
 
         this.userCode = `
-        const float negInf = uintBitsToFloat(0xff800000u);
+        const float minValue = 0.0;
+        const float maxValue = 1.0;
 
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
@@ -346,7 +359,7 @@ class PropagateUnidirectionalMinimaMap implements GPGPUProgram
             return min(min(a, b), c); 
         }
 
-        bool inABounds(ivec3 cCoords)
+        bool inBounds(ivec3 cCoords)
         {
             return all(greaterThanEqual(cCoords, minCCoords)) && all(lessThanEqual(cCoords, maxCCoords));
         }
@@ -364,7 +377,10 @@ class PropagateUnidirectionalMinimaMap implements GPGPUProgram
 
         vec4 getA(ivec3 cCoords)
         {
-            return inABounds(cCoords) ? getA(cCoords.z, cCoords.y, cCoords.x, 0, 0) : vec4(negInf);
+            if (inBounds(cCoords)) 
+                return getA(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            else
+                return vec4(minValue, minValue, minValue, 0.0);
         }
 
         float getMinOnFaceX(vec4 c111, vec4 c110, vec4 c101, vec4 c100)
@@ -456,10 +472,21 @@ class UnidirectionalMaximaMap implements GPGPUProgram
         }
 
         this.userCode = `
+        const float minValue = 0.0;
+        const float maxValue = 1.0;
+
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
-        float max4(float a, float b, float c, float d) { return max(max(max(a, b), c), d); }
+        float max4(float a, float b, float c, float d) 
+        { 
+            return max(max(max(a, b), c), d); 
+        }
+
+        bool inBounds(ivec3 coords)
+        {
+            return all(greaterThanEqual(coords, minCoords)) && all(lessThanEqual(coords, maxCoords));
+        }
 
         struct CellValues 
         { 
@@ -486,8 +513,10 @@ class UnidirectionalMaximaMap implements GPGPUProgram
 
         float getA(ivec3 vCoords)
         {
-            // vCoords = clamp(vCoords, minCoords, maxCoords);
-            return getA(vCoords.z, vCoords.y, vCoords.x);
+            if (inBounds(vCoords)) 
+                return getA(vCoords.z, vCoords.y, vCoords.x);
+            else
+                return minValue;
         }
 
         CellValues getValues(ivec3 cCoords)
@@ -560,8 +589,16 @@ class UnidirectionalShadowMap implements GPGPUProgram
         }
 
         this.userCode = `
+        const float minValue = 0.0;
+        const float maxValue = 1.0;
+
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
+
+        bool inBounds(ivec3 coords)
+        {
+            return all(greaterThanEqual(coords, minCoords)) && all(lessThanEqual(coords, maxCoords));
+        }
 
         ivec3 getOutCoords()
         {
@@ -576,14 +613,18 @@ class UnidirectionalShadowMap implements GPGPUProgram
 
         vec4 getA(ivec3 cCoords)
         {
-            cCoords = clamp(cCoords, minCoords, maxCoords);
-            return getA(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            if (inBounds(cCoords))
+                return getA(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            else 
+                return vec4(minValue, minValue, minValue, 0.0);
         }
 
         vec4 getB(ivec3 cCoords)
         {
-            cCoords = clamp(cCoords, minCoords, maxCoords);
-            return getB(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            if (inBounds(cCoords))
+                return getB(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            else 
+                return vec4(maxValue, maxValue, maxValue, 0.0);
         }
 
         bool isShadowed(vec3 minValues, vec3 maxValues)
@@ -973,15 +1014,15 @@ function computePropagatedUnidirectionalMinimaMap(
     let minima = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
     if (verbose) logTensor('minimaStart', minima)
 
-    // if (mask)
-    // {
-    //     const shape = minima.shape as [number, number, number, 2, 2]
-    //     const maskProgram = new MaskUnidirectionalMinimaMap(shape)
-    //     const masked = runWebGLProgram(maskProgram, [minima, mask], 'float32', [], true) as tf.Tensor5D
-    //     minima.dispose()
-    //     minima = masked
-    //     if (verbose) logTensor('minimaMasked', minima)
-    // }
+    if (mask)
+    {
+        const shape = minima.shape as [number, number, number, 2, 2]
+        const maskProgram = new MaskUnidirectionalMinimaMap(shape)
+        const masked = runWebGLProgram(maskProgram, [minima, mask], 'float32', [], true) as tf.Tensor5D
+        minima.dispose()
+        minima = masked
+        if (verbose) logTensor('minimaMasked', minima)
+    }
 
     minima = propagateUnidirectionalMinimaMap(minima, permute, reverse) as tf.Tensor5D
     if (verbose) logTensor('minimaPropagated', minima)
@@ -1212,7 +1253,7 @@ export function computeExtendedAnisotropicBidirectionalShadowMapDebug(
 
     // let t = computeUnidirectionalShadowMap(volume, [0,1,2], [])
     // let t = computeUnidirectionalShadowMap(volume, [0,1,2], [0,1,2])
-    let t = computeUnidirectionalShadowMap(volume, undefined, [0,1,2], [], true)
+    let t = computeBidirectionalShadowMap(volume, [0,1,2], [1,2], true)
 
     o1 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [   ])
     o2 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [  1])
@@ -1230,10 +1271,10 @@ export function computeExtendedAnisotropicBidirectionalShadowMapDebug(
     oy = runWebGLProgram(new AnisotropicBidirectionalShadowMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
     tf.dispose([o1,o2,o3,o4])
 
-    o1 = tf.clone(t) // computeBidirectionalShadowMap(volume, [0,1,2], [   ])
+    o1 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [   ])
     o2 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [  1])
     o3 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [  2])
-    o4 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [1,2])
+    o4 = tf.clone(t) // computeBidirectionalShadowMap(volume, [0,1,2], [1,2])
 
     oz = runWebGLProgram(new AnisotropicBidirectionalShadowMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
     tf.dispose([o1,o2,o3,o4])

@@ -7,7 +7,7 @@ vec4 debug_mip_distance = to_color(map(box.min_entry_distance, box.max_exit_dist
 vec4 debug_mip_position = to_color(map(box.min_position, box.max_position, mip.position));
 
 // value
-vec4 debug_mip_value = to_color(mmix(COLOR.BLUE, COLOR.BLACK, COLOR.RED, map(-0.001, 0.001, mip.value)));
+vec4 debug_mip_value = to_color(mip.value);
 
 // normal
 vec4 debug_mip_normal = to_color((map(-1.0, 1.0, mip.normal)));
