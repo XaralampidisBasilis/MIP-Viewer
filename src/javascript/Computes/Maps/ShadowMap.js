@@ -1,7 +1,8 @@
 import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
-import * as S0 from '../Programs/GPGPUShadowMap'
+import * as S0 from '../Programs/GPGPUShadowMapOld'
+import * as S1 from '../Programs/GPGPUShadowMap'
 
 export default class OcclusionMap
 {
@@ -15,7 +16,7 @@ export default class OcclusionMap
     async computeTensor()
     {
         console.time('computeTensor') 
-        this.tensor = S0.computeExtendedAnisotropicBidirectionalShadowMapDebug(this.volumeMap.tensor, true)
+        this.tensor = S0.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, true)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.toReversed())
 
         // const t1 = S0.computeUnidirectionalShadowMap(this.volumeMap.tensor, [0,1,2], [], true)
