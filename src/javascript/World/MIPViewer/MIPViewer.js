@@ -88,13 +88,12 @@ export default class MIPViewer extends EventEmitter
 
     setDefinesIterators()
     {        
-        const sum = (y, x) => y + x
         const defines = this.material.defines
-        defines.MAX_CELLS = this.computes.volumeMap.dimensions.toArray().reduce(sum, 0)
-        defines.MAX_BLOCKS = this.computes.shadowMap.dimensions.toArray().reduce(sum, 0)
-        defines.MAX_TRACES = defines.MAX_CELLS * 5
+        defines.MAX_CELLS = this.computes.volumeMap.dimensions.toArray().reduce((y, x) => y + x, 0)
+        defines.MAX_BLOCKS = this.computes.shadowMap.dimensions.toArray().reduce((y, x) => y + x, 0)
+        defines.MAX_TRACES = defines.MAX_CELLS * 2
         defines.MAX_CELLS_IN_BLOCK = this.configs.blockSize * 3
-        defines.MAX_TRACES_IN_BLOCK = defines.MAX_CELLS_IN_BLOCK * 5
+        defines.MAX_TRACES_IN_BLOCK = defines.MAX_CELLS_IN_BLOCK * 2
         defines.MAX_GROUPS = Math.ceil(defines.MAX_CELLS / defines.MAX_CELLS_IN_BLOCK)
         defines.MAX_BLOCKS_IN_GROUP = Math.ceil(defines.MAX_BLOCKS / defines.MAX_GROUPS)
         this.material.needsUpdate = true

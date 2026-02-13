@@ -1253,7 +1253,7 @@ export function computeExtendedAnisotropicBidirectionalShadowMapDebug(
 
     // let t = computeUnidirectionalShadowMap(volume, [0,1,2], [])
     // let t = computeUnidirectionalShadowMap(volume, [0,1,2], [0,1,2])
-    let t = computeBidirectionalShadowMap(volume, [0,1,2], [1,2], true)
+    let t = computeUnidirectionalShadowMap(volume, undefined, [1,2,0], [0], true)
 
     o1 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [   ])
     o2 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [  1])
@@ -1265,7 +1265,7 @@ export function computeExtendedAnisotropicBidirectionalShadowMapDebug(
    
     o1 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [1,2,0], [   ])
     o2 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [1,2,0], [  2])
-    o3 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [1,2,0], [  0])
+    o3 = tf.clone(t) // computeBidirectionalShadowMap(volume, [1,2,0], [  0])
     o4 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [1,2,0], [2,0])
 
     oy = runWebGLProgram(new AnisotropicBidirectionalShadowMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
@@ -1274,7 +1274,7 @@ export function computeExtendedAnisotropicBidirectionalShadowMapDebug(
     o1 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [   ])
     o2 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [  1])
     o3 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [  2])
-    o4 = tf.clone(t) // computeBidirectionalShadowMap(volume, [0,1,2], [1,2])
+    o4 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [1,2])
 
     oz = runWebGLProgram(new AnisotropicBidirectionalShadowMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
     tf.dispose([o1,o2,o3,o4])
