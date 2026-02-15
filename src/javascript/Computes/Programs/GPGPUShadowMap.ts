@@ -20,8 +20,8 @@ class UnidirectionalMinimaMap implements GPGPUProgram
     {
         const [inDepth, inHeight, inWidth] = inputShape
         const [outDepth, outHeight, outWidth] = inputShape.map(x => x + 1)
-        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]   
-        
+        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]  
+
         const transformVoxelOffset = (ox: number, oy: number, oz: number): string => 
         {
             const old = applyPermutation([oz, oy, ox], permute)
@@ -39,14 +39,13 @@ class UnidirectionalMinimaMap implements GPGPUProgram
             
             return old.toReversed().join(',')
         }
-
+    
         this.userCode = `
+        const float minValue = 0.0;
+        const float maxValue = 1.0;
+
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
-
-        float avg3(float a, float b, float c) { return (a + b + c) * (1.0 / 3.0); }
-        float max3(float a, float b, float c) { return max(max(a, b), c); }
-        float min4(float a, float b, float c, float d) { return min(min(min(a, b), c), d); }
 
         struct CellValues 
         { 
@@ -60,9 +59,30 @@ class UnidirectionalMinimaMap implements GPGPUProgram
             float v111; 
         }; 
 
+        float avg3(float a, float b, float c) 
+        { 
+            return (a + b + c) * (1.0 / 3.0); 
+        }
+
+        float max3(float a, float b, float c) 
+        {
+            return max(max(a, b), c); 
+        }
+
+        float min4(float a, float b, float c, float d) 
+        {
+            return min(min(min(a, b), c), d); 
+        }
+
+        bool inBounds(ivec3 coords)
+        {
+            return all(greaterThanEqual(coords, minCoords)) && all(lessThanEqual(coords, maxCoords));
+        }
+
         ivec3 getOutCoords()
         {
             ivec5 cCoords = getOutputCoords();
+
             return ivec3(cCoords.z, cCoords.y, cCoords.x);
         }
 
@@ -78,14 +98,15 @@ class UnidirectionalMinimaMap implements GPGPUProgram
 
         float getA(ivec3 vCoords)
         {
-            vCoords = clamp(vCoords, minCoords, maxCoords);
-            return getA(vCoords.z, vCoords.y, vCoords.x);
+            if (inBounds(vCoords)) 
+                return getA(vCoords.z, vCoords.y, vCoords.x);
+            else
+                return minValue;
         }
 
         CellValues getValues(ivec3 cCoords)
         {
             CellValues c;
-
             ivec3 vCoords = cCoords - 1;
 
             c.v000 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,0,0)}));
@@ -206,7 +227,10 @@ class MaskUnidirectionalMinimaMap implements GPGPUProgram
     {
         this.outputShape = outputShape  
         this.userCode = `
-        const float negInf = uintBitsToFloat(0xff800000u);
+        const float minValue = 0.0;
+        const float maxValue = 1.0;
+
+        const vec4 fallback = vec4(minValue, minValue, minValue, 1.0);
 
         float min3(float a, float b, float c) { return min(min(a, b), c); }
 
@@ -241,16 +265,20 @@ class MaskUnidirectionalMinimaMap implements GPGPUProgram
             else 
                 return (xOdd == 0) ? b.b : b.a;
         }
+
+        bool isMasked(ivec3 cCoords)
+        {
+            return (getB(cCoords) > 0.5);
+        }
   
         void main()
         {
             ivec3 cCoords = getOutCoords();
-            vec4 c = getA(cCoords);
 
-            if (getB(cCoords) > 0.5) 
-                c = vec4(vec3(negInf), 1.0);
-        
-            setOutput(c);
+            if (isMasked(cCoords)) 
+                setOutput(fallback);
+            else
+                setOutput(getA(cCoords));
         }
         `
     }
@@ -268,25 +296,40 @@ class PropagateUnidirectionalMinimaSlices implements GPGPUProgram
     {
         const [outDepth, outHeight, outWidth] = outputShape.slice(0, 3)
         this.outputShape = outputShape 
-
+        
         const transformCellOffset = (ox: number, oy: number, oz: number): string => 
         {
             const old = applyPermutation([oz, oy, ox], permute)
 
             for (const a of reverse) old[a] = - old[a]
+
+            const axis = permute[0]
+            old[axis] = 0
             
             return old.toReversed().join(',')
         }
 
         this.userCode = `
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
+        const float minValue = 0.0;
+        const float maxValue = 1.0;
 
-        float min3(float a, float b, float c) { return min(min(a, b), c); }
+        const ivec3 minCCoords = ivec3(0);
+        const ivec3 maxCCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
+
+        float min3(float a, float b, float c) 
+        { 
+            return min(min(a, b), c); 
+        }
+
+        bool inBounds(ivec3 cCoords)
+        {
+            return all(greaterThanEqual(cCoords, minCCoords)) && all(lessThanEqual(cCoords, maxCCoords));
+        }
 
         ivec3 getOutCoords()
         {
             ivec5 cCoords = getOutputCoords();
+
             return ivec3(cCoords.z, cCoords.y, cCoords.x);
         }
 
@@ -297,14 +340,18 @@ class PropagateUnidirectionalMinimaSlices implements GPGPUProgram
 
         vec4 getA(ivec3 cCoords)
         {
-            cCoords = clamp(cCoords, minCoords, maxCoords);
-            return getA(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            if (inBounds(cCoords)) 
+                return getA(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            else
+                return vec4(minValue, minValue, minValue, 0.0);
         }
 
         vec4 getB(ivec3 cCoords)
         {
-            cCoords = clamp(cCoords, minCoords, maxCoords);
-            return getB(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            if (inBounds(cCoords)) 
+                return getB(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            else
+                return vec4(minValue, minValue, minValue, 0.0);    
         }
 
         float getMinOnFaceX(vec4 c111, vec4 c110, vec4 c101, vec4 c100)
@@ -395,14 +442,26 @@ class PropagateUnidirectionalMinimaMap implements GPGPUProgram
         }
 
         this.userCode = `
+        const float minValue = 0.0;
+        const float maxValue = 1.0;
+
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
-        float min3(float a, float b, float c) { return min(min(a, b), c); }
+        float min3(float a, float b, float c) 
+        { 
+            return min(min(a, b), c); 
+        }
+
+        bool inBounds(ivec3 cCoords)
+        {
+            return all(greaterThanEqual(cCoords, minCCoords)) && all(lessThanEqual(cCoords, maxCCoords));
+        }
 
         ivec3 getOutCoords()
         {
             ivec5 cCoords = getOutputCoords();
+
             return ivec3(cCoords.z, cCoords.y, cCoords.x);
         }
 
@@ -413,8 +472,10 @@ class PropagateUnidirectionalMinimaMap implements GPGPUProgram
 
         vec4 getA(ivec3 cCoords)
         {
-            cCoords = clamp(cCoords, minCoords, maxCoords);
-            return getA(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            if (inBounds(cCoords)) 
+                return getA(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            else
+                return vec4(minValue, minValue, minValue, 0.0);
         }
 
         float getMinOnFaceX(vec4 c111, vec4 c110, vec4 c101, vec4 c100)
@@ -494,7 +555,7 @@ class UnidirectionalMaximaMap implements GPGPUProgram
     {
         const [inDepth, inHeight, inWidth] = inputShape
         const [outDepth, outHeight, outWidth] = inputShape.map(x => x + 1)
-        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]   
+        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]     
 
         const transformVoxelOffset = (ox: number, oy: number, oz: number): string => 
         {
@@ -506,12 +567,11 @@ class UnidirectionalMaximaMap implements GPGPUProgram
         }
 
         this.userCode = `
-        const float negInf = uintBitsToFloat(0xff800000u);
+        const float minValue = 0.0;
+        const float maxValue = 1.0;
 
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
-
-        float avg3(float a, float b, float c) { return (a + b + c) * (1.0 / 3.0); }
 
         struct CellValues 
         { 
@@ -525,9 +585,25 @@ class UnidirectionalMaximaMap implements GPGPUProgram
             float v111; 
         }; 
 
+        float avg3(float a, float b, float c) 
+        { 
+            return (a + b + c) * (1.0 / 3.0); 
+        }
+
+        float max4(float a, float b, float c, float d) 
+        { 
+            return max(max(max(a, b), c), d); 
+        }
+
+        bool inBounds(ivec3 coords)
+        {
+            return all(greaterThanEqual(coords, minCoords)) && all(lessThanEqual(coords, maxCoords));
+        }
+
         ivec3 getOutCoords()
         {
             ivec5 cCoords = getOutputCoords();
+            
             return ivec3(cCoords.z, cCoords.y, cCoords.x);
         }
 
@@ -538,14 +614,15 @@ class UnidirectionalMaximaMap implements GPGPUProgram
 
         float getA(ivec3 vCoords)
         {
-            vCoords = clamp(vCoords, minCoords, maxCoords);
-            return getA(vCoords.z, vCoords.y, vCoords.x);
+            if (inBounds(vCoords)) 
+                return getA(vCoords.z, vCoords.y, vCoords.x);
+            else
+                return minValue;
         }
 
         CellValues getValues(ivec3 cCoords)
         {
             CellValues c;
-
             ivec3 vCoords = cCoords - 1;
 
             c.v000 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,0,0)}));
@@ -562,7 +639,7 @@ class UnidirectionalMaximaMap implements GPGPUProgram
 
         float getMaxOnFaceX(CellValues c)
         {
-            float m = negInf;
+            float m = minValue;
 
             m = max(m, avg3(c.v000, c.v001, c.v100));
             m = max(m, avg3(c.v001, c.v010, c.v100));
@@ -582,7 +659,7 @@ class UnidirectionalMaximaMap implements GPGPUProgram
     
         float getMaxOnFaceY(CellValues c)
         {
-            float m = negInf;
+            float m = minValue;
 
             m = max(m, avg3(c.v000, c.v001, c.v010));
             m = max(m, avg3(c.v001, c.v010, c.v011));
@@ -602,7 +679,7 @@ class UnidirectionalMaximaMap implements GPGPUProgram
 
         float getMaxOnFaceZ(CellValues c)
         {
-            float m = negInf;
+            float m = minValue;
 
             m = max(m, c.v000);
             m = max(m, c.v100);
@@ -618,7 +695,7 @@ class UnidirectionalMaximaMap implements GPGPUProgram
 
         float getMaxDiffOnCell(CellValues c)
         {
-            float m = negInf;
+            float m = minValue;
 
             m = max(m, avg3(c.v001, c.v010, c.v100) - c.v000); 
             m = max(m, avg3(c.v001, c.v010, c.v011) - c.v000); 
@@ -682,8 +759,16 @@ class UnidirectionalShadowMap implements GPGPUProgram
         }
 
         this.userCode = `
+        const float minValue = 0.0;
+        const float maxValue = 1.0;
+
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
+
+        bool inBounds(ivec3 coords)
+        {
+            return all(greaterThanEqual(coords, minCoords)) && all(lessThanEqual(coords, maxCoords));
+        }
 
         ivec3 getOutCoords()
         {
@@ -698,22 +783,23 @@ class UnidirectionalShadowMap implements GPGPUProgram
 
         vec4 getA(ivec3 cCoords)
         {
-            cCoords = clamp(cCoords, minCoords, maxCoords);
-            return getA(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            if (inBounds(cCoords))
+                return getA(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            else 
+                return vec4(minValue, minValue, minValue, 0.0);
         }
 
         vec4 getB(ivec3 cCoords)
         {
-            cCoords = clamp(cCoords, minCoords, maxCoords);
-            return getB(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            if (inBounds(cCoords))
+                return getB(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            else 
+                return vec4(maxValue, maxValue, maxValue, 0.0);
         }
 
-        bool isShadowed(vec4 minValues, vec4 maxValues)
+        bool isShadowed(vec3 minValues, vec3 maxValues)
         {
-            bvec4 tests = greaterThanEqual(minValues, maxValues);
-            bool shadowed = all(tests.xyz);
-
-            return shadowed;
+            return all(greaterThanEqual(minValues, maxValues));
         }
                 
         void main()
@@ -725,8 +811,10 @@ class UnidirectionalShadowMap implements GPGPUProgram
             vec4 c101 = getA(getCCoords(cCoords, ${transformCellOffset(-0,-1,-0)}));
             vec4 c110 = getA(getCCoords(cCoords, ${transformCellOffset(-0,-0,-1)}));
 
-            vec4 minValues = vec4(c011.x, c101.y, c110.z, 0.0);
-            vec4 maxValues = vec4(c111.x, c111.y, c111.z, c111.w);
+            vec3 minValues = vec3(c011.x, c101.y, c110.z);
+            vec3 maxValues = vec3(c111.x, c111.y, c111.z);
+
+            // bool isSelfShadowed = c111.w <= 0.0;
 
             setOutput(float(isShadowed(minValues, maxValues)));
         }
@@ -1128,7 +1216,6 @@ function computeUnidirectionalMaximaMap(
     return maxima 
 }
 
-
 // sync functions 
 
 export function computeUnidirectionalShadowMap(
@@ -1223,7 +1310,7 @@ export function computeExtendedAnisotropicBidirectionalShadowMap(
     return shadowMap 
 }
 
-// debug
+// base comparison 
 
 export function computeUnidirectionalShadowMapBase(
     volume: tf.Tensor3D, 
@@ -1327,6 +1414,8 @@ export function computeExtendedAnisotropicBidirectionalShadowMapBase(
     return shadowMap 
 }
 
+// debug
+
 export function computeExtendedAnisotropicBidirectionalShadowMapDebug(
     volume: tf.Tensor3D, 
     verbose: boolean = false
@@ -1336,9 +1425,9 @@ export function computeExtendedAnisotropicBidirectionalShadowMapDebug(
 
     // let t = computeUnidirectionalShadowMap(volume, [0,1,2], [])
     // let t = computeUnidirectionalShadowMap(volume, [0,1,2], [0,1,2])
-    let t = computeBidirectionalShadowMapBase(volume,  [2,1,0], [], true)
+    let t = computeBidirectionalShadowMap(volume, [1,2,0], [0], true)
 
-    o1 = tf.onesLike(t)    // computeBidirectionalShadowMap(volume, [2,1,0], [   ])
+    o1 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [   ])
     o2 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [  1])
     o3 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [  0])
     o4 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [1,0])
@@ -1348,13 +1437,13 @@ export function computeExtendedAnisotropicBidirectionalShadowMapDebug(
    
     o1 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [1,2,0], [   ])
     o2 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [1,2,0], [  2])
-    o3 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [1,2,0], [  0])
+    o3 = tf.clone(t) // computeBidirectionalShadowMap(volume, [1,2,0], [  0])
     o4 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [1,2,0], [2,0])
 
     oy = runWebGLProgram(new AnisotropicBidirectionalShadowMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
     tf.dispose([o1,o2,o3,o4])
 
-    o1 = tf.clone(t) // computeBidirectionalShadowMap(volume, [0,1,2], [   ])
+    o1 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [   ])
     o2 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [  1])
     o3 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [  2])
     o4 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [1,2])

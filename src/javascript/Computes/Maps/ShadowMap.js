@@ -16,9 +16,8 @@ export default class OcclusionMap
     async computeTensor()
     {
         console.time('computeTensor') 
-        this.tensor = S0.computeExtendedAnisotropicBidirectionalShadowMapDebug(this.volumeMap.tensor, true)
+        this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, true)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.toReversed())
-
         // const t1 = S0.computeUnidirectionalShadowMap(this.volumeMap.tensor, [0,1,2], [], true)
         // const t2 = S0.computeBidirectionalShadowMap(this.volumeMap.tensor, [0,1,2], [], true)
         console.timeEnd('computeTensor') 
@@ -56,17 +55,3 @@ export default class OcclusionMap
         this.texture?.dispose()
     }
 }
-
-// 0.325439453125 = 0.408935546875
-// 0.277099609375 = 0.394287109375
-// 0.356689453125 = 0.4287109375
-// 0.298095703125 = 0.380859375
-// 0.43505859375  = 0.50048828125
-// 0.431396484375 = 0.5048828125
-// 0.446044921875 = 0.5244140625
-// 0.425048828125 = 0.497314453125
-// 0.401123046875 = 0.49951171875
-// 0.40185546875  = 0.4931640625
-// 0.399169921875 = 0.493408203125
-// 0.409912109375 = 0.473388671875
-

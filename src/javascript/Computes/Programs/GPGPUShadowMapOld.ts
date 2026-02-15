@@ -38,16 +38,6 @@ class UnidirectionalMinimaMap implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
-        float min4(float a, float b, float c, float d) 
-        {
-            return min(min(min(a, b), c), d); 
-        }
-
-        bool inBounds(ivec3 coords)
-        {
-            return all(greaterThanEqual(coords, minCoords)) && all(lessThanEqual(coords, maxCoords));
-        }
-
         struct CellValues 
         { 
             float v000; 
@@ -60,9 +50,20 @@ class UnidirectionalMinimaMap implements GPGPUProgram
             float v111; 
         }; 
 
+        float min4(float a, float b, float c, float d) 
+        {
+            return min(min(min(a, b), c), d); 
+        }
+
+        bool inBounds(ivec3 coords)
+        {
+            return all(greaterThanEqual(coords, minCoords)) && all(lessThanEqual(coords, maxCoords));
+        }
+
         ivec3 getOutCoords()
         {
             ivec5 cCoords = getOutputCoords();
+
             return ivec3(cCoords.z, cCoords.y, cCoords.x);
         }
 
@@ -141,6 +142,8 @@ class MaskUnidirectionalMinimaMap implements GPGPUProgram
         const float minValue = 0.0;
         const float maxValue = 1.0;
 
+        const vec4 fallback = vec4(minValue, minValue, minValue, 1.0);
+
         float min3(float a, float b, float c) { return min(min(a, b), c); }
 
         ivec3 getOutCoords()
@@ -174,18 +177,20 @@ class MaskUnidirectionalMinimaMap implements GPGPUProgram
             else 
                 return (xOdd == 0) ? b.b : b.a;
         }
+
+        bool isMasked(ivec3 cCoords)
+        {
+            return (getB(cCoords) > 0.5);
+        }
   
         void main()
         {
             ivec3 cCoords = getOutCoords();
-            vec4 c = getA(cCoords);
 
-            if (getB(cCoords) > 0.5) 
-            {
-                c = vec4(minValue, minValue, minValue, 1.0);
-            }
-        
-            setOutput(c);
+            if (isMasked(cCoords)) 
+                setOutput(fallback);
+            else
+                setOutput(getA(cCoords));
         }
         `
     }
@@ -236,6 +241,7 @@ class PropagateUnidirectionalMinimaSlices implements GPGPUProgram
         ivec3 getOutCoords()
         {
             ivec5 cCoords = getOutputCoords();
+
             return ivec3(cCoords.z, cCoords.y, cCoords.x);
         }
 
@@ -367,6 +373,7 @@ class PropagateUnidirectionalMinimaMap implements GPGPUProgram
         ivec3 getOutCoords()
         {
             ivec5 cCoords = getOutputCoords();
+
             return ivec3(cCoords.z, cCoords.y, cCoords.x);
         }
 
@@ -478,16 +485,6 @@ class UnidirectionalMaximaMap implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
-        float max4(float a, float b, float c, float d) 
-        { 
-            return max(max(max(a, b), c), d); 
-        }
-
-        bool inBounds(ivec3 coords)
-        {
-            return all(greaterThanEqual(coords, minCoords)) && all(lessThanEqual(coords, maxCoords));
-        }
-
         struct CellValues 
         { 
             float v000; 
@@ -500,9 +497,20 @@ class UnidirectionalMaximaMap implements GPGPUProgram
             float v111; 
         }; 
 
+        float max4(float a, float b, float c, float d) 
+        { 
+            return max(max(max(a, b), c), d); 
+        }
+
+        bool inBounds(ivec3 coords)
+        {
+            return all(greaterThanEqual(coords, minCoords)) && all(lessThanEqual(coords, maxCoords));
+        }
+
         ivec3 getOutCoords()
         {
             ivec5 cCoords = getOutputCoords();
+            
             return ivec3(cCoords.z, cCoords.y, cCoords.x);
         }
 
@@ -1253,7 +1261,7 @@ export function computeExtendedAnisotropicBidirectionalShadowMapDebug(
 
     // let t = computeUnidirectionalShadowMap(volume, [0,1,2], [])
     // let t = computeUnidirectionalShadowMap(volume, [0,1,2], [0,1,2])
-    let t = computeUnidirectionalShadowMap(volume, undefined, [1,2,0], [0], true)
+    let t = computeBidirectionalShadowMap(volume, [1,2,0], [0], true)
 
     o1 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [   ])
     o2 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [  1])
