@@ -1,7 +1,8 @@
 
 #include "../march_blocks/start_block"
-#include "./start_trace"
+
 #include "./start_mip"
+#include "./start_trace"
 
 for (int k = 0; k < MAX_GROUPS; k++) 
 {
@@ -15,14 +16,13 @@ for (int k = 0; k < MAX_GROUPS; k++)
     if (block.shadowed && !block.terminated) continue;
 
     #include "./start_trace"
-    #include "./update_mip"
 
     for (int i = 0; i < MAX_TRACES_IN_BLOCK; i++) 
     {
-        #include "./update_trace"
         #include "./update_mip"
+        #include "./update_trace"
 
-        if (trace.terminated || trace.distance > block.exit_distance) break;
+        if (trace.distance > block.exit_distance || trace.terminated) break;
     }   
 
     if (trace.terminated) break; 

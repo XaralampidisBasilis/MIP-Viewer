@@ -112,6 +112,23 @@ class UnidirectionalMinimaMap implements GPGPUProgram
             return min4(c.v001, c.v011, c.v101, c.v111);
         }
 
+        bool isShadowed(CellValues c)
+        {
+            float m = 0.0;
+            
+            m = min(m, c.v000 - c.v001); 
+            m = min(m, c.v000 - c.v011); 
+            m = min(m, c.v000 - c.v101); 
+            m = min(m, c.v000 - c.v111); 
+            m = min(m, c.v100 - c.v101); 
+            m = min(m, c.v100 - c.v111); 
+            m = min(m, c.v010 - c.v011); 
+            m = min(m, c.v010 - c.v111); 
+            m = min(m, c.v110 - c.v111); 
+
+            return (m >= 0.0);
+        }
+
         void main()
         {
             ivec3 cCoords = getOutCoords();
@@ -122,6 +139,133 @@ class UnidirectionalMinimaMap implements GPGPUProgram
             float zMin = getMinOnFaceZ(c);
 
             setOutput(vec4(xMin, yMin, zMin, 0.0));
+        }
+        `
+    }
+}
+
+class BidirectionalMinimaMap implements GPGPUProgram 
+{
+    variableNames = ['A', 'B']
+    outputShape: number[]
+    userCode: string
+    packedInputs = false
+    packedOutput = true
+
+    constructor(inputShape: [number, number, number], permute: Permute = [0,1,2], reverse: Reverse = []) 
+    {
+        const [inDepth, inHeight, inWidth] = inputShape
+        const [outDepth, outHeight, outWidth] = inputShape.map(x => x + 1)
+        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]  
+
+        const transformVoxelOffset = (ox: number, oy: number, oz: number): string => 
+        {
+            const old = applyPermutation([oz, oy, ox], permute)
+
+            for (const a of reverse) old[a] = 1 - old[a]
+            
+            return old.toReversed().join(',')
+        }
+    
+        this.userCode = `
+        const float minValue = 0.0;
+        const float maxValue = 1.0;
+
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
+
+        struct CellValues 
+        { 
+            float v000; 
+            float v100; 
+            float v010; 
+            float v001; 
+            float v011; 
+            float v101; 
+            float v110; 
+            float v111; 
+        }; 
+
+        float min4(float a, float b, float c, float d) 
+        {
+            return min(min(min(a, b), c), d); 
+        }
+
+        bool inBounds(ivec3 coords)
+        {
+            return all(greaterThanEqual(coords, minCoords)) && all(lessThanEqual(coords, maxCoords));
+        }
+
+        ivec3 getOutCoords()
+        {
+            ivec5 cCoords = getOutputCoords();
+
+            return ivec3(cCoords.z, cCoords.y, cCoords.x);
+        }
+
+        ivec3 getVCoords(ivec3 vCoords, int ox, int oy, int oz)
+        {
+            return vCoords + ivec3(ox, oy, oz);
+        }
+
+        float getA(ivec3 vCoords)
+        {
+            if (inBounds(vCoords)) 
+                return getA(vCoords.z, vCoords.y, vCoords.x);
+            else
+                return minValue;
+        }
+
+        bool isMasked(ivec3 cCoords)
+        {
+            return (getB(cCoords.z, cCoords.y, cCoords.x) > 0.5);
+        }
+
+        CellValues getValues(ivec3 cCoords)
+        {
+            CellValues c;
+            ivec3 vCoords = cCoords - 1;
+
+            c.v000 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,0,0)}));
+            c.v100 = getA(getVCoords(vCoords, ${transformVoxelOffset(1,0,0)}));
+            c.v010 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,1,0)}));
+            c.v001 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,0,1)}));
+            c.v011 = getA(getVCoords(vCoords, ${transformVoxelOffset(0,1,1)}));
+            c.v101 = getA(getVCoords(vCoords, ${transformVoxelOffset(1,0,1)}));
+            c.v110 = getA(getVCoords(vCoords, ${transformVoxelOffset(1,1,0)}));
+            c.v111 = getA(getVCoords(vCoords, ${transformVoxelOffset(1,1,1)}));
+
+            return c;
+        }
+
+        float getMinOnFaceX(CellValues c)
+        {           
+            return min4(c.v100, c.v110, c.v101, c.v111);
+        }
+
+        float getMinOnFaceY(CellValues c)
+        {
+            return min4(c.v010, c.v110, c.v011, c.v111);
+        }
+            
+        float getMinOnFaceZ(CellValues c)
+        {
+            return min4(c.v001, c.v011, c.v101, c.v111);
+        }
+
+        void main()
+        {
+            ivec3 cCoords = getOutCoords();
+            CellValues c = getValues(cCoords);
+
+            float xMin = getMinOnFaceX(c);
+            float yMin = getMinOnFaceY(c);
+            float zMin = getMinOnFaceZ(c);
+
+            if (isMasked(cCoords))
+                setOutput(vec4(minValue, minValue, minValue, 1.0));
+            else
+                setOutput(vec4(xMin, yMin, zMin, 0.0));
         }
         `
     }
@@ -142,10 +286,6 @@ class MaskUnidirectionalMinimaMap implements GPGPUProgram
         const float minValue = 0.0;
         const float maxValue = 1.0;
 
-        const vec4 fallback = vec4(minValue, minValue, minValue, 1.0);
-
-        float min3(float a, float b, float c) { return min(min(a, b), c); }
-
         ivec3 getOutCoords()
         {
             ivec5 cCoords = getOutputCoords();
@@ -164,18 +304,15 @@ class MaskUnidirectionalMinimaMap implements GPGPUProgram
 
         float getB(ivec3 cCoords)
         {
-            int yOdd = cCoords.y & 1;
-            int xOdd = cCoords.x & 1;
+            vec4 v = getB(cCoords.z, cCoords.y, cCoords.x);
 
-            int yHalf = cCoords.y >> 1; 
-            int xHalf = cCoords.x >> 1; 
+            bool yEven = (cCoords.y & 1) == 0;
+            bool xEven = (cCoords.x & 1) == 0;
 
-            vec4 b = getB(cCoords.z, yHalf, xHalf);
-
-            if (yOdd == 0) 
-                return (xOdd == 0) ? b.r : b.g;
+            if (yEven) 
+                return xEven ? v.r : v.g;
             else 
-                return (xOdd == 0) ? b.b : b.a;
+                return xEven ? v.b : v.a;
         }
 
         bool isMasked(ivec3 cCoords)
@@ -188,9 +325,10 @@ class MaskUnidirectionalMinimaMap implements GPGPUProgram
             ivec3 cCoords = getOutCoords();
 
             if (isMasked(cCoords)) 
-                setOutput(fallback);
+                setOutput(vec4(minValue, minValue, minValue, 1.0));
             else
                 setOutput(getA(cCoords));
+
         }
         `
     }
@@ -357,8 +495,8 @@ class PropagateUnidirectionalMinimaMap implements GPGPUProgram
         const float minValue = 0.0;
         const float maxValue = 1.0;
 
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
+        const ivec3 minCCoords = ivec3(0);
+        const ivec3 maxCCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
         float min3(float a, float b, float c) 
         { 
@@ -568,7 +706,7 @@ class UnidirectionalMaximaMap implements GPGPUProgram
             float yMax = getMaxOnFaceY(c);
             float zMax = getMaxOnFaceZ(c);
 
-            setOutput(vec4(xMax, yMax, zMax, 1.0));
+            setOutput(vec4(xMax, yMax, zMax, 0.5));
         }
         `
     }
@@ -635,22 +773,24 @@ class UnidirectionalShadowMap implements GPGPUProgram
                 return vec4(maxValue, maxValue, maxValue, 0.0);
         }
 
-        bool isShadowed(vec3 minValues, vec3 maxValues)
+        bool isShadowed(vec4 minValues, vec4 maxValues)
         {
-            return all(greaterThanEqual(minValues, maxValues));
+            bvec4 conditions = greaterThan(minValues, maxValues);
+            return all(conditions.xyz) || conditions.w;
         }
                 
         void main()
         {
             ivec3 cCoords = getOutCoords();
 
-            vec4 c111 = getB(getCCoords(cCoords, ${transformCellOffset(-0,-0,-0)}));
-            vec4 c011 = getA(getCCoords(cCoords, ${transformCellOffset(-1,-0,-0)}));
-            vec4 c101 = getA(getCCoords(cCoords, ${transformCellOffset(-0,-1,-0)}));
-            vec4 c110 = getA(getCCoords(cCoords, ${transformCellOffset(-0,-0,-1)}));
+            vec4 b111 = getB(getCCoords(cCoords, ${transformCellOffset(-0,-0,-0)}));
+            vec4 a111 = getA(getCCoords(cCoords, ${transformCellOffset(-0,-0,-0)}));
+            vec4 a011 = getA(getCCoords(cCoords, ${transformCellOffset(-1,-0,-0)}));
+            vec4 a101 = getA(getCCoords(cCoords, ${transformCellOffset(-0,-1,-0)}));
+            vec4 a110 = getA(getCCoords(cCoords, ${transformCellOffset(-0,-0,-1)}));
 
-            vec3 minValues = vec3(c011.x, c101.y, c110.z);
-            vec3 maxValues = vec3(c111.x, c111.y, c111.z);
+            vec4 minValues = vec4(a011.x, a101.y, a110.z, a111.w);
+            vec4 maxValues = vec4(b111.x, b111.y, b111.z, b111.w);
 
             setOutput(float(isShadowed(minValues, maxValues)));
         }
@@ -951,6 +1091,34 @@ async function propagateUnidirectionalMinimaMapAsync(
     return minima
 }
 
+async function computePropagatedUnidirectionalMinimaMapAsync(
+    volume: tf.Tensor3D, 
+    mask: tf.Tensor3D | undefined, 
+    permute: Permute, 
+    reverse: Reverse, 
+    verbose: boolean = false
+): Promise<tf.Tensor5D>
+{
+    const program = new UnidirectionalMinimaMap(volume.shape, permute, reverse)
+    let minima = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
+    if (verbose) logTensor('minimaStart', minima)
+
+    if (mask instanceof tf.Tensor)
+    {
+        const shape = minima.shape as [number, number, number, 2, 2]
+        const maskProgram = new MaskUnidirectionalMinimaMap(shape)
+        const masked = runWebGLProgram(maskProgram, [minima, mask], 'float32', [], true) as tf.Tensor5D
+        minima.dispose()
+        minima = masked
+        if (verbose) logTensor('minimaMasked', minima)
+    }
+
+    minima = await propagateUnidirectionalMinimaMapAsync(minima, permute, reverse) as tf.Tensor5D
+    if (verbose) logTensor('minimaPropagated', minima)
+
+    return minima
+}
+
 function propagateUnidirectionalMinimaMap(
     minima: tf.Tensor5D, 
     permute: Permute, 
@@ -982,37 +1150,8 @@ function propagateUnidirectionalMinimaMap(
     return minima
 }
 
-async function computePropagatedUnidirectionalMinimaMapAsync(
-    volume: tf.Tensor3D, 
-    mask: tf.Tensor3D | undefined, 
-    permute: Permute, 
-    reverse: Reverse, 
-    verbose: boolean = false
-): Promise<tf.Tensor5D>
-{
-    const program = new UnidirectionalMinimaMap(volume.shape, permute, reverse)
-    let minima = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
-    if (verbose) logTensor('minimaStart', minima)
-
-    if (mask)
-    {
-        const shape = minima.shape as [number, number, number, 2, 2]
-        const maskProgram = new MaskUnidirectionalMinimaMap(shape)
-        const masked = runWebGLProgram(maskProgram, [minima, mask], 'float32', [], true) as tf.Tensor5D
-        minima.dispose()
-        minima = masked
-        if (verbose) logTensor('minimaMasked', minima)
-    }
-
-    minima = await propagateUnidirectionalMinimaMapAsync(minima, permute, reverse) as tf.Tensor5D
-    if (verbose) logTensor('minimaPropagated', minima)
-
-    return minima
-}
-
 function computePropagatedUnidirectionalMinimaMap(
     volume: tf.Tensor3D, 
-    mask: tf.Tensor3D | undefined, 
     permute: Permute, 
     reverse: Reverse, 
     verbose: boolean = false
@@ -1022,15 +1161,23 @@ function computePropagatedUnidirectionalMinimaMap(
     let minima = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
     if (verbose) logTensor('minimaStart', minima)
 
-    if (mask)
-    {
-        const shape = minima.shape as [number, number, number, 2, 2]
-        const maskProgram = new MaskUnidirectionalMinimaMap(shape)
-        const masked = runWebGLProgram(maskProgram, [minima, mask], 'float32', [], true) as tf.Tensor5D
-        minima.dispose()
-        minima = masked
-        if (verbose) logTensor('minimaMasked', minima)
-    }
+    minima = propagateUnidirectionalMinimaMap(minima, permute, reverse) as tf.Tensor5D
+    if (verbose) logTensor('minimaPropagated', minima)
+
+    return minima
+}
+
+function computePropagatedBidirectionalMinimaMap(
+    volume: tf.Tensor3D, 
+    mask: tf.Tensor3D, 
+    permute: Permute, 
+    reverse: Reverse, 
+    verbose: boolean = false
+): tf.Tensor5D
+{
+    const program = new BidirectionalMinimaMap(volume.shape, permute, reverse)
+    let minima = runWebGLProgram(program, [volume, mask], 'float32', [], true) as tf.Tensor5D
+    if (verbose) logTensor('minimaStart', minima)
 
     minima = propagateUnidirectionalMinimaMap(minima, permute, reverse) as tf.Tensor5D
     if (verbose) logTensor('minimaPropagated', minima)
@@ -1056,13 +1203,12 @@ function computeUnidirectionalMaximaMap(
 
 export function computeUnidirectionalShadowMap(
     volume: tf.Tensor3D, 
-    mask: tf.Tensor3D | undefined, 
     permute: Permute, 
     reverse: Reverse, 
     verbose: boolean = false
 ) : tf.Tensor3D
 {
-    const minima = computePropagatedUnidirectionalMinimaMap(volume, mask, permute, reverse, verbose)
+    const minima = computePropagatedUnidirectionalMinimaMap(volume, permute, reverse, verbose)
     const maxima = computeUnidirectionalMaximaMap(volume, permute, reverse, verbose)
 
     const shape = minima.shape.slice(0,3) as [number, number, number]
@@ -1081,18 +1227,19 @@ export function computeBidirectionalShadowMap(
     verbose: boolean = false
 ) : tf.Tensor3D
 {
-    const shadows = computeUnidirectionalShadowMap(volume, undefined, permute, reverse)
+    const invShadows = computeUnidirectionalShadowMap(volume, permute, complementReverse(reverse))        
+    const minima = computePropagatedBidirectionalMinimaMap(volume, invShadows, permute, reverse, verbose)
+    tf.dispose(invShadows)
+
+    const maxima = computeUnidirectionalMaximaMap(volume, permute, reverse, verbose)
+
+    const shape = minima.shape.slice(0,3) as [number, number, number]
+    const program = new UnidirectionalShadowMap(shape, permute, reverse)
+    const shadows = runWebGLProgram(program, [minima, maxima], 'float32', [], true) as tf.Tensor3D
+    tf.dispose([minima, maxima])
     if (verbose) logTensor('shadows', shadows)
-        
-    const invShadows = computeUnidirectionalShadowMap(volume, shadows, permute, complementReverse(reverse))
-    if (verbose) logTensor('invShadows', invShadows)
 
-    const or = new BidirectionalShadowMap(shadows.shape)
-    const biShadows = runWebGLProgram(or, [shadows, invShadows], 'float32', [], true) as tf.Tensor3D
-    tf.dispose([shadows, invShadows])
-    if (verbose) logTensor('biShadows', biShadows)
-
-    return biShadows as tf.Tensor3D
+    return shadows as tf.Tensor3D
 }
 
 export function computeAnisotropicBidirectionalShadowMap(
@@ -1146,6 +1293,100 @@ export function computeExtendedAnisotropicBidirectionalShadowMap(
     return shadowMap 
 }
 
+// async functions 
+
+export async function computeUnidirectionalShadowMapAsync(
+    volume: tf.Tensor3D, 
+    mask: tf.Tensor3D | undefined, 
+    permute: Permute, 
+    reverse: Reverse, 
+    verbose: boolean = false
+) : Promise<tf.Tensor3D>
+{
+    const minima = await computePropagatedUnidirectionalMinimaMapAsync(volume, mask, permute, reverse, verbose)
+    const maxima = computeUnidirectionalMaximaMap(volume, permute, reverse, verbose)
+
+    const shape = minima.shape.slice(0,3) as [number, number, number]
+    const program = new UnidirectionalShadowMap(shape, permute, reverse)
+    const shadows = runWebGLProgram(program, [minima, maxima], 'float32', [], true) as tf.Tensor3D
+    tf.dispose([minima, maxima])
+    if (verbose) logTensor('shadows', shadows)
+
+    return shadows as tf.Tensor3D
+}
+
+export async function computeBidirectionalShadowMapAsync(
+    volume: tf.Tensor3D, 
+    permute: Permute, 
+    reverse: Reverse, 
+    verbose: boolean = false
+) : Promise<tf.Tensor3D>
+{
+    const shadows = await computeUnidirectionalShadowMapAsync(volume, undefined, permute, reverse)
+    if (verbose) logTensor('shadows', shadows)
+        
+    const invShadows = await computeUnidirectionalShadowMapAsync(volume, shadows, permute, complementReverse(reverse))
+    if (verbose) logTensor('invShadows', invShadows)
+
+    const or = new BidirectionalShadowMap(shadows.shape)
+    const biShadows = runWebGLProgram(or, [shadows, invShadows], 'float32', [], true) as tf.Tensor3D
+    tf.dispose([shadows, invShadows])
+    if (verbose) logTensor('biShadows', biShadows)
+
+    return biShadows as tf.Tensor3D
+}
+
+export async function computeAnisotropicBidirectionalShadowMapAsync(
+    volume: tf.Tensor3D, 
+    permute: Permute, 
+    verbose: boolean = false
+) : Promise<tf.Tensor3D>
+{
+    const reverseA = permute.slice(1, 1) as Reverse
+    const reverseB = permute.slice(1, 2) as Reverse
+    const reverseC = permute.slice(2, 3) as Reverse
+    const reverseD = permute.slice(1, 3) as Reverse
+
+    const shadowMaps = [
+        await computeBidirectionalShadowMapAsync(volume, permute, reverseA),
+        await computeBidirectionalShadowMapAsync(volume, permute, reverseB),
+        await computeBidirectionalShadowMapAsync(volume, permute, reverseC),
+        await computeBidirectionalShadowMapAsync(volume, permute, reverseD),
+    ]
+
+    const program = new AnisotropicBidirectionalShadowMap(shadowMaps[0].shape)
+    const shadowMap = runWebGLProgram(program, shadowMaps, 'float32', [], true) as tf.Tensor3D
+    tf.dispose(shadowMaps)
+
+    if (verbose) logAnisotropicBidirectionalShadowMaps(shadowMap)
+
+    return shadowMap 
+}
+
+export async function computeExtendedAnisotropicBidirectionalShadowMapAsync(
+    volume: tf.Tensor3D, 
+    verbose: boolean = false
+) : Promise<tf.Tensor3D>
+{
+    const permuteX = [2,1,0] as Permute
+    const permuteY = [1,2,0] as Permute
+    const permuteZ = [0,1,2] as Permute
+
+    const shadowMaps = [
+        await computeAnisotropicBidirectionalShadowMapAsync(volume, permuteX),
+        await computeAnisotropicBidirectionalShadowMapAsync(volume, permuteY),
+        await computeAnisotropicBidirectionalShadowMapAsync(volume, permuteZ),
+    ]
+
+    const program = new ExtendedAnisotropicBidirectionalShadowMap(shadowMaps[0].shape)
+    const shadowMap = runWebGLProgram(program, shadowMaps, 'int32', [], true) as tf.Tensor3D
+    tf.dispose(shadowMaps)
+
+    if (verbose) logExtendedAnisotropicBidirectionalShadowMaps(shadowMap)
+
+    return shadowMap 
+}
+
 // base comparison 
 
 export function computeUnidirectionalShadowMapBase(
@@ -1160,7 +1401,7 @@ export function computeUnidirectionalShadowMapBase(
     const transposed = reversed.transpose(permute) as tf.Tensor3D
     tf.dispose(reversed)
 
-    const minima = computePropagatedUnidirectionalMinimaMap(transposed, mask, [0,1,2], [], verbose)
+    const minima = computePropagatedUnidirectionalMinimaMap(transposed, [0,1,2], [], verbose)
     const maxima = computeUnidirectionalMaximaMap(transposed, [0,1,2], [], verbose)
     tf.dispose(transposed)
 
@@ -1252,16 +1493,16 @@ export function computeExtendedAnisotropicBidirectionalShadowMapBase(
 
 // debug
 
-export function computeExtendedAnisotropicBidirectionalShadowMapDebug(
+export async function computeExtendedAnisotropicBidirectionalShadowMapDebug(
     volume: tf.Tensor3D, 
     verbose: boolean = false
-) : tf.Tensor3D
+) : Promise<tf.Tensor3D>
 {
     let o1,o2,o3,o4,ox,oy,oz
 
     // let t = computeUnidirectionalShadowMap(volume, [0,1,2], [])
     // let t = computeUnidirectionalShadowMap(volume, [0,1,2], [0,1,2])
-    let t = computeBidirectionalShadowMap(volume, [1,2,0], [0], true)
+    let t = await computeBidirectionalShadowMap(volume, [1,2,0], [0], true)
 
     o1 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [   ])
     o2 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [  1])

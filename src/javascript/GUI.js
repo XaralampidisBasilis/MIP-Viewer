@@ -237,11 +237,13 @@ export default class GUI
                 cubic_bernstein_weights: 805,
                 cubic_bernstein_spread : 806,
 
-                stats_num_cells  : 901,
-                stats_num_traces : 902,
-                stats_num_blocks : 903,
-                stats_num_groups : 904,
-                stats_num_fetches: 905,
+                stats_num_cells        : 901,
+                stats_num_traces       : 902,
+                stats_num_blocks       : 903,
+                stats_num_groups       : 904,
+                stats_num_fetches      : 905,
+                stats_volume_samples   : 906,
+                stats_occlusion_samples: 907,
                 
                 debug_variable0: 1000,
                 debug_variable1: 1001,

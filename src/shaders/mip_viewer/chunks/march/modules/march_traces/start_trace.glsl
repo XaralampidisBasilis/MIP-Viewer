@@ -1,14 +1,16 @@
 
-trace.spacing = ray.spacing / 3.0;
+trace.spacing = ray.spacing / 2.0;
 
 // start trace
 #if SKIPPING_ENABLED == 1
 
-    trace.distance = block.entry_distance;
+    float jitter = random(block.entry_position);
+    trace.distance = block.entry_distance - trace.spacing * jitter;
 
 #else
 
-    trace.distance = ray.start_distance;
+    float jitter = random(ray.start_position);
+    trace.distance = ray.start_distance - trace.spacing * jitter;
     
 #endif
 
@@ -20,6 +22,7 @@ trace.value = sample_volume(trace.position);
 
     stats.num_traces += 1;
     stats.num_fetches += 1;
+    stats.volume_samples += 1;
 
 #endif
 

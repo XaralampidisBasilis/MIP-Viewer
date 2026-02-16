@@ -26,7 +26,8 @@ block.terminated = block.exit_distance > ray.end_distance;
 // update stats
 #if DEBUG_ENABLED == 1
 
-    // stats.num_fetches += 1;
     stats.num_blocks += 1;
+    stats.num_fetches += 1;
+    stats.occlusion_samples += 1;
     
 #endif

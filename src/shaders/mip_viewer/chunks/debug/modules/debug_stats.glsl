@@ -14,7 +14,13 @@ vec4 debug_stats_num_blocks = to_color(float(stats.num_blocks) / float(MAX_BLOCK
 vec4 debug_stats_num_groups = to_color(float(stats.num_groups) / float(MAX_GROUPS));
 
 // num fetches
-vec4 debug_stats_num_fetches = to_color(float(stats.num_fetches) / float(MAX_CELLS));
+vec4 debug_stats_num_fetches = to_color(float(stats.num_fetches) / float(MAX_TRACES + MAX_BLOCKS));
+
+// volume_samples
+vec4 debug_stats_volume_samples = to_color(float(stats.volume_samples) / float(MAX_TRACES));
+
+// occlusion_samples
+vec4 debug_stats_occlusion_samples = to_color(float(stats.occlusion_samples) / float(MAX_BLOCKS));
 
 
 // PRINT DEBUG
@@ -25,4 +31,6 @@ switch (u_debug.option - 900)
     case 3: fragColor = debug_stats_num_blocks;     break;
     case 4: fragColor = debug_stats_num_groups;     break;
     case 5: fragColor = debug_stats_num_fetches;    break;
+    case 6: fragColor = debug_stats_volume_samples;    break;
+    case 7: fragColor = debug_stats_occlusion_samples;    break;
 }

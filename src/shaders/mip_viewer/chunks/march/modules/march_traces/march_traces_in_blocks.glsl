@@ -1,24 +1,24 @@
 
 #include "../march_blocks/start_block"
-#include "./start_trace"
+
 #include "./start_mip"
+#include "./start_trace"
 
 for (int j = 0; j < MAX_BLOCKS; j++) 
 {
     #include "../march_blocks/update_block"
 
-    if (block.shadowed && !block.terminated) continue;
-
+    if (block.terminated) break;
+    if (block.shadowed) continue;
+    
     #include "./start_trace"
-    #include "./update_mip"
 
     for (int i = 0; i < MAX_TRACES_IN_BLOCK; i++) 
     {
+        #include "./update_mip"
         #include "./update_trace"
 
-        if (trace.terminated || trace.distance > block.exit_distance) break;
-
-        #include "./update_mip"
+        if (trace.distance > block.exit_distance || trace.terminated) break;
     }   
 
     if (trace.terminated) break; 

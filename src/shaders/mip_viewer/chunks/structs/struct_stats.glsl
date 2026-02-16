@@ -8,7 +8,8 @@ struct Stats
     int num_cells;
     int num_blocks;
     int num_traces;
-    int num_intersection_tests;
+    int volume_samples;
+    int occlusion_samples;
 };
 
 Stats stats; // Global mutable struct
@@ -20,7 +21,8 @@ void set_stats()
     stats.num_cells   = 0;
     stats.num_traces  = 0;
     stats.num_fetches = 0;
-    stats.num_intersection_tests  = 0;
+    stats.volume_samples = 0;
+    stats.occlusion_samples = 0;
 }
 
 #endif // STRUCT_STATS
