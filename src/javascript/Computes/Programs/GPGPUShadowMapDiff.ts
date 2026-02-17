@@ -372,7 +372,7 @@ class UnidirectionalGateMap implements GPGPUProgram
             if (inBounds(coords)) 
                 return getA(coords.z, coords.y, coords.x, 0, 0);
             else
-                return vec4(1.0);
+                return vec4(0.0);
         }
 
         void main()
@@ -384,9 +384,17 @@ class UnidirectionalGateMap implements GPGPUProgram
             vec4 d101 = getA(getVoxelCoords(coords, ${transformOffset(1,0,1)}));
             vec4 d111 = getA(getVoxelCoords(coords, ${transformOffset(1,1,1)}));
 
-            vec4 d000 = vec4(d111.x, d101.y, d011.z, d001.w);
+            // vec4 d000 = vec4(d111.x, d101.y, d011.z, d001.w);
+            // setOutput(float(all(greaterThanEqual(d000, vec4(0.0)))));
 
-            setOutput(float(all(greaterThanEqual(d000, vec4(0.0)))));
+            const vec4 threshold = vec4(0.0);
+
+            bool b001 = all(greaterThanEqual(d001, threshold));
+            bool b011 = all(greaterThanEqual(d011, threshold));
+            bool b101 = all(greaterThanEqual(d101, threshold));
+            bool b111 = all(greaterThanEqual(d111, threshold));
+
+            setOutput(float(all(bvec4(b001, b011, b101, b111))));
         }
         `
     }
@@ -457,7 +465,7 @@ class UnidirectionalShadowMap implements GPGPUProgram
         this.userCode = `
         const float minValue = 0.0;
         const float maxValue = 1.0;
-        const float epsilon = 0.001;
+        const float epsilon = 0.0; // 0.001;
 
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
@@ -922,8 +930,8 @@ function unidirectionalGateMap(
 ): tf.Tensor3D
 {
     const shape = differences.shape.slice(0,3) as [number, number, number]
-    // const program = new UnidirectionalGateMap(shape, permute, reverse)
-    const program = new UnidirectionalGateMap2(shape)
+    const program = new UnidirectionalGateMap(shape, permute, reverse)
+    // const program = new UnidirectionalGateMap2(shape)
 
     const shadows = runWebGLProgram(program, [differences], 'float32', [], true) 
     if (verbose) logTensor('shadows', shadows)
@@ -1056,24 +1064,24 @@ export function computeBidirectionalShadowMapDebug(
     verbose: boolean = false
 ) : tf.Tensor3D
 {
-    const forwardDifferences = propagatedUnidirectionalDifferenceMap(volume, permute, reverse, verbose)
+    const forwardDifferences = propagatedUnidirectionalDifferenceMap(volume, permute, reverse)
     if (verbose) logTensor('forwardDifferences', forwardDifferences)
 
-    const forwardGates = unidirectionalGateMap(forwardDifferences, permute, reverse, verbose)
+    const forwardGates = unidirectionalGateMap(forwardDifferences, permute, reverse)
     if (verbose) logTensor('forwardGates', forwardGates)
 
-    const forwardShadows = unidirectionalShadowMap(forwardDifferences, permute, reverse, verbose)
+    const forwardShadows = unidirectionalShadowMap(forwardDifferences, permute, reverse)
     if (verbose) logTensor('forwardShadows', forwardShadows)
 
     tf.dispose(forwardDifferences)
 
     const compReverse = complementReverse(reverse)
-    const backwardDifferences = propagatedGatedUnidirectionalDifferenceMap(volume, forwardGates, permute, compReverse, verbose)
+    const backwardDifferences = propagatedGatedUnidirectionalDifferenceMap(volume, forwardGates, permute, compReverse)
     if (verbose) logTensor('backwardDifferences', backwardDifferences)
 
     tf.dispose(forwardGates)
 
-    const backwardShadows = unidirectionalShadowMap(backwardDifferences, permute, compReverse, verbose)
+    const backwardShadows = unidirectionalShadowMap(backwardDifferences, permute, compReverse)
     if (verbose) logTensor('backwardShadows', backwardShadows)
 
     tf.dispose(backwardDifferences)
