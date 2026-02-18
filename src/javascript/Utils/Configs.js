@@ -32,7 +32,7 @@ export default class Configs extends EventEmitter
         super()
 
         this.blockSize = 1
-        this.downscaleFactor = 0.8
+        this.downscaleFactor = 0.6
         
         this.gradientsMethod = 'triquadraticBspline'
         this.marchingMethod = 'traces'

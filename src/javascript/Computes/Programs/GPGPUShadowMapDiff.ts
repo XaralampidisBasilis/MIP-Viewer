@@ -17,26 +17,21 @@ class UnidirectionalDifferenceMap implements GPGPUProgram
     packedOutput = true
 
     constructor(
-        inputShape: [number, number, number], 
+        volumeShape: [number, number, number], 
         permute: Permute = [0,1,2], 
         reverse: Reverse = []
     ) {
-        const [inDepth, inHeight, inWidth] = inputShape
-        this.outputShape = [inDepth, inHeight, inWidth, 2, 2]
-        
+   
         const transformOffset = (ox: number, oy: number, oz: number): string => 
         {
             const old = applyPermutation([oz, oy, ox], permute)
-
             for (const a of reverse) old[a] = - old[a]
-            
             return old.toReversed().join(',')
         }
 
+        const [inDepth, inHeight, inWidth] = volumeShape
+        this.outputShape = [inDepth, inHeight, inWidth, 2, 2]
         this.userCode = `
-        const float minValue = 0.0;
-        const float maxValue = 1.0;
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
@@ -53,28 +48,23 @@ class UnidirectionalDifferenceMap implements GPGPUProgram
             return ivec3(coords.z, coords.y, coords.x);
         }
 
-        ivec3 getVoxelCoords(ivec3 coords, int ox, int oy, int oz)
-        {
-            return coords + ivec3(ox, oy, oz);
-        }
-
-        float getA(ivec3 coords)
+        float getAAt(ivec3 coords)
         {
             if (inBounds(coords)) 
                 return getA(coords.z, coords.y, coords.x);
             else
-                return minValue;
+                return 0.0;
         }
 
         void main()
         {
             ivec3 coords = getOutCoords();
 
-            float v111 = getA(getVoxelCoords(coords, ${transformOffset(-0,-0,-0)}));
-            float v110 = getA(getVoxelCoords(coords, ${transformOffset(-0,-0,-1)}));
-            float v100 = getA(getVoxelCoords(coords, ${transformOffset(-0,-1,-1)}));
-            float v010 = getA(getVoxelCoords(coords, ${transformOffset(-1,-0,-1)}));
-            float v000 = getA(getVoxelCoords(coords, ${transformOffset(-1,-1,-1)}));
+            float v111 = getAAt(coords + ivec3(${transformOffset(-0,-0,-0)}));
+            float v110 = getAAt(coords + ivec3(${transformOffset(-0,-0,-1)}));
+            float v100 = getAAt(coords + ivec3(${transformOffset(-0,-1,-1)}));
+            float v010 = getAAt(coords + ivec3(${transformOffset(-1,-0,-1)}));
+            float v000 = getAAt(coords + ivec3(${transformOffset(-1,-1,-1)}));
 
             float d000 = v000 - v111;
             float d010 = v010 - v111;
@@ -102,13 +92,10 @@ class PropagateUnidirectionalDifferenceSlices implements GPGPUProgram
         permute: Permute = [0,1,2], 
         reverse: Reverse = []
     ) {
-        const [outDepth, outHeight, outWidth] = outputShape.slice(0,3)
-        this.outputShape = outputShape 
 
         const transformOffset = (ox: number, oy: number, oz: number): string => 
         {
             const old = applyPermutation([oz, oy, ox], permute)
-
             for (const a of reverse) old[a] = - old[a]
 
             const axis = permute[0]
@@ -117,10 +104,9 @@ class PropagateUnidirectionalDifferenceSlices implements GPGPUProgram
             return old.toReversed().join(',')
         }
 
+        const [outDepth, outHeight, outWidth] = outputShape.slice(0,3)
+        this.outputShape = outputShape 
         this.userCode = `
-        const float minValue = 0.0;
-        const float maxValue = 1.0;
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
@@ -142,46 +128,32 @@ class PropagateUnidirectionalDifferenceSlices implements GPGPUProgram
             return ivec3(coords.z, coords.y, coords.x);
         }
 
-        ivec3 getVoxelCoords(ivec3 coords, int ox, int oy, int oz)
+        vec4 getAAt(ivec3 coords)
         {
-            return coords + ivec3(ox, oy, oz);
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.z, coords.y, coords.x, 0, 0);
         }
 
-        vec4 getA(ivec3 coords)
+        vec4 getBAt(ivec3 coords)
         {
-            if (inBounds(coords)) 
-                return getA(coords.z, coords.y, coords.x, 0, 0);
-            else
-                return vec4(minValue);
-        }
-
-        vec4 getB(ivec3 coords)
-        {
-            if (inBounds(coords)) 
-                return getB(coords.z, coords.y, coords.x, 0, 0);
-            else
-                return vec4(minValue);    
+            coords = clamp(coords, minCoords, maxCoords);
+            return getB(coords.z, coords.y, coords.x, 0, 0); 
         }
 
         void main()
         {
             ivec3 coords = getOutCoords();
 
-            vec4 d111 = getA(getVoxelCoords(coords, ${transformOffset(-0,-0,-0)}));
-            vec4 d110 = getB(getVoxelCoords(coords, ${transformOffset(-0,-0,-1)}));
-            vec4 d100 = getB(getVoxelCoords(coords, ${transformOffset(-0,-1,-1)}));
-            vec4 d010 = getB(getVoxelCoords(coords, ${transformOffset(-1,-0,-1)}));
-            vec4 d000 = getB(getVoxelCoords(coords, ${transformOffset(-1,-1,-1)}));
+            vec4 d111 = getAAt(coords + ivec3(${transformOffset(-0,-0,-0)}));
+            vec4 d110 = getBAt(coords + ivec3(${transformOffset(-0,-0,-1)}));
+            vec4 d100 = getBAt(coords + ivec3(${transformOffset(-0,-1,-1)}));
+            vec4 d010 = getBAt(coords + ivec3(${transformOffset(-1,-0,-1)}));
+            vec4 d000 = getBAt(coords + ivec3(${transformOffset(-1,-1,-1)}));
 
-            float m000 = min4(d000);
-            float m010 = min4(d010);
-            float m100 = min4(d100);
-            float m110 = min4(d110);
-
-            d111.x += max(m000, 0.0);
-            d111.y += max(m010, 0.0);
-            d111.z += max(m100, 0.0);
-            d111.w += max(m110, 0.0);
+            d111.x += max(min4(d000), 0.0);
+            d111.y += max(min4(d010), 0.0);
+            d111.z += max(min4(d100), 0.0);
+            d111.w += max(min4(d110), 0.0);
 
             setOutput(d111);
         }
@@ -204,9 +176,7 @@ class PropagateGatedUnidirectionalDifferenceSlices implements GPGPUProgram
         permute: Permute = [0,1,2], 
         reverse: Reverse = []
     ) {
-        const [outDepth, outHeight, outWidth] = outputShape.slice(0,3)
-        this.outputShape = outputShape 
-
+      
         const transformOffset = (ox: number, oy: number, oz: number): string => 
         {
             const old = applyPermutation([oz, oy, ox], permute)
@@ -229,10 +199,9 @@ class PropagateGatedUnidirectionalDifferenceSlices implements GPGPUProgram
             return coords.toReversed().join(',')
         }
 
+        const [outDepth, outHeight, outWidth] = outputShape.slice(0,3)
+        this.outputShape = outputShape 
         this.userCode = `
-        const float minValue = -1.0;
-        const float maxValue = +1.0;
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
@@ -254,68 +223,44 @@ class PropagateGatedUnidirectionalDifferenceSlices implements GPGPUProgram
             return ivec3(coords.z, coords.y, coords.x);
         }
 
-        ivec3 getVoxelCoords(ivec3 coords, int ox, int oy, int oz)
+        vec4 getAAt(ivec3 coords)
         {
-            return coords + ivec3(ox, oy, oz);
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.z, coords.y, coords.x, 0, 0);
         }
 
-        vec4 getA(ivec3 coords)
+        vec4 getBAt(ivec3 coords)
         {
-            if (inBounds(coords)) 
-                return getA(coords.z, coords.y, coords.x, 0, 0);
-            else
-                return vec4(minValue);
+            coords = clamp(coords, minCoords, maxCoords);
+            return getB(coords.z, coords.y, coords.x, 0, 0);
         }
 
-        vec4 getB(ivec3 coords)
+        vec4 getGAt(ivec3 coords)
         {
-            if (inBounds(coords)) 
-                return getB(coords.z, coords.y, coords.x, 0, 0);
-            else
-                return vec4(minValue);    
-        }
-
-
-        // float getG(ivec3 coords)
-        // {
-        //     coords = ivec3(${substituteSlice('coords.x', 'coords.y', 'coords.z')});
-        //     vec4 v = getG(coords.z, coords.y, coords.x);
-
-        //     bool yEven = (coords.y & 1) == 0;
-        //     bool xEven = (coords.x & 1) == 0;
-
-        //     if (yEven) 
-        //         return xEven ? v.r : v.g;
-        //     else 
-        //         return xEven ? v.b : v.a;
-        // }
-
-        vec4 getG(ivec3 coords)
-        {
-            coords = ivec3(${substituteSlice('coords.x', 'coords.y', 'coords.z')});
+            coords = ivec3(${substituteSlice('coords.x','coords.y','coords.z')});
             return getG(coords.z, coords.y, coords.x, 0, 0);
         }
 
         void main()
         {
             ivec3 coords = getOutCoords();
-            bvec4 gates = greaterThan(getG(coords), vec4(0.5));
+            bvec4 gates = greaterThan(getGAt(coords), vec4(0.5));
 
-            vec4 d111 = getA(getVoxelCoords(coords, ${transformOffset(-0,-0,-0)}));
-            vec4 d110 = getB(getVoxelCoords(coords, ${transformOffset(-0,-0,-1)}));
-            vec4 d100 = getB(getVoxelCoords(coords, ${transformOffset(-0,-1,-1)}));
-            vec4 d010 = getB(getVoxelCoords(coords, ${transformOffset(-1,-0,-1)}));
-            vec4 d000 = getB(getVoxelCoords(coords, ${transformOffset(-1,-1,-1)}));
+            vec4 d111 = getAAt(coords + ivec3(${transformOffset(-0,-0,-0)}));
+            vec4 d110 = getBAt(coords + ivec3(${transformOffset(-0,-0,-1)}));
+            vec4 d100 = getBAt(coords + ivec3(${transformOffset(-0,-1,-1)}));
+            vec4 d010 = getBAt(coords + ivec3(${transformOffset(-1,-0,-1)}));
+            vec4 d000 = getBAt(coords + ivec3(${transformOffset(-1,-1,-1)}));
 
             float m000 = min4(d000);
             float m010 = min4(d010);
             float m100 = min4(d100);
             float m110 = min4(d110);
 
-            d111.x += gates.x ? max(m000, 0.0) : m000;
-            d111.y += gates.y ? max(m010, 0.0) : m010;
-            d111.z += gates.z ? max(m100, 0.0) : m100;
-            d111.w += gates.w ? max(m110, 0.0) : m110;
+            d111.x += (gates.x) ? max(m000, 0.0) : m000;
+            d111.y += (gates.y) ? max(m010, 0.0) : m010;
+            d111.z += (gates.z) ? max(m100, 0.0) : m100;
+            d111.w += (gates.w) ? max(m110, 0.0) : m110;
 
             setOutput(d111);
         }
@@ -331,31 +276,26 @@ class UnidirectionalGateMap implements GPGPUProgram
     packedInputs = true
     packedOutput = true
 
+    customUniforms = [{ name: 'tolerance', type: 'float' as const }]
+
     constructor(
         outputShape: [number, number, number, 2, 2], 
         permute: Permute = [0,1,2], 
         reverse: Reverse = []
     ) {
-        const [inDepth, inHeight, inWidth] = outputShape
-        this.outputShape = outputShape
-        
+    
         const transformOffset = (ox: number, oy: number, oz: number): string => 
         {
             const old = applyPermutation([oz, oy, ox], permute)
-
             for (const a of reverse) old[a] = - old[a]
-            
             return old.toReversed().join(',')
         }
 
+        const [inDepth, inHeight, inWidth] = outputShape
+        this.outputShape = outputShape
         this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
-
-        float min4(float a, float b, float c, float d) 
-        { 
-            return min(min(min(a, b), c), d); 
-        }
 
         bool inBounds(ivec3 coords)
         {
@@ -370,43 +310,34 @@ class UnidirectionalGateMap implements GPGPUProgram
             return ivec3(coords.z, coords.y, coords.x);
         }
 
-        ivec3 getVoxelCoords(ivec3 coords, int ox, int oy, int oz)
+        vec4 getAAt(ivec3 coords)
         {
-            return coords + ivec3(ox, oy, oz);
-        }
-
-        vec4 getA(ivec3 coords)
-        {
-            if (inBounds(coords)) 
-                return getA(coords.z, coords.y, coords.x, 0, 0);
-            else
-                return vec4(0.0);
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.z, coords.y, coords.x, 0, 0);
         }
 
         void main()
         {
             ivec3 coords = getOutCoords();
 
-            vec4 d001 = getA(getVoxelCoords(coords, ${transformOffset(0,0,1)}));
-            vec4 d011 = getA(getVoxelCoords(coords, ${transformOffset(0,1,1)}));
-            vec4 d101 = getA(getVoxelCoords(coords, ${transformOffset(1,0,1)}));
-            vec4 d111 = getA(getVoxelCoords(coords, ${transformOffset(1,1,1)}));
+            vec4 d001 = getAAt(coords + ivec3(${transformOffset(0,0,1)}));
+            vec4 d011 = getAAt(coords + ivec3(${transformOffset(0,1,1)}));
+            vec4 d101 = getAAt(coords + ivec3(${transformOffset(1,0,1)}));
+            vec4 d111 = getAAt(coords + ivec3(${transformOffset(1,1,1)}));
 
-            // bool g111 = d111.x >= 0.0;
-            // bool g101 = d101.y >= 0.0;
-            // bool g011 = d011.z >= 0.0;
-            // bool g001 = d001.w >= 0.0;
-
-            // setOutput(vec4(g001, g011, g101, g111));
-
-            const vec4 threshold = vec4(0.0);
-
-            bool g001 = any(greaterThan(d001, threshold));
-            bool g011 = any(greaterThan(d011, threshold));
-            bool g101 = any(greaterThan(d101, threshold));
-            bool g111 = any(greaterThan(d111, threshold));
+            bool g111 = d111.x > -tolerance;
+            bool g101 = d101.y > -tolerance;
+            bool g011 = d011.z > -tolerance;
+            bool g001 = d001.w > -tolerance;
 
             setOutput(vec4(g001, g011, g101, g111));
+
+            // bool g001 = all(greaterThan(d001, vec4(-tolerance)));
+            // bool g011 = all(greaterThan(d011, vec4(-tolerance)));
+            // bool g101 = all(greaterThan(d101, vec4(-tolerance)));
+            // bool g111 = all(greaterThan(d111, vec4(-tolerance)));
+
+            // setOutput(vec4(g001, g011, g101, g111));
         }
         `
     }
@@ -448,95 +379,6 @@ class UnidirectionalGateMap2 implements GPGPUProgram
     }
 }
 
-class UnidirectionalGateMap3 implements GPGPUProgram 
-{
-    variableNames = ['A']
-    outputShape: number[]
-    userCode: string
-    packedInputs = false
-    packedOutput = true
-
-    constructor(
-        outputShape: [number, number, number, 2, 2], 
-        permute: Permute = [0,1,2], 
-        reverse: Reverse = []
-    ) {
-        const [inDepth, inHeight, inWidth] = outputShape
-        this.outputShape = outputShape
-        
-        const transformOffset = (ox: number, oy: number, oz: number): string => 
-        {
-            const old = applyPermutation([oz, oy, ox], permute)
-
-            for (const a of reverse) old[a] = - old[a]
-            
-            return old.toReversed().join(',')
-        }
-
-        this.userCode = `
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
-
-        float min4(float a, float b, float c, float d) 
-        { 
-            return min(min(min(a, b), c), d); 
-        }
-
-        bool inBounds(ivec3 coords)
-        {
-            return 
-                all(greaterThanEqual(coords, minCoords)) && 
-                all(lessThanEqual(coords, maxCoords));
-        }
-
-        ivec3 getOutCoords()
-        {
-            ivec5 coords = getOutputCoords();
-            return ivec3(coords.z, coords.y, coords.x);
-        }
-
-        ivec3 getVoxelCoords(ivec3 coords, int ox, int oy, int oz)
-        {
-            return coords + ivec3(ox, oy, oz);
-        }
-
-        vec4 getA(ivec3 coords)
-        {
-            if (inBounds(coords)) 
-                return getA(coords.z, coords.y, coords.x, 0, 0);
-            else
-                return vec4(0.0);
-        }
-
-        void main()
-        {
-            ivec3 coords = getOutCoords();
-
-            vec4 d001 = getA(getVoxelCoords(coords, ${transformOffset(0,0,1)}));
-            vec4 d011 = getA(getVoxelCoords(coords, ${transformOffset(0,1,1)}));
-            vec4 d101 = getA(getVoxelCoords(coords, ${transformOffset(1,0,1)}));
-            vec4 d111 = getA(getVoxelCoords(coords, ${transformOffset(1,1,1)}));
-
-            // bool g111 = d111.x >= 0.0;
-            // bool g101 = d101.y >= 0.0;
-            // bool g011 = d011.z >= 0.0;
-            // bool g001 = d001.w >= 0.0;
-
-            // setOutput(vec4(g001, g011, g101, g111));
-
-            const vec4 threshold = vec4(0.0);
-
-            bool g001 = any(greaterThan(d001, threshold));
-            bool g011 = any(greaterThan(d011, threshold));
-            bool g101 = any(greaterThan(d101, threshold));
-            bool g111 = any(greaterThan(d111, threshold));
-
-            setOutput(vec4(g001, g011, g101, g111));
-        }
-        `
-    }
-}
-
 class UnidirectionalShadowMap implements GPGPUProgram 
 {
     variableNames = ['A']
@@ -545,31 +387,25 @@ class UnidirectionalShadowMap implements GPGPUProgram
     packedInputs = true
     packedOutput = false
 
+    customUniforms = [{ name: 'tolerance', type: 'float' as const }]
+
     constructor(
-        inputShape: [number, number, number], 
+        volumeShape: [number, number, number], 
         permute: Permute = [0,1,2], 
         reverse: Reverse = []
     ) {
-        const [inDepth, inHeight, inWidth] = inputShape
-        const [outDepth, outHeight, outWidth] = inputShape.map(x => x + 1)
-        this.outputShape = [outDepth, outHeight, outWidth]  
-
+        
         const transformOffset = (ox: number, oy: number, oz: number): string => 
         {
             const old = applyPermutation([oz, oy, ox], permute)
-
             for (const a of reverse) old[a] = 1 - old[a]
-            
             return old.toReversed().join(',')
         }
 
+        const [inDepth, inHeight, inWidth] = volumeShape
+        const [outDepth, outHeight, outWidth] = volumeShape.map(x => x + 1)
+        this.outputShape = [outDepth, outHeight, outWidth]  
         this.userCode = `
-        const float epsilon = 0.01; 
-        const vec4 tolerance = vec4(-epsilon);
-
-        const float minValue = 0.0;
-        const float maxValue = 1.0;
-
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
@@ -585,11 +421,6 @@ class UnidirectionalShadowMap implements GPGPUProgram
             vec4 d111; 
         }; 
 
-        float min4(vec4 v) 
-        {
-            return min(min(min(v.x, v.y), v.z), v.w); 
-        }
-
         bool inBounds(ivec3 coords)
         {
             return  
@@ -603,32 +434,29 @@ class UnidirectionalShadowMap implements GPGPUProgram
             return ivec3(coords.z, coords.y, coords.x);
         }
 
-        ivec3 getVoxelCoords(ivec3 coords, int ox, int oy, int oz)
+        vec4 getAAt(ivec3 coords)
         {
-            return coords + ivec3(ox, oy, oz);
-        }
-
-        vec4 getA(ivec3 coords)
-        {
+            coords = clamp(coords, minCoords, maxCoords);
+            
             if (inBounds(coords)) 
                 return getA(coords.z, coords.y, coords.x, 0, 0);
             else
-                return vec4(minValue);
+                return vec4(0.0);
         }
 
-        CellValues getValues(ivec3 cCoords)
+        CellValues getValues(ivec3 cellCoords)
         {
-            CellValues c;
-            ivec3 coords = cCoords - 1;
+            ivec3 voxelCoords = cellCoords - 1;
 
-            c.d000 = getA(getVoxelCoords(coords, ${transformOffset(0,0,0)}));
-            c.d010 = getA(getVoxelCoords(coords, ${transformOffset(0,1,0)}));
-            c.d100 = getA(getVoxelCoords(coords, ${transformOffset(1,0,0)}));
-            c.d110 = getA(getVoxelCoords(coords, ${transformOffset(1,1,0)}));
-            c.d001 = getA(getVoxelCoords(coords, ${transformOffset(0,0,1)}));
-            c.d011 = getA(getVoxelCoords(coords, ${transformOffset(0,1,1)}));
-            c.d101 = getA(getVoxelCoords(coords, ${transformOffset(1,0,1)}));
-            c.d111 = getA(getVoxelCoords(coords, ${transformOffset(1,1,1)}));
+            CellValues c;
+            c.d000 = getAAt(voxelCoords + ivec3(${transformOffset(0,0,0)}));
+            c.d010 = getAAt(voxelCoords + ivec3(${transformOffset(0,1,0)}));
+            c.d100 = getAAt(voxelCoords + ivec3(${transformOffset(1,0,0)}));
+            c.d110 = getAAt(voxelCoords + ivec3(${transformOffset(1,1,0)}));
+            c.d001 = getAAt(voxelCoords + ivec3(${transformOffset(0,0,1)}));
+            c.d011 = getAAt(voxelCoords + ivec3(${transformOffset(0,1,1)}));
+            c.d101 = getAAt(voxelCoords + ivec3(${transformOffset(1,0,1)}));
+            c.d111 = getAAt(voxelCoords + ivec3(${transformOffset(1,1,1)}));
 
             return c;
         }
@@ -636,36 +464,35 @@ class UnidirectionalShadowMap implements GPGPUProgram
         bool isShadowed(CellValues c)
         {            
             return  
-                all(greaterThan(c.d111, tolerance)) &&
-                all(greaterThan(c.d101, tolerance)) &&
-                all(greaterThan(c.d011, tolerance)) &&
-                all(greaterThan(c.d001, tolerance));
+                all(greaterThan(c.d111, vec4(-tolerance))) &&
+                all(greaterThan(c.d101, vec4(-tolerance))) &&
+                all(greaterThan(c.d011, vec4(-tolerance))) &&
+                all(greaterThan(c.d001, vec4(-tolerance)));
         }
 
-        bool isShadowed2(CellValues c)
-        {
-            float m = 0.0;
+        // bool isShadowed2(CellValues c)
+        // {
+        //     float m = 0.0;
 
-            m = min(m, c.d111.x); 
-            m = min(m, c.d111.y); 
-            m = min(m, c.d111.z); 
-            m = min(m, c.d111.w); 
-            m = min(m, c.d101.y); 
-            m = min(m, c.d101.w); 
-            m = min(m, c.d011.z); 
-            m = min(m, c.d011.w); 
-            m = min(m, c.d001.w); 
+        //     m = min(m, c.d111.x); 
+        //     m = min(m, c.d111.y); 
+        //     m = min(m, c.d111.z); 
+        //     m = min(m, c.d111.w); 
+        //     m = min(m, c.d101.y); 
+        //     m = min(m, c.d101.w); 
+        //     m = min(m, c.d011.z); 
+        //     m = min(m, c.d011.w); 
+        //     m = min(m, c.d001.w); 
 
-            return (m >= -epsilon);
-        }
-
+        //     return (m > -tolerance);
+        // }
 
         void main()
         {
-            ivec3 cCoords = getOutCoords();
-            CellValues c = getValues(cCoords);
+            ivec3 coords = getOutCoords();
+            CellValues cellValues = getValues(coords);
         
-            setOutput(float(isShadowed(c)));
+            setOutput(float(isShadowed(cellValues)));
         }
         `
     }
@@ -679,15 +506,14 @@ class BidirectionalShadowMap implements GPGPUProgram
     packedInputs = true
     packedOutput = true
 
-    constructor(outputShape: [number, number, number]) 
+    constructor(outputShape: [number, number, number], ) 
     {
-        const [outDepth, outHeight, outWidth] = outputShape
         this.outputShape = outputShape
         this.userCode = `
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
-
-        uvec4 toUint(vec4 v) { return uvec4(round(v)) & 1u; }
+        uvec4 toUint(vec4 v) 
+        { 
+            return uvec4(round(v)) & 1u; 
+        }
 
         ivec3 getOutCoords()
         {
@@ -695,15 +521,13 @@ class BidirectionalShadowMap implements GPGPUProgram
             return ivec3(coords.z, coords.y, coords.x);
         }
 
-        vec4 getA(ivec3 coords)
+        vec4 getAAt(ivec3 coords)
         {
-            coords = clamp(coords, minCoords, maxCoords);
             return getA(coords.z, coords.y, coords.x);
         }
 
-        vec4 getB(ivec3 coords)
+        vec4 getBAt(ivec3 coords)
         {
-            coords = clamp(coords, minCoords, maxCoords);
             return getB(coords.z, coords.y, coords.x);
         }
                 
@@ -711,8 +535,8 @@ class BidirectionalShadowMap implements GPGPUProgram
         {
             ivec3 coords = getOutCoords();
 
-            uvec4 sA = toUint(getA(coords));
-            uvec4 sB = toUint(getB(coords));
+            uvec4 sA = toUint(getAAt(coords));
+            uvec4 sB = toUint(getBAt(coords));
 
             setOutput(vec4(sA | sB));
         }
@@ -728,15 +552,14 @@ class AnisotropicBidirectionalShadowMap implements GPGPUProgram
     packedInputs = true
     packedOutput = true
 
-    constructor(outputShape: [number, number, number]) 
+    constructor(outputShape: [number, number, number], ) 
     {
-        const [outDepth, outHeight, outWidth] = outputShape
         this.outputShape = outputShape
         this.userCode = `
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
-
-        uvec4 toUint(vec4 v) { return uvec4(round(v)) & 1u; }
+        uvec4 toUint(vec4 v) 
+        { 
+            return uvec4(round(v)) & 1u; 
+        }
 
         ivec3 getOutCoords()
         {
@@ -744,27 +567,23 @@ class AnisotropicBidirectionalShadowMap implements GPGPUProgram
             return ivec3(coords.z, coords.y, coords.x);
         }
 
-        vec4 getA(ivec3 coords)
+        vec4 getAAt(ivec3 coords)
         {
-            coords = clamp(coords, minCoords, maxCoords);
             return getA(coords.z, coords.y, coords.x);
         }
 
-        vec4 getB(ivec3 coords)
+        vec4 getBAt(ivec3 coords)
         {
-            coords = clamp(coords, minCoords, maxCoords);
             return getB(coords.z, coords.y, coords.x);
         }
 
-        vec4 getC(ivec3 coords)
+        vec4 getCAt(ivec3 coords)
         {
-            coords = clamp(coords, minCoords, maxCoords);
             return getC(coords.z, coords.y, coords.x);
         }
 
-        vec4 getD(ivec3 coords)
+        vec4 getDAt(ivec3 coords)
         {
-            coords = clamp(coords, minCoords, maxCoords);
             return getD(coords.z, coords.y, coords.x);
         }
 
@@ -777,10 +596,10 @@ class AnisotropicBidirectionalShadowMap implements GPGPUProgram
         {
             ivec3 coords = getOutCoords();
 
-            uvec4 sA = toUint(getA(coords));
-            uvec4 sB = toUint(getB(coords));
-            uvec4 sC = toUint(getC(coords));
-            uvec4 sD = toUint(getD(coords));
+            uvec4 sA = toUint(getAAt(coords));
+            uvec4 sB = toUint(getBAt(coords));
+            uvec4 sC = toUint(getCAt(coords));
+            uvec4 sD = toUint(getDAt(coords));
 
             setOutput(vec4(bitpack(sA, sB, sC, sD)));
         }
@@ -798,13 +617,12 @@ class ExtendedAnisotropicBidirectionalShadowMap implements GPGPUProgram
 
     constructor(outputShape: [number, number, number]) 
     {
-        const [outDepth, outHeight, outWidth] = outputShape
         this.outputShape = outputShape
         this.userCode = `
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
-           
-        uvec4 toUint(vec4 v) { return uvec4(round(v)) & 15u; }
+        uvec4 toUint(vec4 v)
+        { 
+            return uvec4(round(v)) & 15u; 
+        }
 
         ivec3 getOutCoords()
         {
@@ -812,21 +630,18 @@ class ExtendedAnisotropicBidirectionalShadowMap implements GPGPUProgram
             return ivec3(coords.z, coords.y, coords.x);
         }
 
-        vec4 getA(ivec3 coords)
+        vec4 getAAt(ivec3 coords)
         {
-            coords = clamp(coords, minCoords, maxCoords);
             return getA(coords.z, coords.y, coords.x);
         }
 
-        vec4 getB(ivec3 coords)
+        vec4 getBAt(ivec3 coords)
         {
-            coords = clamp(coords, minCoords, maxCoords);
             return getB(coords.z, coords.y, coords.x);
         }
 
-        vec4 getC(ivec3 coords)
+        vec4 getCAt(ivec3 coords)
         {
-            coords = clamp(coords, minCoords, maxCoords);
             return getC(coords.z, coords.y, coords.x);
         }
 
@@ -840,9 +655,9 @@ class ExtendedAnisotropicBidirectionalShadowMap implements GPGPUProgram
         {
             ivec3 coords = getOutCoords();
 
-            uvec4 sA = toUint(getA(coords));
-            uvec4 sB = toUint(getB(coords));
-            uvec4 sC = toUint(getC(coords));
+            uvec4 sA = toUint(getAAt(coords));
+            uvec4 sB = toUint(getBAt(coords));
+            uvec4 sC = toUint(getCAt(coords));
 
             setOutput(vec4(bitpack(sA, sB, sC)));
         }
@@ -861,13 +676,12 @@ class UnpackAnisotropicBidirectionalShadowMap implements GPGPUProgram
 
     constructor(outputShape: [number, number, number]) 
     {
-        const [outDepth, outHeight, outWidth] = outputShape
         this.outputShape = outputShape
         this.userCode = `
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
-
-        uvec4 toUint(vec4 v) { return uvec4(round(v)) & 15u; }
+        uvec4 toUint(vec4 v) 
+        { 
+            return uvec4(round(v)) & 15u; 
+        }
 
         ivec3 getOutCoords() 
         {
@@ -875,9 +689,8 @@ class UnpackAnisotropicBidirectionalShadowMap implements GPGPUProgram
             return ivec3(c.z, c.y, c.x);
         }
 
-        vec4 getA(ivec3 coords) 
+        vec4 getAAt(ivec3 coords) 
         {
-            coords = clamp(coords, minCoords, maxCoords);
             return getA(coords.z, coords.y, coords.x);
         }
 
@@ -885,7 +698,7 @@ class UnpackAnisotropicBidirectionalShadowMap implements GPGPUProgram
         {
             ivec3 coords = getOutCoords();
 
-            uvec4 u = toUint(getA(coords));
+            uvec4 u = toUint(getAAt(coords));
             uvec4 s = (u >> map) & 1u;
 
             setOutput(vec4(s));
@@ -905,23 +718,21 @@ class UnpackExtendedAnisotropicBidirectionalShadowMap implements GPGPUProgram
 
     constructor(outputShape: [number, number, number]) 
     {
-        const [outDepth, outHeight, outWidth] = outputShape
         this.outputShape = outputShape
         this.userCode = `
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
-
-        ivec4 toInt(vec4 v) { return clamp(ivec4(round(v)), -2048, 2047); }
+        ivec4 toInt(vec4 v) 
+        { 
+            return clamp(ivec4(round(v)), -2048, 2047); 
+        }
 
         ivec3 getOutCoords() 
         {
-            ivec3 c = getOutputCoords();
-            return ivec3(c.z, c.y, c.x);
+            ivec3 coords = getOutputCoords();
+            return ivec3(coords.z, coords.y, coords.x);
         }
 
-        vec4 getA(ivec3 coords) 
+        vec4 getAAt(ivec3 coords) 
         {
-            coords = clamp(coords, minCoords, maxCoords);
             return getA(coords.z, coords.y, coords.x);
         }
 
@@ -929,7 +740,7 @@ class UnpackExtendedAnisotropicBidirectionalShadowMap implements GPGPUProgram
         {
             ivec3 coords = getOutCoords();
 
-            ivec4 v = toInt(getA(coords)); // -2048..2047 half float precision 
+            ivec4 v = toInt(getAAt(coords)); // -2048..2047 half float precision 
             uvec4 u = uvec4(v + ivec4(2048)); // 0..4095
             uvec4 s = (u >> map) & 1u;
 
@@ -1024,7 +835,7 @@ function propagateUnidirectionalDifferenceSlices(
     return differences
 }
 
-function propagatedUnidirectionalDifferenceMap(
+function unidirectionalDifferenceMap(
     volume: tf.Tensor3D, 
     permute: Permute, 
     reverse: Reverse, 
@@ -1052,7 +863,7 @@ function unidirectionalGateMap(
     const program = new UnidirectionalGateMap(shape, permute, reverse)
     // const program = new UnidirectionalGateMap2(shape)
 
-    const shadows = runWebGLProgram(program, [differences], 'float32', [], true) 
+    const shadows = runWebGLProgram(program, [differences], 'float32', [[0.005]], true) 
     if (verbose) logTensor('shadows', shadows)
 
     return shadows as tf.Tensor3D
@@ -1068,7 +879,7 @@ function unidirectionalShadowMap(
     const shape = differences.shape.slice(0,3) as [number, number, number]
     const program = new UnidirectionalShadowMap(shape, permute, reverse)
 
-    const shadows = runWebGLProgram(program, [differences], 'float32', [], true)
+    const shadows = runWebGLProgram(program, [differences], 'float32', [[0.005]], true)
     tf.dispose(differences)
 
     if (verbose) logTensor('shadows', shadows)
@@ -1098,7 +909,7 @@ export function computeUnidirectionalShadowMap(
     verbose: boolean = false
 ) : tf.Tensor3D
 {
-    const differences = propagatedUnidirectionalDifferenceMap(volume, permute, reverse, verbose)
+    const differences = unidirectionalDifferenceMap(volume, permute, reverse, verbose)
     const shadows = unidirectionalShadowMap(differences, permute, reverse, verbose)
 
     return shadows as tf.Tensor3D
@@ -1183,7 +994,7 @@ export function computeBidirectionalShadowMapDebug(
     verbose: boolean = false
 ) : tf.Tensor3D
 {
-    const forwardDifferences = propagatedUnidirectionalDifferenceMap(volume, permute, reverse)
+    const forwardDifferences = unidirectionalDifferenceMap(volume, permute, reverse)
     if (verbose) logTensor('forwardDifferences', forwardDifferences)
 
     const forwardGates = unidirectionalGateMap(forwardDifferences, permute, reverse)

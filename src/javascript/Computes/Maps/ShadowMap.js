@@ -17,7 +17,8 @@ export default class OcclusionMap
     async computeTensor()
     {
         console.time('computeTensor') 
-        this.tensor = await S0.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, true)
+        // tf.tidy(() => S0.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, true))
+        this.tensor = S2.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, true)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.toReversed())
         console.timeEnd('computeTensor') 
     }

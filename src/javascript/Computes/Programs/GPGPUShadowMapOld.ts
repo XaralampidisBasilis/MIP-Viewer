@@ -1087,7 +1087,6 @@ function bidirectionalShadowMap(
     return shadows as tf.Tensor3D
 }
 
-// sync functions 
 
 export function computeUnidirectionalShadowMap(
     volume: tf.Tensor3D, 
@@ -1131,6 +1130,34 @@ export function computeBidirectionalShadowMap(
     return bidirectionalShadows as tf.Tensor3D
 }
 
+export function computeBestBidirectionalShadowMap(
+    volume: tf.Tensor3D, 
+    permute: Permute, 
+    reverse: Reverse, 
+    verbose: boolean = false
+) : tf.Tensor3D
+{
+    const forwardBidirectionalShadows = computeBidirectionalShadowMap(volume, permute, reverse)
+    if (verbose) logTensor('forwardBidirectionalShadows', forwardBidirectionalShadows)
+
+    const backwardBidirectionalShadows = computeBidirectionalShadowMap(volume, permute, complementReverse(reverse))
+    if (verbose) logTensor('backwardBidirectionalShadows', backwardBidirectionalShadows)
+
+    const forwardMean = tf.tidy(() => forwardBidirectionalShadows.mean([0,1,2]).dataSync())
+    const backwardMean = tf.tidy(() => backwardBidirectionalShadows.mean([0,1,2]).dataSync())
+
+    if (forwardMean > backwardMean)
+    {
+        tf.dispose(backwardBidirectionalShadows)
+        return forwardBidirectionalShadows as tf.Tensor3D
+    }
+    else
+    {
+        tf.dispose(forwardBidirectionalShadows)
+        return backwardBidirectionalShadows as tf.Tensor3D
+    }
+}
+
 export function computeAnisotropicBidirectionalShadowMap(
     volume: tf.Tensor3D, 
     permute: Permute, 
@@ -1143,10 +1170,10 @@ export function computeAnisotropicBidirectionalShadowMap(
     const reverseD = permute.slice(1, 3) as Reverse
 
     const shadowMaps = [
-        computeBidirectionalShadowMap(volume, permute, reverseA),
-        computeBidirectionalShadowMap(volume, permute, reverseB),
-        computeBidirectionalShadowMap(volume, permute, reverseC),
-        computeBidirectionalShadowMap(volume, permute, reverseD),
+        computeUnidirectionalShadowMap(volume, permute, reverseA),
+        computeUnidirectionalShadowMap(volume, permute, reverseB),
+        computeUnidirectionalShadowMap(volume, permute, reverseC),
+        computeUnidirectionalShadowMap(volume, permute, reverseD),
     ]
 
     const program = new AnisotropicBidirectionalShadowMap(shadowMaps[0].shape)
@@ -1182,159 +1209,52 @@ export function computeExtendedAnisotropicBidirectionalShadowMap(
     return shadowMap 
 }
 
-// base comparison 
+// helper functions
 
-export function computeUnidirectionalShadowMapBase(
-    volume: tf.Tensor3D, 
-    mask: tf.Tensor3D | undefined, 
-    permute: Permute, 
-    reverse: Reverse, 
-    verbose: boolean = false
-) : tf.Tensor3D
+function logTensor(name: string, tensor: tf.Tensor)
 {
-    const reversed = volume.reverse(reverse) as tf.Tensor3D
-    const transposed = reversed.transpose(permute) as tf.Tensor3D
-    tf.dispose(reversed)
-
-    const minima = unidirectionalMinimaMap(transposed, [0,1,2], [], verbose)
-    const maxima = unidirectionalMaximaMap(transposed, [0,1,2], [], verbose)
-    tf.dispose(transposed)
-
-    const shape = minima.shape.slice(0,3) as [number, number, number]
-    const program = new UnidirectionalShadowMap(shape, [0,1,2], [])
-    const shadows = runWebGLProgram(program, [minima, maxima], 'float32', [], true) as tf.Tensor3D
-    tf.dispose([minima, maxima])
-    if (verbose) logTensor('shadows', shadows)
-
-    const untransposed = shadows.transpose(inversePermutation(permute))
-    tf.dispose(shadows)
-    const unreversed = untransposed.reverse(reverse)
-    tf.dispose(untransposed)
-
-    return unreversed as tf.Tensor3D
+    console.log(name, tf.tidy(() => tensor.mean([0,1,2]).dataSync())) 
 }
 
-export function computeBidirectionalShadowMapBase(
-    volume: tf.Tensor3D, 
-    permute: Permute, 
-    reverse: Reverse, 
-    verbose: boolean = false
-) : tf.Tensor3D
+function logAnisotropicBidirectionalShadowMaps(shadowMaps: tf.Tensor3D)
 {
-    const shadows = computeUnidirectionalShadowMapBase(volume, undefined, permute, reverse)
-    if (verbose) logTensor('shadows', shadows)
-        
-    const invShadows = computeUnidirectionalShadowMapBase(volume, shadows, permute, complementReverse(reverse))
-    if (verbose) logTensor('invShadows', invShadows)
+    const unpack = new UnpackAnisotropicBidirectionalShadowMap(shadowMaps.shape)
 
-    const or = new BidirectionalShadowMap(shadows.shape)
-    const biShadows = runWebGLProgram(or, [shadows, invShadows], 'float32', [], true) as tf.Tensor3D
-    tf.dispose([shadows, invShadows])
-    if (verbose) logTensor('biShadows', biShadows)
-
-    return biShadows as tf.Tensor3D
+    console.log('shadowMap0', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[0]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMap1', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[1]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMap2', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[2]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMap3', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[3]]).mean([0,1,2]).dataSync())) 
 }
 
-export function computeAnisotropicBidirectionalShadowMapBase(
-    volume: tf.Tensor3D, 
-    permute: Permute, 
-    verbose: boolean = false
-) : tf.Tensor3D
+function logExtendedAnisotropicBidirectionalShadowMaps(shadowMaps: tf.Tensor3D)
 {
-    const reverseA = permute.slice(1, 1) as Reverse
-    const reverseB = permute.slice(1, 2) as Reverse
-    const reverseC = permute.slice(2, 3) as Reverse
-    const reverseD = permute.slice(1, 3) as Reverse
+    const unpack = new UnpackExtendedAnisotropicBidirectionalShadowMap(shadowMaps.shape)
 
-    const shadowMaps = [
-        computeBidirectionalShadowMapBase(volume, permute, reverseA),
-        computeBidirectionalShadowMapBase(volume, permute, reverseB),
-        computeBidirectionalShadowMapBase(volume, permute, reverseC),
-        computeBidirectionalShadowMapBase(volume, permute, reverseD),
-    ]
-
-    const program = new AnisotropicBidirectionalShadowMap(shadowMaps[0].shape)
-    const shadowMap = runWebGLProgram(program, shadowMaps, 'float32', [], true) as tf.Tensor3D
-    tf.dispose(shadowMaps)
-
-    if (verbose) logAnisotropicBidirectionalShadowMaps(shadowMap)
-
-    return shadowMap 
+    console.log('shadowMapX0', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 0]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapX1', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 1]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapX2', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 2]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapX3', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 3]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapY0', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 4]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapY1', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 5]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapY2', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 6]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapY3', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 7]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapZ0', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 8]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapZ1', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 9]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapZ2', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[10]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapZ3', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[11]]).mean([0,1,2]).dataSync())) 
 }
 
-export function computeExtendedAnisotropicBidirectionalShadowMapBase(
-    volume: tf.Tensor3D, 
-    verbose: boolean = false
-) : tf.Tensor3D
+function runWebGLProgram(
+    prog: GPGPUProgram, 
+    inputs: tf.Tensor[], 
+    dtype?: tf.DataType, 
+    customValues?: number[][], 
+    preventEagerUnpackingOfOutput?: boolean): tf.Tensor
 {
-    const permuteX = [2,1,0] as Permute
-    const permuteY = [1,2,0] as Permute
-    const permuteZ = [0,1,2] as Permute
-
-    const shadowMaps = [
-        computeAnisotropicBidirectionalShadowMapBase(volume, permuteX),
-        computeAnisotropicBidirectionalShadowMapBase(volume, permuteY),
-        computeAnisotropicBidirectionalShadowMapBase(volume, permuteZ),
-    ]
-
-    const program = new ExtendedAnisotropicBidirectionalShadowMap(shadowMaps[0].shape)
-    const shadowMap = runWebGLProgram(program, shadowMaps, 'int32', [], true) as tf.Tensor3D
-    tf.dispose(shadowMaps)
-
-    if (verbose) logExtendedAnisotropicBidirectionalShadowMaps(shadowMap)
-
-    return shadowMap 
+    const backend = tf.backend() as MathBackendWebGL
+    const info = backend.compileAndRun(prog, inputs, dtype, customValues, preventEagerUnpackingOfOutput)
+    return tf.engine().makeTensorFromTensorInfo(info) 
 }
-
-// debug
-
-export async function computeExtendedAnisotropicBidirectionalShadowMapDebug(
-    volume: tf.Tensor3D, 
-    verbose: boolean = false
-) : Promise<tf.Tensor3D>
-{
-    let o1,o2,o3,o4,ox,oy,oz
-
-    // let t = computeUnidirectionalShadowMap(volume, [0,1,2], [])
-    // let t = computeUnidirectionalShadowMap(volume, [0,1,2], [0,1,2])
-    let t = computeBidirectionalShadowMap(volume, [0, 1, 2], [], true)
-
-    o1 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [   ])
-    o2 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [  1])
-    o3 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [  0])
-    o4 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [1,0])
-
-    ox = runWebGLProgram(new AnisotropicBidirectionalShadowMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
-    tf.dispose([o1,o2,o3,o4])
-   
-    o1 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [1,2,0], [   ])
-    o2 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [1,2,0], [  2])
-    o3 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [1,2,0], [  0])
-    o4 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [1,2,0], [2,0])
-
-    oy = runWebGLProgram(new AnisotropicBidirectionalShadowMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
-    tf.dispose([o1,o2,o3,o4])
-
-    o1 = tf.clone(t) // computeBidirectionalShadowMap(volume, [0,1,2], [   ])
-    o2 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [  1])
-    o3 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [  2])
-    o4 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [1,2])
-
-    oz = runWebGLProgram(new AnisotropicBidirectionalShadowMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
-    tf.dispose([o1,o2,o3,o4])
-
-
-    const o = runWebGLProgram(new ExtendedAnisotropicBidirectionalShadowMap(t.shape), [ox,oy,oz], 'int32', [], true) as tf.Tensor3D
-    tf.dispose([ox,oy,oz])
-
-    if (verbose) logExtendedAnisotropicBidirectionalShadowMaps(o)
-
-    tf.dispose(t)
-
-    return o 
-}
-
-// transform functions
 
 function complementReverse(reverse: Reverse): Reverse 
 {
@@ -1370,51 +1290,158 @@ function applyPermutation(newOffset: [number, number, number], permute: Permute)
     return oldOffset
 }
 
-// helper functions
+// DEBUG AND COMPARE
 
-function logTensor(name: string, tensor: tf.Tensor)
+export function computeUnidirectionalShadowMapDebug(
+    volume: tf.Tensor3D, 
+    permute: Permute, 
+    reverse: Reverse, 
+    verbose: boolean = false
+) : tf.Tensor3D
 {
-    console.log(name, tf.tidy(() => tensor.mean([0,1,2]).dataSync())) 
+    const reversed = volume.reverse(reverse) as tf.Tensor3D
+    const transposed = reversed.transpose(permute) as tf.Tensor3D
+    tf.dispose(reversed)
+
+    const minima = unidirectionalMinimaMap(transposed, [0,1,2], [])
+    if (verbose) logTensor('minima', minima)
+
+    const maxima = unidirectionalMaximaMap(transposed, [0,1,2], [])
+    if (verbose) logTensor('maxima', maxima)
+
+    tf.dispose(transposed)
+
+    const shadows = unidirectionalShadowMap(minima, maxima, [0,1,2], [])
+    if (verbose) logTensor('shadows', shadows)
+
+    const untransposed = shadows.transpose(inversePermutation(permute))
+    tf.dispose(shadows)
+    const unreversed = untransposed.reverse(reverse)
+    tf.dispose(untransposed)
+
+    return unreversed as tf.Tensor3D
 }
 
-function logAnisotropicBidirectionalShadowMaps(shadowMaps: tf.Tensor3D)
+export function computeBidirectionalShadowMapDebug(
+    volume: tf.Tensor3D, 
+    permute: Permute, 
+    reverse: Reverse, 
+    verbose: boolean = false
+) : tf.Tensor3D
 {
-    const unpack = new UnpackAnisotropicBidirectionalShadowMap(shadowMaps.shape)
-    const size = shadowMaps.size
+    const reversed = volume.reverse(reverse) as tf.Tensor3D
+    const transposed = reversed.transpose(permute) as tf.Tensor3D
+    tf.dispose(reversed)
+    
+    const forwardShadows = computeUnidirectionalShadowMap(volume, permute, reverse)
+    if (verbose) logTensor('forwardShadows', forwardShadows)
 
-    console.log('shadowMap0', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[0]]).mean([0,1,2]).dataSync())) 
-    console.log('shadowMap1', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[1]]).mean([0,1,2]).dataSync())) 
-    console.log('shadowMap2', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[2]]).mean([0,1,2]).dataSync())) 
-    console.log('shadowMap3', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[3]]).mean([0,1,2]).dataSync())) 
+    const backwardReverse = complementReverse(reverse)
+    const backwardMinima = hollowUnidirectionalMinimaMap(volume, forwardShadows, permute, backwardReverse)
+    const backwardMaxima = unidirectionalMaximaMap(volume, permute, backwardReverse)
+
+    const backwardShadows = unidirectionalShadowMap(backwardMinima, backwardMaxima, permute, backwardReverse)
+    if (verbose) logTensor('backwardShadows', backwardShadows)
+
+    const bidirectionalShadows = bidirectionalShadowMap(forwardShadows, backwardShadows)
+    if (verbose) logTensor('bidirectionalShadows', bidirectionalShadows)
+
+    return bidirectionalShadows as tf.Tensor3D
 }
 
-function logExtendedAnisotropicBidirectionalShadowMaps(shadowMaps: tf.Tensor3D)
+export function computeAnisotropicBidirectionalShadowMapDebug(
+    volume: tf.Tensor3D, 
+    permute: Permute, 
+    verbose: boolean = false
+) : tf.Tensor3D
 {
-    const unpack = new UnpackExtendedAnisotropicBidirectionalShadowMap(shadowMaps.shape)
-    const size = shadowMaps.size
+    const reverseA = permute.slice(1, 1) as Reverse
+    const reverseB = permute.slice(1, 2) as Reverse
+    const reverseC = permute.slice(2, 3) as Reverse
+    const reverseD = permute.slice(1, 3) as Reverse
 
-    console.log('shadowMapX0', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 0]]).mean([0,1,2]).dataSync())) 
-    console.log('shadowMapX1', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 1]]).mean([0,1,2]).dataSync())) 
-    console.log('shadowMapX2', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 2]]).mean([0,1,2]).dataSync())) 
-    console.log('shadowMapX3', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 3]]).mean([0,1,2]).dataSync())) 
-    console.log('shadowMapY0', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 4]]).mean([0,1,2]).dataSync())) 
-    console.log('shadowMapY1', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 5]]).mean([0,1,2]).dataSync())) 
-    console.log('shadowMapY2', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 6]]).mean([0,1,2]).dataSync())) 
-    console.log('shadowMapY3', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 7]]).mean([0,1,2]).dataSync())) 
-    console.log('shadowMapZ0', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 8]]).mean([0,1,2]).dataSync())) 
-    console.log('shadowMapZ1', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 9]]).mean([0,1,2]).dataSync())) 
-    console.log('shadowMapZ2', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[10]]).mean([0,1,2]).dataSync())) 
-    console.log('shadowMapZ3', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[11]]).mean([0,1,2]).dataSync())) 
+    const shadowMaps = [
+        computeBidirectionalShadowMap(volume, permute, reverseA),
+        computeBidirectionalShadowMap(volume, permute, reverseB),
+        computeBidirectionalShadowMap(volume, permute, reverseC),
+        computeBidirectionalShadowMap(volume, permute, reverseD),
+    ]
+
+    const program = new AnisotropicBidirectionalShadowMap(shadowMaps[0].shape)
+    const shadowMap = runWebGLProgram(program, shadowMaps, 'float32', [], true) as tf.Tensor3D
+    tf.dispose(shadowMaps)
+
+    if (verbose) logAnisotropicBidirectionalShadowMaps(shadowMap)
+
+    return shadowMap 
 }
 
-function runWebGLProgram(
-    prog: GPGPUProgram, 
-    inputs: tf.Tensor[], 
-    dtype?: tf.DataType, 
-    customValues?: number[][], 
-    preventEagerUnpackingOfOutput?: boolean): tf.Tensor
+export function computeExtendedAnisotropicBidirectionalShadowMapDebug(
+    volume: tf.Tensor3D, 
+    verbose: boolean = false
+) : tf.Tensor3D
 {
-    const backend = tf.backend() as MathBackendWebGL
-    const info = backend.compileAndRun(prog, inputs, dtype, customValues, preventEagerUnpackingOfOutput)
-    return tf.engine().makeTensorFromTensorInfo(info) 
+    const permuteX = [2,1,0] as Permute
+    const permuteY = [1,2,0] as Permute
+    const permuteZ = [0,1,2] as Permute
+
+    const shadowMaps = [
+        computeAnisotropicBidirectionalShadowMap(volume, permuteX),
+        computeAnisotropicBidirectionalShadowMap(volume, permuteY),
+        computeAnisotropicBidirectionalShadowMap(volume, permuteZ),
+    ]
+
+    const program = new ExtendedAnisotropicBidirectionalShadowMap(shadowMaps[0].shape)
+    const shadowMap = runWebGLProgram(program, shadowMaps, 'int32', [], true) as tf.Tensor3D
+    tf.dispose(shadowMaps)
+
+    if (verbose) logExtendedAnisotropicBidirectionalShadowMaps(shadowMap)
+
+    return shadowMap 
+}
+
+export function computeExtendedAnisotropicBidirectionalShadowMapSingular(
+    volume: tf.Tensor3D, 
+    verbose: boolean = false
+) : tf.Tensor3D
+{
+    let o1,o2,o3,o4,ox,oy,oz
+
+    // let t = computeUnidirectionalShadowMap(volume, [0,1,2], [])
+    // let t = computeUnidirectionalShadowMap(volume, [0,1,2], [0,1,2])
+    let t = computeUnidirectionalShadowMap(volume, [0,1,2], [], true)
+
+    o1 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [   ])
+    o2 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [  1])
+    o3 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [  0])
+    o4 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [2,1,0], [1,0])
+
+    ox = runWebGLProgram(new AnisotropicBidirectionalShadowMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
+    tf.dispose([o1,o2,o3,o4])
+   
+    o1 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [1,2,0], [   ])
+    o2 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [1,2,0], [  2])
+    o3 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [1,2,0], [  0])
+    o4 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [1,2,0], [2,0])
+
+    oy = runWebGLProgram(new AnisotropicBidirectionalShadowMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
+    tf.dispose([o1,o2,o3,o4])
+
+    o1 = tf.clone(t) // computeBidirectionalShadowMap(volume, [0,1,2], [   ])
+    o2 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [  1])
+    o3 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [  2])
+    o4 = tf.onesLike(t) // computeBidirectionalShadowMap(volume, [0,1,2], [1,2])
+
+    oz = runWebGLProgram(new AnisotropicBidirectionalShadowMap(t.shape), [o1,o2,o3,o4], 'float32', [], true) as tf.Tensor3D
+    tf.dispose([o1,o2,o3,o4])
+
+
+    const o = runWebGLProgram(new ExtendedAnisotropicBidirectionalShadowMap(t.shape), [ox,oy,oz], 'int32', [], true) as tf.Tensor3D
+    tf.dispose([ox,oy,oz])
+
+    if (verbose) logExtendedAnisotropicBidirectionalShadowMaps(o)
+
+    tf.dispose(t)
+
+    return o 
 }
