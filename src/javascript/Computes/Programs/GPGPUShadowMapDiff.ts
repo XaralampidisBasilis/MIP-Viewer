@@ -178,8 +178,10 @@ class PropagateUnidirectionalDifferenceSlices implements GPGPUProgram
             float m100 = min4(d100);
             float m110 = min4(d110);
 
-            vec4 m111 = vec4(m000, m010, m100, m110);
-            d111 += max(m111, 0.0);
+            d111.x += max(m000, 0.0);
+            d111.y += max(m010, 0.0);
+            d111.z += max(m100, 0.0);
+            d111.w += max(m110, 0.0);
 
             setOutput(d111);
         }
@@ -274,24 +276,30 @@ class PropagateGatedUnidirectionalDifferenceSlices implements GPGPUProgram
         }
 
 
-        float getG(ivec3 coords)
+        // float getG(ivec3 coords)
+        // {
+        //     coords = ivec3(${substituteSlice('coords.x', 'coords.y', 'coords.z')});
+        //     vec4 v = getG(coords.z, coords.y, coords.x);
+
+        //     bool yEven = (coords.y & 1) == 0;
+        //     bool xEven = (coords.x & 1) == 0;
+
+        //     if (yEven) 
+        //         return xEven ? v.r : v.g;
+        //     else 
+        //         return xEven ? v.b : v.a;
+        // }
+
+        vec4 getG(ivec3 coords)
         {
             coords = ivec3(${substituteSlice('coords.x', 'coords.y', 'coords.z')});
-            vec4 v = getG(coords.z, coords.y, coords.x);
-
-            bool yEven = (coords.y & 1) == 0;
-            bool xEven = (coords.x & 1) == 0;
-
-            if (yEven) 
-                return xEven ? v.r : v.g;
-            else 
-                return xEven ? v.b : v.a;
+            return getG(coords.z, coords.y, coords.x, 0, 0);
         }
 
         void main()
         {
             ivec3 coords = getOutCoords();
-            bool gate = (getG(coords) > 0.5);
+            bvec4 gates = greaterThan(getG(coords), vec4(0.5));
 
             vec4 d111 = getA(getVoxelCoords(coords, ${transformOffset(-0,-0,-0)}));
             vec4 d110 = getB(getVoxelCoords(coords, ${transformOffset(-0,-0,-1)}));
@@ -304,10 +312,10 @@ class PropagateGatedUnidirectionalDifferenceSlices implements GPGPUProgram
             float m100 = min4(d100);
             float m110 = min4(d110);
 
-            vec4 m111 = vec4(m000, m010, m100, m110);
-            if (gate) m111 = max(m111, 0.0);
-
-            d111 += m111;
+            d111.x += gates.x ? max(m000, 0.0) : m000;
+            d111.y += gates.y ? max(m010, 0.0) : m010;
+            d111.z += gates.z ? max(m100, 0.0) : m100;
+            d111.w += gates.w ? max(m110, 0.0) : m110;
 
             setOutput(d111);
         }
@@ -321,15 +329,15 @@ class UnidirectionalGateMap implements GPGPUProgram
     outputShape: number[]
     userCode: string
     packedInputs = true
-    packedOutput = false
+    packedOutput = true
 
     constructor(
-        inputShape: [number, number, number], 
+        outputShape: [number, number, number, 2, 2], 
         permute: Permute = [0,1,2], 
         reverse: Reverse = []
     ) {
-        const [inDepth, inHeight, inWidth] = inputShape
-        this.outputShape = [inDepth, inHeight, inWidth]
+        const [inDepth, inHeight, inWidth] = outputShape
+        this.outputShape = outputShape
         
         const transformOffset = (ox: number, oy: number, oz: number): string => 
         {
@@ -358,7 +366,7 @@ class UnidirectionalGateMap implements GPGPUProgram
 
         ivec3 getOutCoords()
         {
-            ivec3 coords = getOutputCoords();
+            ivec5 coords = getOutputCoords();
             return ivec3(coords.z, coords.y, coords.x);
         }
 
@@ -384,17 +392,21 @@ class UnidirectionalGateMap implements GPGPUProgram
             vec4 d101 = getA(getVoxelCoords(coords, ${transformOffset(1,0,1)}));
             vec4 d111 = getA(getVoxelCoords(coords, ${transformOffset(1,1,1)}));
 
-            // vec4 d000 = vec4(d111.x, d101.y, d011.z, d001.w);
-            // setOutput(float(all(greaterThanEqual(d000, vec4(0.0)))));
+            // bool g111 = d111.x >= 0.0;
+            // bool g101 = d101.y >= 0.0;
+            // bool g011 = d011.z >= 0.0;
+            // bool g001 = d001.w >= 0.0;
+
+            // setOutput(vec4(g001, g011, g101, g111));
 
             const vec4 threshold = vec4(0.0);
 
-            bool b001 = all(greaterThanEqual(d001, threshold));
-            bool b011 = all(greaterThanEqual(d011, threshold));
-            bool b101 = all(greaterThanEqual(d101, threshold));
-            bool b111 = all(greaterThanEqual(d111, threshold));
+            bool g001 = any(greaterThan(d001, threshold));
+            bool g011 = any(greaterThan(d011, threshold));
+            bool g101 = any(greaterThan(d101, threshold));
+            bool g111 = any(greaterThan(d111, threshold));
 
-            setOutput(float(all(bvec4(b001, b011, b101, b111))));
+            setOutput(vec4(g001, g011, g101, g111));
         }
         `
     }
@@ -436,6 +448,95 @@ class UnidirectionalGateMap2 implements GPGPUProgram
     }
 }
 
+class UnidirectionalGateMap3 implements GPGPUProgram 
+{
+    variableNames = ['A']
+    outputShape: number[]
+    userCode: string
+    packedInputs = false
+    packedOutput = true
+
+    constructor(
+        outputShape: [number, number, number, 2, 2], 
+        permute: Permute = [0,1,2], 
+        reverse: Reverse = []
+    ) {
+        const [inDepth, inHeight, inWidth] = outputShape
+        this.outputShape = outputShape
+        
+        const transformOffset = (ox: number, oy: number, oz: number): string => 
+        {
+            const old = applyPermutation([oz, oy, ox], permute)
+
+            for (const a of reverse) old[a] = - old[a]
+            
+            return old.toReversed().join(',')
+        }
+
+        this.userCode = `
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
+
+        float min4(float a, float b, float c, float d) 
+        { 
+            return min(min(min(a, b), c), d); 
+        }
+
+        bool inBounds(ivec3 coords)
+        {
+            return 
+                all(greaterThanEqual(coords, minCoords)) && 
+                all(lessThanEqual(coords, maxCoords));
+        }
+
+        ivec3 getOutCoords()
+        {
+            ivec5 coords = getOutputCoords();
+            return ivec3(coords.z, coords.y, coords.x);
+        }
+
+        ivec3 getVoxelCoords(ivec3 coords, int ox, int oy, int oz)
+        {
+            return coords + ivec3(ox, oy, oz);
+        }
+
+        vec4 getA(ivec3 coords)
+        {
+            if (inBounds(coords)) 
+                return getA(coords.z, coords.y, coords.x, 0, 0);
+            else
+                return vec4(0.0);
+        }
+
+        void main()
+        {
+            ivec3 coords = getOutCoords();
+
+            vec4 d001 = getA(getVoxelCoords(coords, ${transformOffset(0,0,1)}));
+            vec4 d011 = getA(getVoxelCoords(coords, ${transformOffset(0,1,1)}));
+            vec4 d101 = getA(getVoxelCoords(coords, ${transformOffset(1,0,1)}));
+            vec4 d111 = getA(getVoxelCoords(coords, ${transformOffset(1,1,1)}));
+
+            // bool g111 = d111.x >= 0.0;
+            // bool g101 = d101.y >= 0.0;
+            // bool g011 = d011.z >= 0.0;
+            // bool g001 = d001.w >= 0.0;
+
+            // setOutput(vec4(g001, g011, g101, g111));
+
+            const vec4 threshold = vec4(0.0);
+
+            bool g001 = any(greaterThan(d001, threshold));
+            bool g011 = any(greaterThan(d011, threshold));
+            bool g101 = any(greaterThan(d101, threshold));
+            bool g111 = any(greaterThan(d111, threshold));
+
+            setOutput(vec4(g001, g011, g101, g111));
+        }
+        `
+    }
+}
+
 class UnidirectionalShadowMap implements GPGPUProgram 
 {
     variableNames = ['A']
@@ -463,9 +564,11 @@ class UnidirectionalShadowMap implements GPGPUProgram
         }
 
         this.userCode = `
+        const float epsilon = 0.01; 
+        const vec4 tolerance = vec4(-epsilon);
+
         const float minValue = 0.0;
         const float maxValue = 1.0;
-        const float epsilon = 0.0; // 0.001;
 
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
@@ -531,15 +634,31 @@ class UnidirectionalShadowMap implements GPGPUProgram
         }
 
         bool isShadowed(CellValues c)
-        {
-            const vec4 threshold = vec4(-epsilon);
-            
+        {            
             return  
-                all(greaterThan(c.d111, threshold)) &&
-                all(greaterThan(c.d101, threshold)) &&
-                all(greaterThan(c.d011, threshold)) &&
-                all(greaterThan(c.d001, threshold));
+                all(greaterThan(c.d111, tolerance)) &&
+                all(greaterThan(c.d101, tolerance)) &&
+                all(greaterThan(c.d011, tolerance)) &&
+                all(greaterThan(c.d001, tolerance));
         }
+
+        bool isShadowed2(CellValues c)
+        {
+            float m = 0.0;
+
+            m = min(m, c.d111.x); 
+            m = min(m, c.d111.y); 
+            m = min(m, c.d111.z); 
+            m = min(m, c.d111.w); 
+            m = min(m, c.d101.y); 
+            m = min(m, c.d101.w); 
+            m = min(m, c.d011.z); 
+            m = min(m, c.d011.w); 
+            m = min(m, c.d001.w); 
+
+            return (m >= -epsilon);
+        }
+
 
         void main()
         {
@@ -929,7 +1048,7 @@ function unidirectionalGateMap(
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const shape = differences.shape.slice(0,3) as [number, number, number]
+    const shape = differences.shape as [number, number, number, 2, 2]
     const program = new UnidirectionalGateMap(shape, permute, reverse)
     // const program = new UnidirectionalGateMap2(shape)
 
