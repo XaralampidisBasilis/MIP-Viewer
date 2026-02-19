@@ -1064,7 +1064,7 @@ function unidirectionalShadowMap(
     const shape = minima.shape.slice(0,3) as [number, number, number]
     const program = new UnidirectionalShadowMap(shape, permute, reverse)
 
-    const shadows = runWebGLProgram(program, [minima, maxima], 'float32', [[0.005]], true)
+    const shadows = runWebGLProgram(program, [minima, maxima], 'float32', [[0.01]], true)
     if (verbose) logTensor('shadows', shadows)
 
     tf.dispose([minima, maxima])

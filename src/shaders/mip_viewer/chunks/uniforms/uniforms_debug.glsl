@@ -7,6 +7,7 @@ struct UniformsDebug
     int max_groups;         
     int max_blocks;         
     int max_cells;             
+    int max_traces;             
     float variable1; 
     float variable2; 
     float variable3; 

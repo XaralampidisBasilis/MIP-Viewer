@@ -1,22 +1,21 @@
 
 
-vec3 quadratic_coeffs = vec3(cubic.coeffs.y, 2.0 * cubic.coeffs.z, 2.0 * cubic.coeffs.w);
 
-vec2 critical_points = quadratic_roots(quadratic_coeffs);
-critical_points = clamp(critical_points, 0.0, 1.0);
+vec4 c = cubic.coeffs;
+vec2 p = quadratic_roots(vec3(c.y, 2.0 * c.z, 3.0 * c.w));
+p = clamp(p, 0.0, 1.0);
 
-vec2 extrema_values = eval_poly(cubic.coeffs, critical_points);
+vec2 v_ext = eval_poly(c, p);
 
-vec4 candidate_values = vec4(cubic.values[0], extrema_values, cubic.values[3]);
-vec4 candidate_points = vec4(0.0, critical_points, 1.0);
+vec4 v = vec4(cubic.values[0], v_ext.x, v_ext.y, cubic.values[3]);
+vec4 t = vec4(0.0, p.x, p.y, 1.0);
 
-int i_max = argmax(candidate_values);
-float max_value = candidate_values[i_max];
-float argmax_point = candidate_points[i_max];
+int i_max = argmax(v);
+float v_max = v[i_max];
+float t_max = p[i_max];
 
-if (max_value > mip.value)
+if (v_max > mip.value) 
 {
-    mip.value = max_value;
-    mip.distance = mix(cell.entry_distance, cell.exit_distance, argmax_point);
+    mip.value = v_max;
+    mip.distance = mix(cell.entry_distance, cell.exit_distance, t_max);
 }
-

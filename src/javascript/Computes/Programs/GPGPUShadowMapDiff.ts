@@ -330,14 +330,7 @@ class UnidirectionalGateMap implements GPGPUProgram
             bool g011 = d011.z > -tolerance;
             bool g001 = d001.w > -tolerance;
 
-            setOutput(vec4(g001, g011, g101, g111));
-
-            // bool g001 = all(greaterThan(d001, vec4(-tolerance)));
-            // bool g011 = all(greaterThan(d011, vec4(-tolerance)));
-            // bool g101 = all(greaterThan(d101, vec4(-tolerance)));
-            // bool g111 = all(greaterThan(d111, vec4(-tolerance)));
-
-            // setOutput(vec4(g001, g011, g101, g111));
+            setOutput(vec4(g001, g101, g011, g111));
         }
         `
     }
@@ -348,32 +341,67 @@ class UnidirectionalGateMap2 implements GPGPUProgram
     variableNames = ['A']
     outputShape: number[]
     userCode: string
-    packedInputs = true
-    packedOutput = false
+    packedInputs = false
+    packedOutput = true
 
-    constructor(inputShape: [number, number, number]) 
-    {
-        this.outputShape = inputShape
+    constructor(
+        inputShape: [number, number, number], 
+        permute: Permute = [0,1,2], 
+        reverse: Reverse = []
+    ) {
+    
+        const transformOffset = (ox: number, oy: number, oz: number): string => 
+        {
+            const old = applyPermutation([oz, oy, ox], permute)
+            for (const a of reverse) old[a] = 1 - old[a]
+            return old.toReversed().join(',')
+        }
+
+        const [inDepth, inHeight, inWidth] = inputShape
+        this.outputShape = [inDepth-1, inHeight-1, inWidth-1, 2, 2]
         this.userCode = `
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
+
+        bool inBounds(ivec3 coords)
+        {
+            return 
+                all(greaterThanEqual(coords, minCoords)) && 
+                all(lessThanEqual(coords, maxCoords));
+        }
 
         ivec3 getOutCoords()
         {
-            ivec3 coords = getOutputCoords();
+            ivec5 coords = getOutputCoords();
             return ivec3(coords.z, coords.y, coords.x);
         }
 
-        vec4 getA(ivec3 coords)
+        float getAAt(ivec3 coords)
         {
-            return getA(coords.z, coords.y, coords.x, 0, 0);
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.z, coords.y, coords.x);
+        }
+
+        bool isShadowed(ivec3 coords)
+        {
+            return (getAAt(coords) > 0.5);
         }
 
         void main()
         {
             ivec3 coords = getOutCoords();
-            vec4 d = getA(coords);
-            bool b = all(greaterThanEqual(d, vec4(0.0)));
 
-            setOutput(float(b));
+            bool b000 = isShadowed(coords + ivec3(${transformOffset(0,0,1)}));
+            bool b010 = isShadowed(coords + ivec3(${transformOffset(0,1,1)}));
+            bool b100 = isShadowed(coords + ivec3(${transformOffset(1,0,1)}));
+            bool b110 = isShadowed(coords + ivec3(${transformOffset(1,1,1)}));
+
+            bool g000 = b000;
+            bool g010 = b010 || b000;
+            bool g100 = b100 || b000;
+            bool g110 = b110 || b100 || b010 || b000;
+
+            setOutput(vec4(g000, g010, g100, g110));
         }
         `
     }
@@ -403,8 +431,7 @@ class UnidirectionalShadowMap implements GPGPUProgram
         }
 
         const [inDepth, inHeight, inWidth] = volumeShape
-        const [outDepth, outHeight, outWidth] = volumeShape.map(x => x + 1)
-        this.outputShape = [outDepth, outHeight, outWidth]  
+        this.outputShape = volumeShape.map((x) => x + 1)
         this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
@@ -468,24 +495,13 @@ class UnidirectionalShadowMap implements GPGPUProgram
                 all(greaterThan(c.d101, vec4(-tolerance))) &&
                 all(greaterThan(c.d011, vec4(-tolerance))) &&
                 all(greaterThan(c.d001, vec4(-tolerance)));
+
+            // return  
+            //     all(greaterThan(c.d110, vec4(-tolerance))) &&
+            //     all(greaterThan(c.d100, vec4(-tolerance))) &&
+            //     all(greaterThan(c.d010, vec4(-tolerance))) &&
+            //     all(greaterThan(c.d000, vec4(-tolerance)));
         }
-
-        // bool isShadowed2(CellValues c)
-        // {
-        //     float m = 0.0;
-
-        //     m = min(m, c.d111.x); 
-        //     m = min(m, c.d111.y); 
-        //     m = min(m, c.d111.z); 
-        //     m = min(m, c.d111.w); 
-        //     m = min(m, c.d101.y); 
-        //     m = min(m, c.d101.w); 
-        //     m = min(m, c.d011.z); 
-        //     m = min(m, c.d011.w); 
-        //     m = min(m, c.d001.w); 
-
-        //     return (m > -tolerance);
-        // }
 
         void main()
         {
@@ -863,10 +879,25 @@ function unidirectionalGateMap(
     const program = new UnidirectionalGateMap(shape, permute, reverse)
     // const program = new UnidirectionalGateMap2(shape)
 
-    const shadows = runWebGLProgram(program, [differences], 'float32', [[0.005]], true) 
+    const shadows = runWebGLProgram(program, [differences], 'float32', [[0]], true) 
     if (verbose) logTensor('shadows', shadows)
 
     return shadows as tf.Tensor3D
+}
+
+function unidirectionalGateMap2(
+    shadows: tf.Tensor3D, 
+    permute: Permute, 
+    reverse: Reverse, 
+    verbose: boolean = false
+): tf.Tensor3D
+{
+    const program = new UnidirectionalGateMap2(shadows.shape, permute, reverse)
+
+    const gates = runWebGLProgram(program, [shadows], 'float32', [], true) 
+    if (verbose) logTensor('gates', gates)
+
+    return gates as tf.Tensor3D
 }
 
 function unidirectionalShadowMap(
@@ -879,7 +910,7 @@ function unidirectionalShadowMap(
     const shape = differences.shape.slice(0,3) as [number, number, number]
     const program = new UnidirectionalShadowMap(shape, permute, reverse)
 
-    const shadows = runWebGLProgram(program, [differences], 'float32', [[0.005]], true)
+    const shadows = runWebGLProgram(program, [differences], 'float32', [[0.01]], true)
     tf.dispose(differences)
 
     if (verbose) logTensor('shadows', shadows)
@@ -934,6 +965,33 @@ export function computeBidirectionalShadowMap(
     if (verbose) logTensor('shadows', shadows)
 
     return shadows as tf.Tensor3D
+}
+
+export function computeAnisotropicUnidirectionalShadowMap(
+    volume: tf.Tensor3D, 
+    permute: Permute, 
+    verbose: boolean = false
+) : tf.Tensor3D
+{
+    const reverseA = permute.slice(1, 1) as Reverse
+    const reverseB = permute.slice(1, 2) as Reverse
+    const reverseC = permute.slice(2, 3) as Reverse
+    const reverseD = permute.slice(1, 3) as Reverse
+
+    const shadowMaps = [
+        computeUnidirectionalShadowMap(volume, permute, reverseA),
+        computeUnidirectionalShadowMap(volume, permute, reverseB),
+        computeUnidirectionalShadowMap(volume, permute, reverseC),
+        computeUnidirectionalShadowMap(volume, permute, reverseD),
+    ]
+
+    const program = new AnisotropicBidirectionalShadowMap(shadowMaps[0].shape)
+    const shadowMap = runWebGLProgram(program, shadowMaps, 'float32', [], true) as tf.Tensor3D
+    tf.dispose(shadowMaps)
+
+    if (verbose) logAnisotropicBidirectionalShadowMaps(shadowMap)
+
+    return shadowMap 
 }
 
 export function computeAnisotropicBidirectionalShadowMap(
@@ -994,27 +1052,52 @@ export function computeBidirectionalShadowMapDebug(
     verbose: boolean = false
 ) : tf.Tensor3D
 {
+    const backwardReverse = complementReverse(reverse)
+
     const forwardDifferences = unidirectionalDifferenceMap(volume, permute, reverse)
     if (verbose) logTensor('forwardDifferences', forwardDifferences)
 
-    const forwardGates = unidirectionalGateMap(forwardDifferences, permute, reverse)
-    if (verbose) logTensor('forwardGates', forwardGates)
+    const backwardGates = unidirectionalGateMap(forwardDifferences, permute, reverse)
+    if (verbose) logTensor('backwardGates', backwardGates)
 
     const forwardShadows = unidirectionalShadowMap(forwardDifferences, permute, reverse)
     if (verbose) logTensor('forwardShadows', forwardShadows)
 
     tf.dispose(forwardDifferences)
 
-    const compReverse = complementReverse(reverse)
-    const backwardDifferences = propagatedGatedUnidirectionalDifferenceMap(volume, forwardGates, permute, compReverse)
+    const backwardDifferences = propagatedGatedUnidirectionalDifferenceMap(volume, backwardGates, permute, backwardReverse)
     if (verbose) logTensor('backwardDifferences', backwardDifferences)
 
-    tf.dispose(forwardGates)
+    tf.dispose(backwardGates)
 
-    const backwardShadows = unidirectionalShadowMap(backwardDifferences, permute, compReverse)
+    const backwardShadows = unidirectionalShadowMap(backwardDifferences, permute, backwardReverse)
     if (verbose) logTensor('backwardShadows', backwardShadows)
 
     tf.dispose(backwardDifferences)
+
+    const bidirectionalShadows = bidirectionalShadowMap(forwardShadows, backwardShadows)
+    if (verbose) logTensor('bidirectionalShadows', bidirectionalShadows)
+
+    return bidirectionalShadows as tf.Tensor3D
+}
+
+export function computeBidirectionalShadowMapDebug2(
+    volume: tf.Tensor3D, 
+    permute: Permute, 
+    reverse: Reverse, 
+    verbose: boolean = false
+) : tf.Tensor3D
+{
+
+    const backwardShadows = computeUnidirectionalShadowMap(volume, permute, complementReverse(reverse))
+    if (verbose) logTensor('backwardShadows', backwardShadows)
+
+    const forwardGates = unidirectionalGateMap2(backwardShadows, permute, reverse)
+    const forwardDifferences = propagatedGatedUnidirectionalDifferenceMap(volume, forwardGates, permute, reverse)
+    tf.dispose(forwardGates)
+
+    const forwardShadows = unidirectionalShadowMap(forwardDifferences, permute, reverse)
+    if (verbose) logTensor('forwardShadows', forwardShadows)
 
     const bidirectionalShadows = bidirectionalShadowMap(forwardShadows, backwardShadows)
     if (verbose) logTensor('bidirectionalShadows', bidirectionalShadows)

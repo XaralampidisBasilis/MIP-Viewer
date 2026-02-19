@@ -49,6 +49,7 @@ export default function()
             max_groups: 0,
             max_blocks: 0,
             max_cells : 0,
+            max_traces : 0,
             variable1 : 0,
             variable2 : 0,
             variable3 : 0,

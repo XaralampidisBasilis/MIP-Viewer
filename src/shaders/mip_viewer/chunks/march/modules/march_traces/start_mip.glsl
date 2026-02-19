@@ -1,4 +1,4 @@
 
 // start mip
-mip.value = 0.0;
-mip.distance = ray.start_distance;
+mip.value = trace.value;
+mip.distance = trace.distance;
