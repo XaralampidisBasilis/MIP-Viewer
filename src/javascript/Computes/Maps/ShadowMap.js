@@ -19,7 +19,7 @@ export default class OcclusionMap
         console.time('computeTensor') 
         // tf.tidy(() => S0.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, true))
         // tf.tidy(() => S2.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, true))
-        this.tensor = S2.computeExtendedAnisotropicBidirectionalShadowMapDebug(this.volumeMap.tensor)
+        this.tensor = S2.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.toReversed())
         console.timeEnd('computeTensor') 
     }

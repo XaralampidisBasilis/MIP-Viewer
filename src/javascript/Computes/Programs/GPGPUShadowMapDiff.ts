@@ -50,10 +50,8 @@ class UnidirectionalDifferenceMap implements GPGPUProgram
 
         float getAAt(ivec3 coords)
         {
-            if (inBounds(coords)) 
-                return getA(coords.z, coords.y, coords.x);
-            else
-                return 0.0;
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.z, coords.y, coords.x);
         }
 
         void main()
