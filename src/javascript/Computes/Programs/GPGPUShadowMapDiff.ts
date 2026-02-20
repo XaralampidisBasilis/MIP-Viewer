@@ -360,7 +360,87 @@ class UnidirectionalGates implements GPGPUProgram
 
             bvec4 gates = lessThan(getAAt(coords), vec4(0.5));
 
-            setOutput(vec4(gates.x, gates.z, gates.y, gates.w));
+            setOutput(vec4(all(gates.xzyw)));
+        }
+        `
+    }
+}
+
+class UnidirectionalGates2 implements GPGPUProgram 
+{
+    variableNames = ['A']
+    outputShape: number[]
+    userCode: string
+    packedInputs = true
+    packedOutput = true
+
+    constructor(
+        outputShape: [number, number, number, 2, 2], 
+        permute: Permute = [0,1,2], 
+        reverse: Reverse = []
+    ) {
+      
+        const transformOffset = (ox: number, oy: number, oz: number): string => 
+        {
+            const old = applyPermutation([oz, oy, ox], permute)
+
+            for (const a of reverse) old[a] = - old[a]
+            
+            return old.toReversed().join(',')
+        }
+
+        const [inDepth, inHeight, inWidth] = outputShape
+        this.outputShape = outputShape
+        this.userCode = `
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
+
+        float min4(float a, float b, float c, float d) 
+        { 
+            return min(min(min(a, b), c), d); 
+        }
+
+        bool inBounds(ivec3 coords)
+        {
+            return 
+                all(greaterThanEqual(coords, minCoords)) && 
+                all(lessThanEqual(coords, maxCoords));
+        }
+
+        ivec3 getOutCoords()
+        {
+            ivec5 coords = getOutputCoords();
+            return ivec3(coords.z, coords.y, coords.x);
+        }
+
+        vec4 getAAt(ivec3 coords)
+        {
+            coords = clamp(coords, minCoords, maxCoords);
+            return getA(coords.z, coords.y, coords.x, 0, 0);
+        }
+
+        void main()
+        {
+            ivec3 coords = getOutCoords();
+
+            vec4 d000 = getAAt(coords + ivec3(${transformOffset(-0,-0,-0)}));
+            vec4 d010 = getAAt(coords + ivec3(${transformOffset(-0,-1,-0)}));
+            vec4 d100 = getAAt(coords + ivec3(${transformOffset(-1,-0,-0)}));
+            vec4 d110 = getAAt(coords + ivec3(${transformOffset(-1,-1,-0)}));
+            vec4 d001 = getAAt(coords + ivec3(${transformOffset(-0,-0,-1)}));
+            vec4 d011 = getAAt(coords + ivec3(${transformOffset(-0,-1,-1)}));
+            vec4 d101 = getAAt(coords + ivec3(${transformOffset(-1,-0,-1)}));
+            vec4 d111 = getAAt(coords + ivec3(${transformOffset(-1,-1,-1)}));
+
+            // vec4 d000 = vec4(d111.x, d101.y, d011.z, d001.w);
+            // setOutput(vec4(lessThan(d000, vec4(0.5))));
+
+            bool b001 = all(lessThan(d001, vec4(0.5)));
+            bool b011 = all(lessThan(d011, vec4(0.5)));
+            bool b101 = all(lessThan(d101, vec4(0.5)));
+            bool b111 = all(lessThan(d111, vec4(0.5)));
+
+            setOutput(vec4(bvec4(b001, b011, b101, b111)));
         }
         `
     }
@@ -831,10 +911,13 @@ function gatedUnidirectionalShadows(
 
 function unidirectionalGates(
     shadows: tf.Tensor5D, 
+    permute: Permute, 
+    reverse: Reverse, 
     verbose: boolean = false
 ): tf.Tensor5D
 {
     const shape = shadows.shape as [number, number, number, 2, 2]
+    // const program = new UnidirectionalGates2(shape, permute, reverse)
     const program = new UnidirectionalGates(shape)
 
     const gates = runWebGLProgram(program, [shadows], 'float32', [], true) 
@@ -930,7 +1013,7 @@ export function computeBidirectionalShadowMap(
     const forwardShadowMap = unidirectionalShadowMap(forwardShadows, permute, reverse)
     if (verbose) logTensor('forwardShadowMap', forwardShadowMap)
 
-    const forwardGates = unidirectionalGates(forwardShadows)
+    const forwardGates = unidirectionalGates(forwardShadows, permute, reverse)
     tf.dispose(forwardShadows)
 
     const backwardReverse = complementReverse(reverse)
@@ -1040,7 +1123,7 @@ export function computeExtendedAnisotropicBidirectionalShadowMapSingular(
     verbose: boolean = false
 ) : tf.Tensor3D
 {
-    const map = computeBidirectionalShadowMap(volume, [0,1,2], [1,2], true)
+    const map = computeBidirectionalShadowMap(volume, [0,1,2], [ ], true)
 
     let anisotropic = [] 
     let extended = []
@@ -1064,10 +1147,10 @@ export function computeExtendedAnisotropicBidirectionalShadowMapSingular(
     tf.dispose(anisotropic)
 
     anisotropic = []
-    anisotropic.push(tf.onesLike(map)) // [0,1,2], [   ]
+    anisotropic.push(tf.clone(map)) // [0,1,2], [   ]
     anisotropic.push(tf.onesLike(map)) // [0,1,2], [  1]
     anisotropic.push(tf.onesLike(map)) // [0,1,2], [  2]
-    anisotropic.push(tf.clone(map)) // [0,1,2], [1,2]
+    anisotropic.push(tf.onesLike(map)) // [0,1,2], [1,2]
 
     extended.push(anisotropicBidirectionalShadowMap(anisotropic as Array4<tf.Tensor3D>))
     tf.dispose(anisotropic)
@@ -1152,9 +1235,6 @@ export function computeExtendedAnisotropicUnidirectionalShadowMapReference(
     return shadows as tf.Tensor3D
 }
 
-
-
-
 // helper functions
 
 function logTensor(name: string, tensor: tf.Tensor)
@@ -1162,32 +1242,32 @@ function logTensor(name: string, tensor: tf.Tensor)
     console.log(name, tf.tidy(() => tensor.mean([0,1,2]).dataSync())) 
 }
 
-function logAnisotropicBidirectionalShadowMaps(occlusionMaps: tf.Tensor3D)
+function logAnisotropicBidirectionalShadowMaps(shadowMaps: tf.Tensor3D)
 {
-    const unpack = new UnpackAnisotropicBidirectionalShadowMap(occlusionMaps.shape)
+    const unpack = new UnpackAnisotropicBidirectionalShadowMap(shadowMaps.shape)
 
-    console.log('occlusionMap0', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[0]]).mean([0,1,2]).dataSync())) 
-    console.log('occlusionMap1', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[1]]).mean([0,1,2]).dataSync())) 
-    console.log('occlusionMap2', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[2]]).mean([0,1,2]).dataSync())) 
-    console.log('occlusionMap3', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[3]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMap0', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[0]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMap1', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[1]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMap2', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[2]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMap3', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[3]]).mean([0,1,2]).dataSync())) 
 }
 
-function logExtendedAnisotropicBidirectionalShadowMaps(occlusionMaps: tf.Tensor3D)
+function logExtendedAnisotropicBidirectionalShadowMaps(shadowMaps: tf.Tensor3D)
 {
-    const unpack = new UnpackExtendedAnisotropicBidirectionalShadowMap(occlusionMaps.shape)
+    const unpack = new UnpackExtendedAnisotropicBidirectionalShadowMap(shadowMaps.shape)
 
-    console.log('occlusionMapX0', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[ 0]]).mean([0,1,2]).dataSync())) 
-    console.log('occlusionMapX1', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[ 1]]).mean([0,1,2]).dataSync())) 
-    console.log('occlusionMapX2', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[ 2]]).mean([0,1,2]).dataSync())) 
-    console.log('occlusionMapX3', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[ 3]]).mean([0,1,2]).dataSync())) 
-    console.log('occlusionMapY0', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[ 4]]).mean([0,1,2]).dataSync())) 
-    console.log('occlusionMapY1', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[ 5]]).mean([0,1,2]).dataSync())) 
-    console.log('occlusionMapY2', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[ 6]]).mean([0,1,2]).dataSync())) 
-    console.log('occlusionMapY3', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[ 7]]).mean([0,1,2]).dataSync())) 
-    console.log('occlusionMapZ0', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[ 8]]).mean([0,1,2]).dataSync())) 
-    console.log('occlusionMapZ1', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[ 9]]).mean([0,1,2]).dataSync())) 
-    console.log('occlusionMapZ2', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[10]]).mean([0,1,2]).dataSync())) 
-    console.log('occlusionMapZ3', tf.tidy(() => runWebGLProgram(unpack, [occlusionMaps], 'float32', [[11]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapX0', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 0]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapX1', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 1]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapX2', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 2]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapX3', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 3]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapY0', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 4]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapY1', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 5]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapY2', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 6]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapY3', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 7]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapZ0', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 8]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapZ1', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[ 9]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapZ2', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[10]]).mean([0,1,2]).dataSync())) 
+    console.log('shadowMapZ3', tf.tidy(() => runWebGLProgram(unpack, [shadowMaps], 'float32', [[11]]).mean([0,1,2]).dataSync())) 
 }
 
 function runWebGLProgram(

@@ -1194,7 +1194,6 @@ export function computeAnisotropicUnidirectionalShadowMap(
     return shadowMap 
 }
 
-
 export function computeAnisotropicBidirectionalShadowMap(
     volume: tf.Tensor3D, 
     permute: Permute, 

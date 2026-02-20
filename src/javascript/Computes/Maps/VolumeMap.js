@@ -5,6 +5,56 @@ import { resizeTrilinear } from '../Programs/GPGPUResizeTrilinear'
 import { normalizePacked } from '../Programs/normalize_packed'
 import { mapPacked } from '../Programs/map_packed'
 
+function makeCartesianPlanes(shape) 
+{
+    const [Z, Y, X] = shape;
+    const midZ = Math.floor(Z / 2);
+    const midY = Math.floor(Y / 2);
+    const midX = Math.floor(X / 2);
+
+    return tf.tidy(() => 
+    {
+        const z = tf.range(0, Z, 1, 'int32').reshape([Z, 1, 1]);
+        const y = tf.range(0, Y, 1, 'int32').reshape([1, Y, 1]);
+        const x = tf.range(0, X, 1, 'int32').reshape([1, 1, X]);
+
+        const zPlane = z.equal(midZ).toFloat(); // [Z,1,1]
+        const yPlane = y.equal(midY).toFloat(); // [1,Y,1]
+        const xPlane = x.equal(midX).toFloat(); // [1,1,X]
+
+        // broadcasting happens here
+        const mask = tf.add(tf.add(zPlane, yPlane), xPlane);
+
+        // intersections would be 2 or 3 -> clamp to 1
+        return mask.clipByValue(0, 1);
+    });
+}
+
+function makeCartesianPlanesRand(shape) 
+{
+    const [Z, Y, X] = shape;
+    const midZ = Math.floor(Z / 2);
+    const midY = Math.floor(Y / 2);
+    const midX = Math.floor(X / 2);
+
+    return tf.tidy(() => 
+    {
+        const z = tf.range(0, Z, 1, 'int32').reshape([Z, 1, 1]);
+        const y = tf.range(0, Y, 1, 'int32').reshape([1, Y, 1]);
+        const x = tf.range(0, X, 1, 'int32').reshape([1, 1, X]);
+
+        const zPlane = z.equal(midZ).toFloat();
+        const yPlane = y.equal(midY).toFloat();
+        const xPlane = x.equal(midX).toFloat();
+
+        const mask = tf.maximum(tf.maximum(zPlane, yPlane), xPlane); // [Z,Y,X] via broadcast
+
+        const rnd = tf.randomUniform([Z, Y, X], 0, 1, 'float32');
+
+        return rnd.mul(mask); // random on planes, 0 elsewhere
+    });
+}   
+
 export default class VolumeMap
 {
     constructor()
@@ -49,6 +99,8 @@ export default class VolumeMap
 
             return resizeTrilinear(mapped, newShape, false, true)
         })  
+
+        // this.tensor = tf.tidy(() => makeCartesianPlanesRand(this.tensor.shape))
 
         console.timeEnd('computeTensor') 
         console.log(this)
