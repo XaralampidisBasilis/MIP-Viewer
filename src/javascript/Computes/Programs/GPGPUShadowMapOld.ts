@@ -1158,6 +1158,43 @@ export function computeBestBidirectionalShadowMap(
     }
 }
 
+export function computeAnisotropicUnidirectionalShadowMap(
+    volume: tf.Tensor3D, 
+    permute: Permute, 
+    reversed: boolean,
+    verbose: boolean = false
+) : tf.Tensor3D
+{
+    let reverseA = permute.slice(1, 1) as Reverse
+    let reverseB = permute.slice(1, 2) as Reverse
+    let reverseC = permute.slice(2, 3) as Reverse
+    let reverseD = permute.slice(1, 3) as Reverse
+
+    if (reversed)
+    {
+        reverseA = complementReverse(reverseA)
+        reverseB = complementReverse(reverseB)
+        reverseC = complementReverse(reverseC)
+        reverseD = complementReverse(reverseD)
+    }
+
+    const shadowMaps = [
+        computeUnidirectionalShadowMap(volume, permute, reverseA),
+        computeUnidirectionalShadowMap(volume, permute, reverseB),
+        computeUnidirectionalShadowMap(volume, permute, reverseC),
+        computeUnidirectionalShadowMap(volume, permute, reverseD),
+    ]
+
+    const program = new AnisotropicBidirectionalShadowMap(shadowMaps[0].shape)
+    const shadowMap = runWebGLProgram(program, shadowMaps, 'float32', [], true) as tf.Tensor3D
+    tf.dispose(shadowMaps)
+
+    if (verbose) logAnisotropicBidirectionalShadowMaps(shadowMap)
+
+    return shadowMap 
+}
+
+
 export function computeAnisotropicBidirectionalShadowMap(
     volume: tf.Tensor3D, 
     permute: Permute, 
@@ -1170,10 +1207,10 @@ export function computeAnisotropicBidirectionalShadowMap(
     const reverseD = permute.slice(1, 3) as Reverse
 
     const shadowMaps = [
-        computeUnidirectionalShadowMap(volume, permute, reverseA),
-        computeUnidirectionalShadowMap(volume, permute, reverseB),
-        computeUnidirectionalShadowMap(volume, permute, reverseC),
-        computeUnidirectionalShadowMap(volume, permute, reverseD),
+        computeBidirectionalShadowMap(volume, permute, reverseA),
+        computeBidirectionalShadowMap(volume, permute, reverseB),
+        computeBidirectionalShadowMap(volume, permute, reverseC),
+        computeBidirectionalShadowMap(volume, permute, reverseD),
     ]
 
     const program = new AnisotropicBidirectionalShadowMap(shadowMaps[0].shape)
