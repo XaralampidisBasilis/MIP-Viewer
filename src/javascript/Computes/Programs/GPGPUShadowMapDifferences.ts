@@ -410,7 +410,7 @@ class UnidirectionalShadowMap implements GPGPUProgram
                 all(greaterThanEqual(f.d001, vec4(-tolerance)));
         }
 
-        bool isShadowedPartially(FaceDifferences f)
+        bool isSemiShadowed(FaceDifferences f)
         {            
             return
                 all(greaterThanEqual(f.d111.xyzw, vec4(-tolerance))) &&
@@ -424,7 +424,7 @@ class UnidirectionalShadowMap implements GPGPUProgram
             ivec3 coords = getOutCoords();
             FaceDifferences f = getDifferences(coords);
         
-            setOutput(float(isShadowedPartially(f)));
+            setOutput(float(isShadowed(f)));
         }
         `
     }
