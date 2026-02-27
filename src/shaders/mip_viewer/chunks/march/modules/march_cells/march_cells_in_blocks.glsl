@@ -17,10 +17,10 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         #include "./update_cubic_cell"
         #include "./update_mip"
 
-        if (cell.exit_distance > block.exit_distance) break; 
+        if (cell.exit_distance > block.exit_distance || cell.exit_distance > ray.end_distance) break; 
     }   
 
-    if (cell.terminated) break;
+    if (cell.exit_distance > ray.end_distance) break;
 }
 
 #include "./compute_mip"

@@ -4,16 +4,20 @@ trace.spacing = ray.spacing / 2.0;
 // start trace
 #if SKIPPING_ENABLED == 1
 
-    // float jitter = random(block.entry_position);
-    // trace.distance = block.entry_distance;
     trace.distance = floor(block.entry_distance / trace.spacing) * trace.spacing;
+    // trace.distance = block.entry_distance;
+
+    float jitter = random(block.entry_position);
+    trace.distance += trace.spacing * jitter;
 
 #else
 
-    // float jitter = random(ray.start_position);
-    // trace.distance = ray.start_distance
     trace.distance = floor(ray.start_distance / trace.spacing) * trace.spacing;
-    
+    // trace.distance = ray.start_distance;
+
+    float jitter = random(ray.start_position);
+    trace.distance += trace.spacing * jitter;
+
 #endif
 
 // start interpolant
