@@ -410,12 +410,21 @@ class UnidirectionalShadowMap implements GPGPUProgram
                 all(greaterThanEqual(f.d001, vec4(-tolerance)));
         }
 
+        bool isShadowedPartially(FaceDifferences f)
+        {            
+            return
+                all(greaterThanEqual(f.d111.xyzw, vec4(-tolerance))) &&
+                all(greaterThanEqual(f.d101.ywyw, vec4(-tolerance))) &&
+                all(greaterThanEqual(f.d011.zwzw, vec4(-tolerance))) &&
+                all(greaterThanEqual(f.d001.wwww, vec4(-tolerance)));
+        }
+
         void main()
         {
             ivec3 coords = getOutCoords();
             FaceDifferences f = getDifferences(coords);
         
-            setOutput(float(isShadowed(f)));
+            setOutput(float(isShadowedPartially(f)));
         }
         `
     }
