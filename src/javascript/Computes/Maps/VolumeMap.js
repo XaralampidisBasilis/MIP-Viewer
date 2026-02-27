@@ -5,6 +5,38 @@ import { resizeTrilinear } from '../Programs/GPGPUResizeTrilinear'
 import { normalizePacked } from '../Programs/normalize_packed'
 import { mapPacked } from '../Programs/map_packed'
 
+function makeCartesianAxes3d(shape, useRand = false)
+{
+    const [Z, Y, X] = shape
+    const midZ = Math.floor(Z / 2)
+    const midY = Math.floor(Y / 2)
+    const midX = Math.floor(X / 2)
+
+    return tf.tidy(() =>
+    {
+        const z = tf.range(0, Z, 1, 'int32').reshape([Z, 1, 1])
+        const y = tf.range(0, Y, 1, 'int32').reshape([1, Y, 1])
+        const x = tf.range(0, X, 1, 'int32').reshape([1, 1, X])
+
+        // Axes (3 lines) through the center:
+        // X-axis: y==midY and z==midZ (varies along x)
+        const xAxis = y.equal(midY).logicalAnd(z.equal(midZ)).toFloat() // [Z,Y,X] via broadcast
+        // Y-axis: x==midX and z==midZ (varies along y)
+        const yAxis = x.equal(midX).logicalAnd(z.equal(midZ)).toFloat()
+        // Z-axis: x==midX and y==midY (varies along z)
+        const zAxis = x.equal(midX).logicalAnd(y.equal(midY)).toFloat()
+
+        // Union of the three axes (1 on any axis, 0 elsewhere)
+        const mask = tf.maximum(tf.maximum(xAxis, yAxis), zAxis)
+
+        if (!useRand) return mask // ones on axes
+
+        // Efficient: one random per voxel only where mask==1
+        const rand = tf.randomUniform([Z, Y, X], 0, 1, 'float32')
+        return rand.mul(mask) // random on axes, 0 elsewhere
+    })
+}
+
 function makeCartesianPlanes3d(shape, useRand = false)
 {
     const [Z, Y, X] = shape
@@ -90,6 +122,8 @@ function makeCenterPoint3d(shape, useRand = false)
     })
 }
 
+
+
 export default class VolumeMap
 {
     constructor()
@@ -134,7 +168,7 @@ export default class VolumeMap
 
             const resized = resizeTrilinear(mapped, newShape, false, true)
 
-            // return makeBoundaryPlanes3d(resized.shape, true)
+            // return makeCartesianAxes3d(resized.shape, true)
             return resized
         })  
 

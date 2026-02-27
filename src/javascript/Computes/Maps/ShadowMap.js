@@ -2,9 +2,9 @@ import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import * as S0 from '../Programs/GPGPUShadowMap'
-import * as S1 from '../Programs/GPGPUShadowMap'
+import * as S1 from '../Programs/GPGPUShadowMapDifferences'
 
-export default class OcclusionMap
+export default class ShadowMap
 {
     constructor()
     {
@@ -17,8 +17,9 @@ export default class OcclusionMap
     {
         console.time('computeTensor') 
         // tf.tidy(() => S0.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, true))
-        // tf.tidy(() => S1.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, true))
-        this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, true)
+        // tf.tidy(() => S1.computeExtendedAnisotropicUnidirectionalShadowMap(this.volumeMap.tensor, true))
+        // tf.tidy(() => S1.computeExtendedAnisotropicUnidirectionalShadowMapReference(this.volumeMap.tensor, true))
+        this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0.01, true)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.toReversed())
         console.timeEnd('computeTensor') 
     }
