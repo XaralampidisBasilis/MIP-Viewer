@@ -168,7 +168,7 @@ export default class VolumeMap
 
             const resized = resizeTrilinear(mapped, newShape, false, true)
 
-            // return makeCartesianAxes3d(resized.shape, true)
+            // return makeCartesianPlanes3d(resized.shape, true)
             return resized
         })  
 

@@ -245,7 +245,7 @@ class PropagateUnidirectionalDifferencesGates implements GPGPUProgram
         void main()
         {
             ivec3 coords = getOutCoords();
-            bvec4 gates = lessThan(getCAt(coords), vec4(0.5));
+            bvec4 gates = greaterThan(getCAt(coords), vec4(0.5));
 
             vec4 d111 = getAAt(coords + ivec3(${transformOffset(-0,-0,-0)}));
             vec4 d110 = getBAt(coords + ivec3(${transformOffset(-0,-0,-1)}));
@@ -324,8 +324,17 @@ class UnidirectionalGates implements GPGPUProgram
             float s100 = getAAt(coords + ivec3(${transformOffset(-0,-1,-1)}));
             float s010 = getAAt(coords + ivec3(${transformOffset(-1,-0,-1)}));
             float s000 = getAAt(coords + ivec3(${transformOffset(-1,-1,-1)}));
+            float s111 = getAAt(coords + ivec3(${transformOffset(-0,-0,-0)}));
+            float s101 = getAAt(coords + ivec3(${transformOffset(-0,-1,-0)}));
+            float s011 = getAAt(coords + ivec3(${transformOffset(-1,-0,-0)}));
+            float s001 = getAAt(coords + ivec3(${transformOffset(-1,-1,-0)}));
 
-            setOutput(vec4(s000, s010, s100, s110));
+            float g110 = 1.0 - s110;
+            float g100 = 1.0 - s100;
+            float g010 = 1.0 - s010;
+            float g000 = 1.0 - s000;
+
+            setOutput(vec4(g000, g010, g100, g110));
         }
         `
     }
@@ -361,12 +370,16 @@ class UnidirectionalShadowMap implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${inWidth-1}, ${inHeight-1}, ${inDepth-1});
 
-        struct FaceDifferences 
+        struct CellDifferences 
         { 
-            vec4 d111; 
-            vec4 d101; 
-            vec4 d011; 
+            vec4 d000; 
+            vec4 d100; 
+            vec4 d010; 
             vec4 d001; 
+            vec4 d011; 
+            vec4 d101; 
+            vec4 d110; 
+            vec4 d111; 
         }; 
 
         bool inBounds(ivec3 coords)
@@ -388,43 +401,38 @@ class UnidirectionalShadowMap implements GPGPUProgram
             return getA(coords.z, coords.y, coords.x, 0, 0);
         }
 
-        FaceDifferences getDifferences(ivec3 coords)
+        CellDifferences getDifferences(ivec3 coords)
         {
             coords = coords - 1;
 
-            FaceDifferences f;
-            f.d111 = getAAt(coords + ivec3(${transformOffset(0,0,0)}));
-            f.d101 = getAAt(coords + ivec3(${transformOffset(0,1,0)}));
-            f.d011 = getAAt(coords + ivec3(${transformOffset(1,0,0)}));
-            f.d001 = getAAt(coords + ivec3(${transformOffset(1,1,0)}));
+            CellDifferences c;
+            c.d111 = getAAt(coords + ivec3(${transformOffset(1,1,1)}));
+            c.d101 = getAAt(coords + ivec3(${transformOffset(1,0,1)}));
+            c.d011 = getAAt(coords + ivec3(${transformOffset(0,1,1)}));
+            c.d001 = getAAt(coords + ivec3(${transformOffset(0,0,1)}));
+            c.d110 = getAAt(coords + ivec3(${transformOffset(1,1,0)}));
+            c.d100 = getAAt(coords + ivec3(${transformOffset(1,0,0)}));
+            c.d010 = getAAt(coords + ivec3(${transformOffset(0,1,0)}));
+            c.d000 = getAAt(coords + ivec3(${transformOffset(0,0,0)}));
         
-            return f;
+            return c;
         }
 
-        bool isShadowed(FaceDifferences f)
+        bool isShadowed(CellDifferences c)
         {            
             return  
-                all(greaterThanEqual(f.d111, vec4(-tolerance))) &&
-                all(greaterThanEqual(f.d101, vec4(-tolerance))) &&
-                all(greaterThanEqual(f.d011, vec4(-tolerance))) &&
-                all(greaterThanEqual(f.d001, vec4(-tolerance)));
-        }
-
-        bool isSemiShadowed(FaceDifferences f)
-        {            
-            return
-                all(greaterThanEqual(f.d111.xyzw, vec4(-tolerance))) &&
-                all(greaterThanEqual(f.d101.ywyw, vec4(-tolerance))) &&
-                all(greaterThanEqual(f.d011.zwzw, vec4(-tolerance))) &&
-                all(greaterThanEqual(f.d001.wwww, vec4(-tolerance)));
+                all(greaterThan(c.d111 + tolerance, vec4(0))) &&
+                all(greaterThan(c.d101 + tolerance, vec4(0))) &&
+                all(greaterThan(c.d011 + tolerance, vec4(0))) &&
+                all(greaterThan(c.d001 + tolerance, vec4(0)));
         }
 
         void main()
         {
             ivec3 coords = getOutCoords();
-            FaceDifferences f = getDifferences(coords);
+            CellDifferences c = getDifferences(coords);
         
-            setOutput(float(isShadowed(f)));
+            setOutput(float(isShadowed(c)));
         }
         `
     }
@@ -893,7 +901,8 @@ export function computeBidirectionalShadowMapReverse(
     verbose: boolean = false
 ) : tf.Tensor3D
 {
-    const backwardShadowMap = computeUnidirectionalShadowMap(volume, permute, complementReverse(reverse), tolerance)
+    const backwardReverse = complementReverse(reverse)
+    const backwardShadowMap = computeUnidirectionalShadowMap(volume, permute, backwardReverse, tolerance)
     if (verbose) logTensor('backwardShadowMap', backwardShadowMap)
 
     const forwardGates = unidirectionalGates(backwardShadowMap, permute, reverse)
@@ -1006,7 +1015,7 @@ export function computeExtendedAnisotropicBidirectionalShadowMapSingular(
     verbose: boolean = false
 ) : tf.Tensor3D
 {
-    const tempMap = computeBidirectionalShadowMap(volume, [0,1,2], [ ], tolerance, true)
+    const tempMap = computeBidirectionalShadowMapReverse(volume, [0,1,2], [ ], tolerance, true)
 
     let anisotropicMaps = [] 
     let extendedMaps = []

@@ -3,7 +3,6 @@ import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import * as S0 from '../Programs/GPGPUShadowMap'
 import * as S1 from '../Programs/GPGPUShadowMapDifferences'
-import * as S2 from '../Programs/GPGPUShadowMapPath'
 
 export default class ShadowMap
 {
@@ -16,7 +15,7 @@ export default class ShadowMap
 
     async computeTensor()
     {
-        console.time('computeTensor') 
+        // console.time('computeTensor') 
         // tf.tidy(() => S0.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0, true))
         // tf.tidy(() => S1.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0, true))
         this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0.01, true)

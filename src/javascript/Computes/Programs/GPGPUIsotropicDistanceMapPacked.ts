@@ -307,7 +307,7 @@ export function computeIsotropicDistanceMap(occupancyMap: tf.Tensor3D, maxDistan
 
     // 2D
     const secondPassY = new SecondIsotropicChebyshevDistancePassY(occupancyMap.shape, maxDistance)
-    const distanceXY = runProgram(secondPassY, [distanceX]); 
+    const distanceXY = runProgram(secondPassY, [distanceX]) 
     tf.dispose(distanceX)
 
     // 3D
