@@ -25,9 +25,14 @@ class GPGPUPackUnsignedShort5551 implements GPGPUProgram
             return u;
         }
 
-        float uintHalfBitsToHalfFloat(uint p)
+        float uint16ToFloat16(uint p) 
         {
             return unpackHalf2x16(p).r;
+        }
+
+        float float16ToUint16(float f) 
+        {
+            return packHalf2x16(vec2(f, 0.0));
         }
 
         void main() 

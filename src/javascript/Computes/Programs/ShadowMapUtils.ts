@@ -5,6 +5,12 @@ export type Octant = `${Sign}${Sign}${Sign}`
 export type Permute = [Dimension, Dimension, Dimension]
 export type Reverse = Dimension[]
 
+const INDEX_FROM_AXIS: Record<Axis, Dimension> = {
+    'x': 0,
+    'y': 1,
+    'z': 2,
+}
+
 const MAP_FROM_PERMUTE_REVERSE: Record<string, number> = {
     "2,1,0|"     : 0,
     "2,1,0|1"    : 1,
@@ -162,6 +168,11 @@ export function applyPermutation(newOffset: [number, number, number], permute: P
     oldOffset[permute[2]] = newOffset[2]
 
     return oldOffset
+}
+
+export function axisIndex(axis: Axis): Dimension
+{
+    return INDEX_FROM_AXIS[axis]
 }
 
 export function reverseSign(sign: Sign): Sign
