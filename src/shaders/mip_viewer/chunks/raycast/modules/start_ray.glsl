@@ -60,3 +60,6 @@ if (ray.axis == 2)
     if (ray.octant == 7) ray.map = 8 + 0; // (+, +, +)
 }
 
+
+
+
