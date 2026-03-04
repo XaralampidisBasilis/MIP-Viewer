@@ -3,14 +3,19 @@ import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 import { unstackPacked } from './unstack_packed_keepDims_webgl'
 import { stackPacked } from './stack_packed_keepDims_webgl'
+import {
+    type Axis,
+    type Octant,
+    type Permute,
+    type Reverse,
+    applyPermutation,
+    complementReverse,
+    inversePermutation,
+    permuteReverseFromDominantAxisOctant,
+    reverseOctant,
+} from './ShadowMapUtils'
 
 
-type Axis = 'x' | 'y' | 'z'
-type Sign = '+' | '-'
-type Dimension = 0 | 1 | 2
-type Octant = [Sign, Sign, Sign]
-type Permute = [Dimension, Dimension, Dimension]
-type Reverse = Dimension[]
 type Array3<T> = [T, T, T]
 type Array4<T> = [T, T, T, T]
 
@@ -909,8 +914,7 @@ export function computeBidirectionalShadowMapReverse(
     verbose: boolean = false
 ) : tf.Tensor3D
 {
-    const reverseOctant = octant.map((s) => s === '+' ? '-' : '+') as Octant
-    const shadowMap = computeBidirectionalShadowMap(volume, dominantAxis, reverseOctant, tolerance, verbose)
+    const shadowMap = computeBidirectionalShadowMap(volume, dominantAxis, reverseOctant(octant), tolerance, verbose)
     return shadowMap as tf.Tensor3D
 }
 
@@ -925,30 +929,30 @@ export function computeExtendedAnisotropicUnidirectionalShadowMap(
 
     // dominantAxis = x
     anisotropicMaps = []
-    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'x', ['+','+','+'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'x', ['+','-','+'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'x', ['+','+','-'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'x', ['+','-','-'], tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'x', '+++', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'x', '+-+', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'x', '++-', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'x', '+--', tolerance))
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
 
     // dominantAxis = y
     anisotropicMaps = []
-    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'y', ['+','+','+'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'y', ['-','+','+'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'y', ['+','+','-'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'y', ['-','+','-'], tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'y', '+++', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'y', '-++', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'y', '++-', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'y', '-+-', tolerance))
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
 
     // dominantAxis = z
     anisotropicMaps = []
-    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'z', ['+','+','+'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'z', ['+','-','+'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'z', ['-','+','+'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'z', ['-','-','+'], tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'z', '+++', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'z', '+-+', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'z', '-++', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMap(volume, 'z', '--+', tolerance))
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
@@ -970,28 +974,28 @@ export function computeExtendedAnisotropicBidirectionalShadowMap(
     let extendedMaps = []
 
     anisotropicMaps = []
-    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'x', ['+','+','+'], tolerance))
-    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'x', ['+','-','+'], tolerance))
-    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'x', ['+','+','-'], tolerance))
-    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'x', ['+','-','-'], tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'x', '+++', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'x', '+-+', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'x', '++-', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'x', '+--', tolerance))
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
    
     anisotropicMaps = []
-    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'y', ['+','+','+'], tolerance))
-    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'y', ['-','+','+'], tolerance))
-    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'y', ['+','+','-'], tolerance))
-    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'y', ['-','+','-'], tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'y', '+++', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'y', '-++', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'y', '++-', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'y', '-+-', tolerance))
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
 
     anisotropicMaps = []
-    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'z', ['+','+','+'], tolerance))
-    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'z', ['+','-','+'], tolerance))
-    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'z', ['-','+','+'], tolerance))
-    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'z', ['-','-','+'], tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'z', '+++', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'z', '+-+', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'z', '-++', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'z', '--+', tolerance))
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
@@ -1010,7 +1014,7 @@ export function computeExtendedAnisotropicBidirectionalShadowMapSingular(
     verbose: boolean = false
 ) : tf.Tensor3D
 {
-    const tempMap = computeBidirectionalShadowMap(volume, 'z', ['+','+','+'], tolerance)
+    const tempMap = computeBidirectionalShadowMap(volume, 'z', '+++', tolerance)
 
     let anisotropicMaps = [] 
     let extendedMaps = []
@@ -1095,30 +1099,30 @@ export function computeExtendedAnisotropicUnidirectionalShadowMapReference(
 
     // dominantAxis = x
     anisotropicMaps = []
-    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'x', ['+','+','+'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'x', ['+','-','+'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'x', ['+','+','-'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'x', ['+','-','-'], tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'x', '+++', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'x', '+-+', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'x', '++-', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'x', '+--', tolerance))
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
 
     // dominantAxis = y
     anisotropicMaps = []
-    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'y', ['+','+','+'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'y', ['-','+','+'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'y', ['+','+','-'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'y', ['-','+','-'], tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'y', '+++', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'y', '-++', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'y', '++-', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'y', '-+-', tolerance))
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
 
     // dominantAxis = z
     anisotropicMaps = []
-    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'z', ['+','+','+'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'z', ['+','-','+'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'z', ['-','+','+'], tolerance))
-    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'z', ['-','-','+'], tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'z', '+++', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'z', '+-+', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'z', '-++', tolerance))
+    anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'z', '--+', tolerance))
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
@@ -1177,219 +1181,3 @@ function runWebGLProgram(
     return tf.engine().makeTensorFromTensorInfo(info) 
 }
 
-function complementReverse(reverse: Reverse): Reverse 
-{
-    const set = new Set<Dimension>(reverse)
-    const complement: Reverse = []
-
-    for (const axis of [0, 1, 2] as const) 
-    {
-        if (!set.has(axis)) complement.push(axis)
-    }
-    return complement
-}
-
-function inversePermutation(permute: Permute): Permute
-{
-    const inv = new Array<number>(permute.length)
-    for (let i = 0; i < permute.length; i++) 
-    {
-        inv[permute[i]] = i
-    }
-
-    return inv as Permute
-}
-
-function applyPermutation(newOffset: [number, number, number], permute: Permute): [number, number, number] 
-{
-    const oldOffset: [number, number, number] = [0, 0, 0]
-
-    oldOffset[permute[0]] = newOffset[0]
-    oldOffset[permute[1]] = newOffset[1]
-    oldOffset[permute[2]] = newOffset[2]
-    
-    return oldOffset
-}
-
-
-function mapFromPermuteReverse(permute: Permute, reverse: Reverse): number
-{
-    const table: Record<string, number> =
-    {
-        "2,1,0|"     : 0,
-        "2,1,0|1"    : 1,
-        "2,1,0|0"    : 2,
-        "2,1,0|1,0"  : 3,
-        "2,1,0|2,1,0": 0,
-        "2,1,0|2,0"  : 1,
-        "2,1,0|2,1"  : 2,
-        "2,1,0|2"    : 3,
-
-        "1,2,0|"     : 4,
-        "1,2,0|2"    : 5,
-        "1,2,0|0"    : 6,
-        "1,2,0|2,0"  : 7,
-        "1,2,0|1,2,0": 4,
-        "1,2,0|1,0"  : 5,
-        "1,2,0|1,2"  : 6,
-        "1,2,0|1"    : 7,
-
-        "0,1,2|"     : 8,
-        "0,1,2|1"    : 9,
-        "0,1,2|2"    : 10,
-        "0,1,2|1,2"  : 11,
-        "0,1,2|0,1,2": 8,
-        "0,1,2|0,2"  : 9,
-        "0,1,2|0,1"  : 10,
-        "0,1,2|0"    : 11,
-    }
-
-    const key = `${permute.join(",")}|${reverse.join(",")}`
-    const map = table[key]
-
-    if (map === undefined)
-    {
-        throw new Error("No mapping for " + key)
-    }
-
-    return map
-}
-
-function mapFromDominantAxisOctant(dominantAxis: Axis, octant: Octant): number
-{
-    const table: Record<string, number> =
-    {
-        // dominantAxis = x
-        "x|+,+,+": 0,
-        "x|+,-,+": 1,
-        "x|+,+,-": 2,
-        "x|+,-,-": 3,
-        "x|-,-,-": 0,
-        "x|-,+,-": 1,
-        "x|-,-,+": 2,
-        "x|-,+,+": 3,
-
-        // dominantAxis = y
-        "y|+,+,+": 4,
-        "y|-,+,+": 5,
-        "y|+,+,-": 6,
-        "y|-,+,-": 7,
-        "y|-,-,-": 4,
-        "y|+,-,-": 5,
-        "y|-,-,+": 6,
-        "y|+,-,+": 7,
-
-        // dominantAxis = z
-        "z|+,+,+": 8,
-        "z|+,-,+": 9,
-        "z|-,+,+": 10,
-        "z|-,-,+": 11,
-        "z|-,-,-": 8,
-        "z|-,+,-": 9,
-        "z|+,-,-": 10,
-        "z|+,+,-": 11,
-    }
-
-    const key = `${dominantAxis}|${octant.join(",")}`
-    const map = table[key]
-
-    if (map === undefined) 
-    {
-        throw new Error("No mapping for " + key)
-    }
-
-    return map
-}
-
-function permuteReverseFromDominantAxisOctant(dominantAxis: Axis, octant: Octant): { permute: Permute, reverse: Reverse }
-{
-    const table: Record<string, { permute: Permute, reverse: Reverse }> =
-    {
-        // dominantAxis = x
-        "x|+,+,+": { permute: [2,1,0], reverse: [] },
-        "x|+,-,+": { permute: [2,1,0], reverse: [1] },
-        "x|+,+,-": { permute: [2,1,0], reverse: [0] },
-        "x|+,-,-": { permute: [2,1,0], reverse: [1,0] },
-        "x|-,-,-": { permute: [2,1,0], reverse: [2,1,0] },
-        "x|-,+,-": { permute: [2,1,0], reverse: [2,0] },
-        "x|-,-,+": { permute: [2,1,0], reverse: [2,1] },
-        "x|-,+,+": { permute: [2,1,0], reverse: [2] },
-
-        // dominantAxis = y
-        "y|+,+,+": { permute: [1,2,0], reverse: [] },
-        "y|-,+,+": { permute: [1,2,0], reverse: [2] },
-        "y|+,+,-": { permute: [1,2,0], reverse: [0] },
-        "y|-,+,-": { permute: [1,2,0], reverse: [2,0] },
-        "y|-,-,-": { permute: [1,2,0], reverse: [1,2,0] },
-        "y|+,-,-": { permute: [1,2,0], reverse: [1,0] },
-        "y|-,-,+": { permute: [1,2,0], reverse: [1,2] },
-        "y|+,-,+": { permute: [1,2,0], reverse: [1] },
-
-        // dominantAxis = z
-        "z|+,+,+": { permute: [0,1,2], reverse: [] },
-        "z|+,-,+": { permute: [0,1,2], reverse: [1] },
-        "z|-,+,+": { permute: [0,1,2], reverse: [2] },
-        "z|-,-,+": { permute: [0,1,2], reverse: [1,2] },
-        "z|-,-,-": { permute: [0,1,2], reverse: [0,1,2] },
-        "z|-,+,-": { permute: [0,1,2], reverse: [0,2] },
-        "z|+,-,-": { permute: [0,1,2], reverse: [0,1] },
-        "z|+,+,-": { permute: [0,1,2], reverse: [0] },
-    }
-
-    const key = `${dominantAxis}|${octant.join(",")}`
-    const v = table[key]
-
-    if (!v)
-    {
-        throw new Error("No mapping for " + key)
-    }
-
-    // return copies (avoid accidental mutation of table entries)
-    return { permute: [...v.permute] as Permute, reverse: [...v.reverse] as Reverse }
-}
-
-function dominantAxisOctantFromPermuteReverse(permute: Permute, reverse: Reverse): { dominantAxis: Axis, octant: Octant }
-{
-    const table: Record<string, { octant: Octant, dominantAxis: Axis }> =
-    {
-        // dominantAxis = x
-        "2,1,0|"     : { dominantAxis: 'x', octant: ['+','+','+'] },
-        "2,1,0|1"    : { dominantAxis: 'x', octant: ['+','-','+'] },
-        "2,1,0|0"    : { dominantAxis: 'x', octant: ['+','+','-'] },
-        "2,1,0|1,0"  : { dominantAxis: 'x', octant: ['+','-','-'] },
-        "2,1,0|2,1,0": { dominantAxis: 'x', octant: ['-','-','-'] },
-        "2,1,0|2,0"  : { dominantAxis: 'x', octant: ['-','+','-'] },
-        "2,1,0|2,1"  : { dominantAxis: 'x', octant: ['-','-','+'] },
-        "2,1,0|2"    : { dominantAxis: 'x', octant: ['-','+','+'] },
-
-        // dominantAxis = y
-        "1,2,0|"     : { dominantAxis: 'y', octant: ['+','+','+'] },
-        "1,2,0|2"    : { dominantAxis: 'y', octant: ['-','+','+'] },
-        "1,2,0|0"    : { dominantAxis: 'y', octant: ['+','+','-'] },
-        "1,2,0|2,0"  : { dominantAxis: 'y', octant: ['-','+','-'] },
-        "1,2,0|1,2,0": { dominantAxis: 'y', octant: ['-','-','-'] },
-        "1,2,0|1,0"  : { dominantAxis: 'y', octant: ['+','-','-'] },
-        "1,2,0|1,2"  : { dominantAxis: 'y', octant: ['-','-','+'] },
-        "1,2,0|1"    : { dominantAxis: 'y', octant: ['+','-','+'] },
-
-        // dominantAxis = z
-        "0,1,2|"     : { dominantAxis: 'z', octant: ['+','+','+'] },
-        "0,1,2|1"    : { dominantAxis: 'z', octant: ['+','-','+'] },
-        "0,1,2|2"    : { dominantAxis: 'z', octant: ['-','+','+'] },
-        "0,1,2|1,2"  : { dominantAxis: 'z', octant: ['-','-','+'] },
-        "0,1,2|0,1,2": { dominantAxis: 'z', octant: ['-','-','-'] },
-        "0,1,2|0,2"  : { dominantAxis: 'z', octant: ['-','+','-'] },
-        "0,1,2|0,1"  : { dominantAxis: 'z', octant: ['+','-','-'] },
-        "0,1,2|0"    : { dominantAxis: 'z', octant: ['+','+','-'] },
-    }
-
-    const key = `${permute.join(",")}|${reverse.join(",")}`
-    const v = table[key]
-
-    if (!v)
-    {
-        throw new Error("No inverse mapping for " + key)
-    }
-
-    return { dominantAxis: v.dominantAxis, octant: v.octant }
-}

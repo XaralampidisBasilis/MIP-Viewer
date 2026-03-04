@@ -4,6 +4,8 @@ import Computes from '../Computes'
 import * as S0 from '../Programs/GPGPUShadowMap'
 import * as S1 from '../Programs/GPGPUShadowMapDifferences'
 
+import { computeExtendedAnisotropicBidirectionalShadowDistanceMap } from '../Programs/GPGPUExtendedAnisotropicBidirectionalShadowDistanceMap'
+
 export default class ShadowMap
 {
     constructor()
@@ -18,8 +20,11 @@ export default class ShadowMap
         // console.time('computeTensor') 
         // tf.tidy(() => S0.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0, true))
         // tf.tidy(() => S1.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0, true))
-        this.tensor = S0.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0.01, true)
+        this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0.01, true)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.toReversed())
+
+        computeExtendedAnisotropicBidirectionalShadowDistanceMap(this.tensor, 'z', '+++', 31)
+
         console.timeEnd('computeTensor') 
     }
 

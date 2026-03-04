@@ -2,10 +2,15 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 import { packUnsignedShort5551 } from './GPGPUToUnsignedShort5551'
-
-type Axis = 0 | 1 | 2
-type Permute = [Axis, Axis, Axis]
-type Reverse = Axis[]
+import {
+    type Axis,
+    type Dimension,
+    type Octant,
+    type Sign,
+    mapFromDominantAxisOctant,
+    reverseSign,
+    signFromOctant,
+} from './ShadowMapUtils'
 
 class ShadowChebyshevDistancePass implements GPGPUProgram 
 {
@@ -14,10 +19,10 @@ class ShadowChebyshevDistancePass implements GPGPUProgram
     userCode: string
     packedInputs = true
     packedOutput = true
-    customUniforms = [{ name: 'map', type: 'int' as const }]
 
     constructor(
         outputShape: [number, number, number],
+        map: number,
         maxDistance: number = 31,
     ) {
         
@@ -45,9 +50,9 @@ class ShadowChebyshevDistancePass implements GPGPUProgram
 
             ivec4 v = toInt(getAAt(coords)); // -2048..2047 half float precision 
             uvec4 u = uvec4(v + ivec4(2048)); // 0..4095
-            uvec4 s = (u >> map) & 1u;
+            uvec4 s = (u >> ${map}) & 1u;
 
-            uvec4 outD = s * uvec4(${maxDistance});
+            uvec4 outD = uvec4(${maxDistance}) * s;
             setOutput(vec4(outD));
         }
         `
@@ -64,13 +69,10 @@ class AnisotropicChebyshevDistancePass implements GPGPUProgram
 
     constructor(
         inputShape: [number, number, number],
-        direction: '-x' | '+x' | '-y' | '+y' | '-z' | '+z',
+        axis: Axis,
+        sign: Sign,
         maxDistance: number = 31,
     ) {
-
-        const sign = direction[0] as '-' | '+'
-        const axis = direction[1] as 'x'|'y'|'z'
-
         const [D, H, W] = inputShape
         this.outputShape = [D, H, W]
 
@@ -137,13 +139,10 @@ class ExtendedChebyshevDistancePass implements GPGPUProgram
 
     constructor(
         inputShape: [number, number, number],
-        direction: '-x' | '+x' | '-y' | '+y' | '-z' | '+z',
+        axis: Axis,
+        sign: Sign,        
         maxDistance: number = 31,
     ) {
-
-        const sign = direction[0] as '-' | '+'           
-        const axis = direction[1] as 'x'|'y'|'z'
-
         const [D, H, W] = inputShape
         this.outputShape = [D, H, W]
 
@@ -202,11 +201,57 @@ class ExtendedChebyshevDistancePass implements GPGPUProgram
     }
 }
 
-function runProgram(prog: GPGPUProgram, inputs: tf.Tensor[]) : tf.Tensor 
+export function computeExtendedAnisotropicBidirectionalShadowDistanceMap(
+    shadowMaps: tf.Tensor3D,
+    dominantAxis: Axis,
+    octant: Octant,
+    maxDistance: number
+): tf.Tensor3D
 {
-    const backend = tf.backend() as MathBackendWebGL
-    const info = backend.compileAndRun(prog, inputs)
-    return tf.engine().makeTensorFromTensorInfo(info) as tf.Tensor
+    const shape = shadowMaps.shape as [number, number, number]
+    const dominantSign = signFromOctant(octant, axisIndex(dominantAxis))
+
+    const otherAxes = ['x', 'y', 'z'].filter(a => a !== dominantAxis) as [Axis, Axis]
+    const otherSigns = otherAxes.map(a => signFromOctant(octant, axisIndex(a))) as [Sign, Sign]
+
+    const mapIndex = mapFromDominantAxisOctant(dominantAxis, octant)
+
+    const passes = [
+        new ShadowChebyshevDistancePass(shape, mapIndex, maxDistance),
+
+        new AnisotropicChebyshevDistancePass(shape, otherAxes[0], otherSigns[0], maxDistance),
+        new AnisotropicChebyshevDistancePass(shape, otherAxes[1], otherSigns[1], maxDistance),
+        new ExtendedChebyshevDistancePass(shape, dominantAxis, dominantSign, maxDistance),
+
+        new AnisotropicChebyshevDistancePass(shape, otherAxes[0], reverseSign(otherSigns[0]), maxDistance),
+        new AnisotropicChebyshevDistancePass(shape, otherAxes[1], reverseSign(otherSigns[1]), maxDistance),
+        new ExtendedChebyshevDistancePass(shape, dominantAxis, reverseSign(dominantSign), maxDistance),
+    ]
+
+    let t: tf.Tensor = shadowMaps
+    for (const pass of passes)
+    {
+        const out = runWebGLProgram(pass, [t as tf.Tensor3D], 'float32', [], false)
+        if (t !== shadowMaps) tf.dispose(t)
+        t = out
+    }
+
+    logTensor(t, "Extended Anisotropic Bidirectional Shadow Distance Map")
+
+    return t as tf.Tensor3D
+}
+
+// helper functions
+
+function logTensor(tensor: tf.Tensor, name: string)
+{
+    console.log(name, tf.tidy(() => tensor.mean([0,1,2]).dataSync())) 
+}
+
+function axisIndex(axis: Axis): Dimension
+{
+    const axes = ['x', 'y', 'z'] as Axis[]
+    return axes.indexOf(axis as any) as Dimension
 }
 
 function runWebGLProgram(
@@ -221,9 +266,3 @@ function runWebGLProgram(
     return tf.engine().makeTensorFromTensorInfo(info) 
 }
 
-export function computeExtendedAnisotropicBidirectionalShadowDistanceMap(shadowMap: tf.Tensor3D, maxDistance: number): tf.Tensor3D 
-{
-    const shape = shadowMap.shape as [number, number, number]
-
-    const chebyshevPass = new ShadowChebyshevDistancePass(shape, maxDistance)
-}
