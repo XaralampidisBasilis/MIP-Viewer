@@ -15,22 +15,15 @@ export default class ShadowMap
         this.volumeMap = this.computes.volumeMap
     }
 
-    async computeTensor()
+    computeTensor()
     {
-        console.time('computeExtendedAnisotropicBidirectionalShadowMap') 
+        console.time('computeTensor') 
         // tf.tidy(() => S0.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0, true))
         // tf.tidy(() => S1.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0, true))
+        
         this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0.01, true)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.toReversed())
-        console.timeEnd('computeExtendedAnisotropicBidirectionalShadowMap') 
-
-        console.time('computeExtendedAnisotropicBidirectionalShadowDistanceMap')   
-        const distanceMap = computeExtendedAnisotropicBidirectionalShadowDistanceMap(this.tensor, 31, true)
-        const f16 = new Float16Array(distanceMap.dataSync())
-        const u16 = new Uint16Array(f16.buffer)
-        console.log(u16)
-
-        console.timeEnd('computeExtendedAnisotropicBidirectionalShadowDistanceMap') 
+        console.timeEnd('computeTensor') 
     }
 
     computeTexture()

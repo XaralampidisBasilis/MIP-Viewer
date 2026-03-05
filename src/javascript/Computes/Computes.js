@@ -3,7 +3,7 @@ import EventEmitter from '../Utils/EventEmitter'
 import Experience from '../Experience'
 import VolumeMap from './Maps/VolumeMap'
 import ShadowMap from './Maps/ShadowMap'
-// import ExtendedAnisotropicDistanceMap from './Maps/ExtendedAnisotropicDistanceMap'
+import DistanceMap from './Maps/DistanceMap'
 
 export default class Computes extends EventEmitter
 {
@@ -31,7 +31,7 @@ export default class Computes extends EventEmitter
     {
         this.volumeMap = new VolumeMap()
         this.shadowMap = new ShadowMap()
-        // this.distanceMap = new ExtendedAnisotropicDistanceMap()
+        this.distanceMap = new DistanceMap()
     }
 
     async start()
@@ -41,19 +41,23 @@ export default class Computes extends EventEmitter
         this.volumeMap.computeTensor()
         await tf.nextFrame()
 
-        await this.shadowMap.computeTensor()
-        this.shadowMap.computeTexture()
-        this.shadowMap.tensor.dispose()
+        this.shadowMap.computeTensor()
+        await tf.nextFrame()
+
+        this.distanceMap.computeTensor()
         await tf.nextFrame()
 
         this.volumeMap.computeTexture()
         this.volumeMap.tensor.dispose()
         await tf.nextFrame()
 
-        // this.distanceMap.computeTensor()
-        // this.distanceMap.computeTexture()
-        // this.distanceMap.tensor.dispose()
-        // await tf.nextFrame()
+        this.shadowMap.computeTexture()
+        this.shadowMap.tensor.dispose()
+        await tf.nextFrame()
+
+        this.distanceMap.computeTexture()
+        this.distanceMap.tensor.dispose()
+        await tf.nextFrame()
 
         console.timeEnd('start@Computes') 
         this.printResources()
