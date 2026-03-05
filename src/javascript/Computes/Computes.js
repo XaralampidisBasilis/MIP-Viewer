@@ -44,11 +44,11 @@ export default class Computes extends EventEmitter
         this.shadowMap.computeTensor()
         await tf.nextFrame()
 
-        this.distanceMap.computeTensor()
-        await tf.nextFrame()
-
         this.volumeMap.computeTexture()
         this.volumeMap.tensor.dispose()
+        await tf.nextFrame()
+
+        this.distanceMap.computeTensor()
         await tf.nextFrame()
 
         this.shadowMap.computeTexture()
