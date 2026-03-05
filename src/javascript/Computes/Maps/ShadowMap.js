@@ -25,7 +25,11 @@ export default class ShadowMap
         console.timeEnd('computeExtendedAnisotropicBidirectionalShadowMap') 
 
         console.time('computeExtendedAnisotropicBidirectionalShadowDistanceMap')   
-        computeExtendedAnisotropicBidirectionalShadowDistanceMap(this.tensor, 31, true)
+        const distanceMap = computeExtendedAnisotropicBidirectionalShadowDistanceMap(this.tensor, 31, true)
+        const f16 = new Float16Array(distanceMap.dataSync())
+        const u16 = new Uint16Array(f16.buffer)
+        console.log(u16)
+
         console.timeEnd('computeExtendedAnisotropicBidirectionalShadowDistanceMap') 
     }
 

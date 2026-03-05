@@ -311,44 +311,36 @@ export function computeExtendedAnisotropicBidirectionalShadowDistanceMap(
     let anisotropicMaps = []
     let extendedMaps = [] 
 
-    extendedMaps = [
-        computeShadowDistanceMap(shadowMaps, 'x', '+++', maxDistance, verbose),
-        computeShadowDistanceMap(shadowMaps, 'y', '+++', maxDistance, verbose),
-        computeShadowDistanceMap(shadowMaps, 'z', '+++', maxDistance, verbose),
-        tf.zerosLike(shadowMaps),
-    ] 
-    
-    anisotropicMaps.push(packUnsignedShort5551(...extendedMaps as Array4<tf.Tensor3D>))
-    tf.dispose(extendedMaps)
-    
-    extendedMaps = [
-        computeShadowDistanceMap(shadowMaps, 'x', '++-', maxDistance, verbose),
-        computeShadowDistanceMap(shadowMaps, 'y', '++-', maxDistance, verbose),
-        computeShadowDistanceMap(shadowMaps, 'z', '++-', maxDistance, verbose),
-        tf.zerosLike(shadowMaps),
-    ] 
+    extendedMaps[0] = computeShadowDistanceMap(shadowMaps, 'x', '+++', maxDistance, verbose)
+    extendedMaps[1] = computeShadowDistanceMap(shadowMaps, 'y', '+++', maxDistance, verbose)
+    extendedMaps[2] = computeShadowDistanceMap(shadowMaps, 'z', '+++', maxDistance, verbose)
+    extendedMaps[3] = tf.zerosLike(shadowMaps)
 
-    anisotropicMaps.push(packUnsignedShort5551(...extendedMaps as Array4<tf.Tensor3D>))
+    anisotropicMaps[0] = packUnsignedShort5551(...extendedMaps as Array4<tf.Tensor3D>)
     tf.dispose(extendedMaps)
 
-    extendedMaps = [
-        computeShadowDistanceMap(shadowMaps, 'x', '+-+', maxDistance, verbose),
-        computeShadowDistanceMap(shadowMaps, 'y', '+-+', maxDistance, verbose),
-        computeShadowDistanceMap(shadowMaps, 'z', '+-+', maxDistance, verbose),
-        tf.zerosLike(shadowMaps),
-    ]
+    extendedMaps[0] = computeShadowDistanceMap(shadowMaps, 'x', '++-', maxDistance, verbose)
+    extendedMaps[1] = computeShadowDistanceMap(shadowMaps, 'y', '++-', maxDistance, verbose)
+    extendedMaps[2] = computeShadowDistanceMap(shadowMaps, 'z', '++-', maxDistance, verbose)
+    extendedMaps[3] = tf.zerosLike(shadowMaps)
 
-    anisotropicMaps.push(packUnsignedShort5551(...extendedMaps as Array4<tf.Tensor3D>))
+    anisotropicMaps[1] = packUnsignedShort5551(...extendedMaps as Array4<tf.Tensor3D>)
     tf.dispose(extendedMaps)
 
-    extendedMaps = [
-        computeShadowDistanceMap(shadowMaps, 'x', '-++', maxDistance, verbose),
-        computeShadowDistanceMap(shadowMaps, 'y', '-++', maxDistance, verbose),
-        computeShadowDistanceMap(shadowMaps, 'z', '-++', maxDistance, verbose),
-        tf.zerosLike(shadowMaps),
-    ]
+    extendedMaps[0] = computeShadowDistanceMap(shadowMaps, 'x', '+-+', maxDistance, verbose)
+    extendedMaps[1] = computeShadowDistanceMap(shadowMaps, 'y', '+-+', maxDistance, verbose)
+    extendedMaps[2] = computeShadowDistanceMap(shadowMaps, 'z', '+-+', maxDistance, verbose)
+    extendedMaps[3] = tf.zerosLike(shadowMaps)
 
-    anisotropicMaps.push(packUnsignedShort5551(...extendedMaps as Array4<tf.Tensor3D>))
+    anisotropicMaps[2] = packUnsignedShort5551(...extendedMaps as Array4<tf.Tensor3D>)
+    tf.dispose(extendedMaps)
+
+    extendedMaps[0] = computeShadowDistanceMap(shadowMaps, 'x', '-++', maxDistance, verbose)
+    extendedMaps[1] = computeShadowDistanceMap(shadowMaps, 'y', '-++', maxDistance, verbose)
+    extendedMaps[2] = computeShadowDistanceMap(shadowMaps, 'z', '-++', maxDistance, verbose)
+    extendedMaps[3] = tf.zerosLike(shadowMaps)
+
+    anisotropicMaps[3] = packUnsignedShort5551(...extendedMaps as Array4<tf.Tensor3D>)
     tf.dispose(extendedMaps)
 
     const pack = new PackChannels(shadowMaps.shape)
