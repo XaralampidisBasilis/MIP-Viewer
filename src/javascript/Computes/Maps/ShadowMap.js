@@ -36,7 +36,7 @@ export default class ShadowMap
         this.texture.minFilter = THREE.NearestFilter
         this.texture.magFilter = THREE.NearestFilter
         this.texture.generateMipmaps = false
-        this.texture.unpackAlignment = 1
+        this.texture.unpackAlignment = 2
         this.texture.needsUpdate = true
         console.timeEnd('computeTexture') 
     }   

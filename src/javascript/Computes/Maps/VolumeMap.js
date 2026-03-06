@@ -2,9 +2,8 @@ import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import { resizeTrilinear } from '../Programs/GPGPUResizeTrilinear'
-import { normalizePacked } from '../Programs/normalize_packed'
 import { mapPacked } from '../Programs/map_packed'
-import * as TensorUtils from '../../Utils/TensorUtils'
+import { toHalfFloat } from '../../Utils/DataUtils'
 
 export default class VolumeMap
 {
@@ -80,13 +79,13 @@ export default class VolumeMap
         console.time('computeTexture') 
         this.texture = new THREE.Data3DTexture(this.getTextureData(), ...this.dimensions)
         this.texture.format = THREE.RedFormat
-        this.texture.type = THREE.FloatType
-        this.texture.internalFormat = 'R32F'
+        this.texture.type = THREE.HalfFloatType
+        this.texture.internalFormat = 'R16F'
         this.texture.minFilter = THREE.LinearFilter
         this.texture.magFilter = THREE.LinearFilter
         this.texture.generateMipmaps = false
         this.texture.needsUpdate = true
-        this.texture.unpackAlignment = 1
+        this.texture.unpackAlignment = 2
         console.timeEnd('computeTexture') 
     }
 
@@ -98,7 +97,25 @@ export default class VolumeMap
 
     getTextureData()
     {
-        return new Float32Array(this.tensor.dataSync())
+        const data = this.tensor.dataSync()
+
+        try 
+        {
+            const f16 = new Float16Array(data)
+            const u16 = new Uint16Array(f16.buffer)
+
+            return u16
+        }
+        catch (error)
+        {
+            const f16 = new Uint16Array(data.length)
+
+            for (let i = 0; i < data.length; i++) 
+            {
+                f16[i] = toHalfFloat(data[i])
+            }
+            return f16
+        }
     }
 
     dispose()

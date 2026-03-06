@@ -33,7 +33,7 @@ export default class DistanceMap
         this.texture.minFilter = THREE.NearestFilter
         this.texture.magFilter = THREE.NearestFilter
         this.texture.generateMipmaps = false
-        this.texture.unpackAlignment = 4
+        this.texture.unpackAlignment = 8
         this.texture.needsUpdate = true
         console.timeEnd('computeTexture') 
     }   
@@ -47,13 +47,11 @@ export default class DistanceMap
     getTextureData()
     {
         const data = this.tensor.dataSync()
-        
+
         try 
         {
             const f16 = new Float16Array(data)
             const u16 = new Uint16Array(f16.buffer)
-
-            console.log(u16)
 
             return u16
         }
@@ -65,10 +63,7 @@ export default class DistanceMap
             for (let i = 0; i < data.length; i++) 
             {
                 u16[i] = toHalfFloat(data[i])
-            }
-
-            console.log(u16)
-            
+            }            
             return u16
         }
     }
