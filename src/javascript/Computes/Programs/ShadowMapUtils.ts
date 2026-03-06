@@ -5,75 +5,75 @@ export type Octant = `${Sign}${Sign}${Sign}`
 export type Permute = [Dimension, Dimension, Dimension]
 export type Reverse = Dimension[]
 
-const INDEX_FROM_AXIS: Record<Axis, Dimension> = {
+const INDEX_FROM_AXIS: Record<Axis, Dimension> = 
+{
     'x': 0,
     'y': 1,
     'z': 2,
 }
 
-const MAP_FROM_PERMUTE_REVERSE: Record<string, number> = {
-    "2,1,0|"     : 0,
-    "2,1,0|1"    : 1,
-    "2,1,0|0"    : 2,
-    "2,1,0|1,0"  : 3,
-    "2,1,0|2,1,0": 0,
-    "2,1,0|2,0"  : 1,
-    "2,1,0|2,1"  : 2,
-    "2,1,0|2"    : 3,
-
-    "1,2,0|"     : 4,
-    "1,2,0|2"    : 5,
-    "1,2,0|0"    : 6,
-    "1,2,0|2,0"  : 7,
-    "1,2,0|1,2,0": 4,
-    "1,2,0|1,0"  : 5,
-    "1,2,0|1,2"  : 6,
-    "1,2,0|1"    : 7,
-
-    "0,1,2|"     : 8,
-    "0,1,2|1"    : 9,
-    "0,1,2|2"    : 10,
-    "0,1,2|1,2"  : 11,
-    "0,1,2|0,1,2": 8,
-    "0,1,2|0,2"  : 9,
-    "0,1,2|0,1"  : 10,
-    "0,1,2|0"    : 11,
-}
-
-const MAP_FROM_DOMINANT_AXIS_OCTANT: Record<string, number> = {
-    // dominantAxis = x
+const MAP_FROM_DOMINANT_AXIS_OCTANT: Record<string, number> = 
+{
     "x|+++": 0,
-    "x|+-+": 1,
-    "x|++-": 2,
-    "x|+--": 3,
     "x|---": 0,
+    "x|+-+": 1,
     "x|-+-": 1,
     "x|--+": 2,
+    "x|++-": 2,
     "x|-++": 3,
+    "x|+--": 3,
 
-    // dominantAxis = y
     "y|+++": 4,
-    "y|-++": 5,
-    "y|++-": 6,
-    "y|-+-": 7,
     "y|---": 4,
+    "y|-++": 5,
     "y|+--": 5,
+    "y|++-": 6,
     "y|--+": 6,
     "y|+-+": 7,
+    "y|-+-": 7,
 
-    // dominantAxis = z
     "z|+++": 8,
-    "z|+-+": 9,
-    "z|-++": 10,
-    "z|--+": 11,
     "z|---": 8,
+    "z|+-+": 9,
     "z|-+-": 9,
+    "z|-++": 10,
     "z|+--": 10,
     "z|++-": 11,
+    "z|--+": 11,
 }
 
-const PERMUTE_REVERSE_FROM_DOMINANT_AXIS_OCTANT: Record<string, { permute: Permute, reverse: Reverse }> = {
-    // dominantAxis = x
+const MAP_FROM_PERMUTE_REVERSE: Record<string, number> = 
+{
+    "2,1,0|"     : 0,
+    "2,1,0|2,1,0": 0,
+    "2,1,0|1"    : 1,
+    "2,1,0|2,0"  : 1,
+    "2,1,0|0"    : 2,
+    "2,1,0|2,1"  : 2,
+    "2,1,0|2"    : 3,
+    "2,1,0|1,0"  : 3,
+
+    "1,2,0|"     : 4,
+    "1,2,0|1,2,0": 4,
+    "1,2,0|2"    : 5,
+    "1,2,0|1,0"  : 5,
+    "1,2,0|0"    : 6,
+    "1,2,0|1,2"  : 6,
+    "1,2,0|1"    : 7,
+    "1,2,0|2,0"  : 7,
+
+    "0,1,2|"     : 8,
+    "0,1,2|0,1,2": 8,
+    "0,1,2|1"    : 9,
+    "0,1,2|0,2"  : 9,
+    "0,1,2|2"    : 10,
+    "0,1,2|0,1"  : 10,
+    "0,1,2|0"    : 11,
+    "0,1,2|1,2"  : 11,
+}
+
+const PERMUTE_REVERSE_FROM_DOMINANT_AXIS_OCTANT: Record<string, { permute: Permute, reverse: Reverse }> = 
+{
     "x|+++": { permute: [2,1,0], reverse: [] },
     "x|+-+": { permute: [2,1,0], reverse: [1] },
     "x|++-": { permute: [2,1,0], reverse: [0] },
@@ -83,7 +83,6 @@ const PERMUTE_REVERSE_FROM_DOMINANT_AXIS_OCTANT: Record<string, { permute: Permu
     "x|--+": { permute: [2,1,0], reverse: [2,1] },
     "x|-++": { permute: [2,1,0], reverse: [2] },
 
-    // dominantAxis = y
     "y|+++": { permute: [1,2,0], reverse: [] },
     "y|-++": { permute: [1,2,0], reverse: [2] },
     "y|++-": { permute: [1,2,0], reverse: [0] },
@@ -93,7 +92,6 @@ const PERMUTE_REVERSE_FROM_DOMINANT_AXIS_OCTANT: Record<string, { permute: Permu
     "y|--+": { permute: [1,2,0], reverse: [1,2] },
     "y|+-+": { permute: [1,2,0], reverse: [1] },
 
-    // dominantAxis = z
     "z|+++": { permute: [0,1,2], reverse: [] },
     "z|+-+": { permute: [0,1,2], reverse: [1] },
     "z|-++": { permute: [0,1,2], reverse: [2] },
@@ -104,8 +102,8 @@ const PERMUTE_REVERSE_FROM_DOMINANT_AXIS_OCTANT: Record<string, { permute: Permu
     "z|++-": { permute: [0,1,2], reverse: [0] },
 }
 
-const DOMINANT_AXIS_OCTANT_FROM_PERMUTE_REVERSE: Record<string, { dominantAxis: Axis, octant: Octant }> = {
-    // dominantAxis = x
+const DOMINANT_AXIS_OCTANT_FROM_PERMUTE_REVERSE: Record<string, { dominantAxis: Axis, octant: Octant }> = 
+{
     "2,1,0|"     : { dominantAxis: 'x', octant: '+++' },
     "2,1,0|1"    : { dominantAxis: 'x', octant: '+-+' },
     "2,1,0|0"    : { dominantAxis: 'x', octant: '++-' },
@@ -115,7 +113,6 @@ const DOMINANT_AXIS_OCTANT_FROM_PERMUTE_REVERSE: Record<string, { dominantAxis: 
     "2,1,0|2,1"  : { dominantAxis: 'x', octant: '--+' },
     "2,1,0|2"    : { dominantAxis: 'x', octant: '-++' },
 
-    // dominantAxis = y
     "1,2,0|"     : { dominantAxis: 'y', octant: '+++' },
     "1,2,0|2"    : { dominantAxis: 'y', octant: '-++' },
     "1,2,0|0"    : { dominantAxis: 'y', octant: '++-' },
@@ -125,7 +122,6 @@ const DOMINANT_AXIS_OCTANT_FROM_PERMUTE_REVERSE: Record<string, { dominantAxis: 
     "1,2,0|1,2"  : { dominantAxis: 'y', octant: '--+' },
     "1,2,0|1"    : { dominantAxis: 'y', octant: '+-+' },
 
-    // dominantAxis = z
     "0,1,2|"     : { dominantAxis: 'z', octant: '+++' },
     "0,1,2|1"    : { dominantAxis: 'z', octant: '+-+' },
     "0,1,2|2"    : { dominantAxis: 'z', octant: '-++' },

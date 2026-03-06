@@ -113,7 +113,7 @@ class PackUnsignedShort5x3ToNormalizedHalfFloat implements GPGPUProgram
             uint exp  = (bits >> 10) & 0x1Fu;     // 5-bit exp
             uint frac = (bits >>  0) & 0x3FFu;    // 10-bit fraction
 
-            // undo the shift we did to avoid denormals
+            // undo the shift and guard we did to avoid denormals
             exp = (exp >> 1) & 0xFu;
 
             // pack back into 15-bit u: sign=1 bit, exp=4 bits, frac=10 bits
