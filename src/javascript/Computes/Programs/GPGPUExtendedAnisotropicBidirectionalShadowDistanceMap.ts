@@ -267,12 +267,12 @@ export function computeShadowDistanceMap(
     verbose: boolean = false,
 ): tf.Tensor3D
 {
+    const axes = ['x', 'y', 'z'] as [Axis, Axis, Axis]
     const shape = shadowMaps.shape as [number, number, number]
-    const dominantSign = signFromOctant(octant, axisIndex(dominantAxis))
 
-    const otherAxes = ['x', 'y', 'z'].filter(a => a !== dominantAxis) as [Axis, Axis]
+    const otherAxes = axes.filter(a => a !== dominantAxis) as [Axis, Axis]
     const otherSigns = otherAxes.map(a => signFromOctant(octant, axisIndex(a))) as [Sign, Sign]
-
+    const dominantSign = signFromOctant(octant, axisIndex(dominantAxis))
     const mapIndex = mapFromDominantAxisOctant(dominantAxis, octant)
 
     const passes = [
@@ -295,10 +295,7 @@ export function computeShadowDistanceMap(
         t = out
     }
 
-    if (verbose) 
-    {
-        logTensor(t, "ShadowDistanceMap")
-    }
+    if (verbose) logTensor(t, "ShadowDistanceMap")
 
     return t as tf.Tensor3D
 }
