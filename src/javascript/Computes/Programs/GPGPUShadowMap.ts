@@ -1266,34 +1266,34 @@ export function computeExtendedAnisotropicBidirectionalShadowMapSingular(
     verbose: boolean = false
 ) : tf.Tensor3D
 {
-    const tempMap = computeBidirectionalShadowMap(volume, 'z', '+++', tolerance)
+    const t = computeUnidirectionalShadowMap(volume, 'z', '+++', tolerance)
 
     let anisotropicMaps = [] 
     let extendedMaps = []
 
     anisotropicMaps = []
-    anisotropicMaps.push(tf.onesLike(tempMap)) // [2,1,0], [   ]
-    anisotropicMaps.push(tf.onesLike(tempMap)) // [2,1,0], [  1]
-    anisotropicMaps.push(tf.onesLike(tempMap)) // [2,1,0], [  0]
-    anisotropicMaps.push(tf.onesLike(tempMap)) // [2,1,0], [1,0]
+    anisotropicMaps.push(tf.onesLike(t)) // [2,1,0], [   ]
+    anisotropicMaps.push(tf.onesLike(t)) // [2,1,0], [  1]
+    anisotropicMaps.push(tf.onesLike(t)) // [2,1,0], [  0]
+    anisotropicMaps.push(tf.onesLike(t)) // [2,1,0], [1,0]
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
    
     anisotropicMaps = []
-    anisotropicMaps.push(tf.onesLike(tempMap)) // [1,2,0], [   ]
-    anisotropicMaps.push(tf.onesLike(tempMap)) // [1,2,0], [  2]
-    anisotropicMaps.push(tf.onesLike(tempMap)) // [1,2,0], [  0]
-    anisotropicMaps.push(tf.onesLike(tempMap)) // [1,2,0], [2,0]
+    anisotropicMaps.push(tf.onesLike(t)) // [1,2,0], [   ]
+    anisotropicMaps.push(tf.onesLike(t)) // [1,2,0], [  2]
+    anisotropicMaps.push(tf.onesLike(t)) // [1,2,0], [  0]
+    anisotropicMaps.push(tf.onesLike(t)) // [1,2,0], [2,0]
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
 
     anisotropicMaps = []
-    anisotropicMaps.push(tf.clone(tempMap)) // [0,1,2], [   ]
-    anisotropicMaps.push(tf.onesLike(tempMap)) // [0,1,2], [  1]
-    anisotropicMaps.push(tf.onesLike(tempMap)) // [0,1,2], [  2]
-    anisotropicMaps.push(tf.onesLike(tempMap)) // [0,1,2], [1,2]
+    anisotropicMaps.push(tf.clone(t)) // [0,1,2], [   ]
+    anisotropicMaps.push(tf.onesLike(t)) // [0,1,2], [  1]
+    anisotropicMaps.push(tf.onesLike(t)) // [0,1,2], [  2]
+    anisotropicMaps.push(tf.onesLike(t)) // [0,1,2], [1,2]
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
@@ -1302,7 +1302,7 @@ export function computeExtendedAnisotropicBidirectionalShadowMapSingular(
     if (verbose) logExtendedAnisotropicBidirectionalShadowMaps(shadowMap)
         
     tf.dispose(extendedMaps)
-    tf.dispose(tempMap)
+    tf.dispose(t)
 
     return shadowMap as tf.Tensor3D
 }

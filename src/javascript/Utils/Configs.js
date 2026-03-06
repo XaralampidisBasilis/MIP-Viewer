@@ -10,9 +10,7 @@ export default class Configs extends EventEmitter
 
     static GradientsMethods = Object.freeze([
         'analytic',
-        'trilinearSobel',
         'triquadraticBspline',
-        'tricubicBspline',
     ])
     static MarchingMethods = Object.freeze([
         'cells',
@@ -23,8 +21,8 @@ export default class Configs extends EventEmitter
         'blockGroups',
     ])
     static SkippingMethods = Object.freeze([
-        'occupancy',
-        'distanceMap',
+        'binary',
+        'distance',
     ])
 
     constructor() 
@@ -37,7 +35,7 @@ export default class Configs extends EventEmitter
         this.gradientsMethod = 'triquadraticBspline'
         this.marchingMethod = 'traces'
         this.skippingStrategy = 'blocks'
-        this.skippingMethod = 'occupancy'
+        this.skippingMethod = 'binary'
         this.colormap = 'viridis'
 
         this.bernsteinEnabled = false

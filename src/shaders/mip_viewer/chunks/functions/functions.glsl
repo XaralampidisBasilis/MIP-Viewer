@@ -1,6 +1,6 @@
 #include "./sample_volume"
 #include "./sample_shadow"
-// #include "./sample_distance"
+#include "./sample_distance"
 #include "./compute_gradient"
 #include "./compute_curvatures"
 #include "./compute_octant"

@@ -21,8 +21,10 @@ export default class ShadowMap
         // tf.tidy(() => S0.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0, true))
         // tf.tidy(() => S1.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0, true))
         
-        this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0.01, true)
+        // this.tensor = S0.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0)
+        this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0.01)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.toReversed())
+
         console.timeEnd('computeTensor') 
     }
 

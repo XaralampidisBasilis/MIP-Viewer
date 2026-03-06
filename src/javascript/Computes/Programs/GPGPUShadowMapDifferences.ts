@@ -1014,7 +1014,7 @@ export function computeExtendedAnisotropicBidirectionalShadowMapSingular(
     verbose: boolean = false
 ) : tf.Tensor3D
 {
-    const tempMap = computeBidirectionalShadowMap(volume, 'z', '+++', tolerance)
+    const tempMap = computeUnidirectionalShadowMap(volume, 'z', '+++', tolerance)
 
     let anisotropicMaps = [] 
     let extendedMaps = []

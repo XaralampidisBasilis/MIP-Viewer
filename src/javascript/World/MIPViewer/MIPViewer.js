@@ -108,7 +108,7 @@ export default class MIPViewer extends EventEmitter
         const uniforms = this.material.uniforms
         uniforms.u_textures.value.volume_map = this.computes.volumeMap.texture
         uniforms.u_textures.value.shadow_map = this.computes.shadowMap.texture
-        // uniforms.u_textures.value.distance_map = this.computes.distanceMap.texture
+        uniforms.u_textures.value.distance_map = this.computes.distanceMap.texture
     }
 
     setUniformsVolume()

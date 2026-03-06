@@ -5,18 +5,12 @@ trace.spacing = ray.spacing / 2.0;
 #if SKIPPING_ENABLED == 1
 
     trace.distance = floor(block.entry_distance / trace.spacing) * trace.spacing;
-    // trace.distance = block.entry_distance;
-
-    float jitter = random(block.entry_position);
-    trace.distance += trace.spacing * jitter;
+    trace.distance += trace.spacing * random(block.entry_position);
 
 #else
 
     trace.distance = floor(ray.start_distance / trace.spacing) * trace.spacing;
-    // trace.distance = ray.start_distance;
-
-    float jitter = random(ray.start_position);
-    trace.distance += trace.spacing * jitter;
+    trace.distance += trace.spacing * random(ray.start_position);
 
 #endif
 
