@@ -6,6 +6,7 @@ trace.spacing = ray.spacing / 2.0;
 
     trace.distance = floor(block.entry_distance / trace.spacing) * trace.spacing;
     trace.distance += trace.spacing * random(block.entry_position);
+    trace.distance = clamp(trace.distance, ray.start_distance, ray.end_distance);
 
 #else
 

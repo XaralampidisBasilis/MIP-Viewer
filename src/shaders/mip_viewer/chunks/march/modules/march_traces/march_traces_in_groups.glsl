@@ -34,4 +34,4 @@ for (int k = 0; k < MAX_GROUPS; k++)
     #endif
 }
 
-#include "./compute_mip"
+#include "./end_mip"

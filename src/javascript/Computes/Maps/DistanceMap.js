@@ -3,8 +3,9 @@ import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import { toHalfFloat } from '../../Utils/DataUtils'
 import { 
-    computeExtendedAnisotropicBidirectionalShadowDistanceMap,
-    computeExtendedAnisotropicBidirectionalShadowDistanceMapDebug,
+    computeIsotropicDistanceMap,
+    computeExtendedAnisotropicBidirectionalDistanceMap,
+    computeExtendedAnisotropicBidirectionalDistanceMapDebug,
 } from '../Programs/GPGPUExtendedAnisotropicBidirectionalShadowDistanceMap'
 
 export default class DistanceMap 
@@ -21,8 +22,9 @@ export default class DistanceMap
     {
         console.time('computeTensor') 
         this.dimensions = new THREE.Vector3(...this.shadowMap.dimensions)
-        this.tensor = computeExtendedAnisotropicBidirectionalShadowDistanceMap(this.shadowMap.tensor, this.maxDistance)
-        // this.tensor = computeExtendedAnisotropicBidirectionalShadowDistanceMapDebug(this.shadowMap.tensor, this.maxDistance, true)
+        // this.tensor = computeIsotropicDistanceMap(this.shadowMap.tensor, this.maxDistance, true)
+        this.tensor = computeExtendedAnisotropicBidirectionalDistanceMap(this.shadowMap.tensor, this.maxDistance, true)
+        // this.tensor = computeExtendedAnisotropicBidirectionalDistanceMapDebug(this.shadowMap.tensor, this.maxDistance, true)
 
         console.timeEnd('computeTensor') 
     }

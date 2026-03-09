@@ -71,7 +71,6 @@ export default class GUI
             marchingMethod      : this.configs.marchingMethod,
             skippingStrategy    : this.configs.skippingStrategy,    
             skippingMethod      : this.configs.skippingMethod,    
-            bernsteinEnabled    : this.configs.bernsteinEnabled,
             skippingEnabled     : this.configs.skippingEnabled,  
         }
     
@@ -112,12 +111,6 @@ export default class GUI
             .onFinishChange((option) => 
             { 
                 this.configs.set('gradientsMethod', option) 
-            }),
-
-            bernsteinEnabled : folder.add(objects, 'bernsteinEnabled')
-            .onFinishChange((boolean) => 
-            { 
-                this.configs.set('bernsteinEnabled', boolean) 
             }),
 
             skippingEnabled : folder.add(objects, 'skippingEnabled')

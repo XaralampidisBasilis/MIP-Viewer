@@ -207,6 +207,9 @@ class UnidirectionalMinimaMap implements GPGPUProgram
 
         float getAAt(ivec3 coords)
         {
+            // coords = clamp(coords, minCoords, maxCoords);
+            // return getA(coords.z, coords.y, coords.x);
+
             if (inBounds(coords)) 
                 return getA(coords.z, coords.y, coords.x);
             else 
@@ -320,6 +323,9 @@ class UnidirectionalMaximaMap implements GPGPUProgram
 
         float getAAt(ivec3 coords)
         {
+            // coords = clamp(coords, minCoords, maxCoords);
+            // return getA(coords.z, coords.y, coords.x);
+
             if (inBounds(coords)) 
                 return getA(coords.z, coords.y, coords.x);
             else

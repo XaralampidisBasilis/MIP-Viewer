@@ -1,4 +1,5 @@
 
+
 // Compute position
 mip.position = camera.position + ray.direction * mip.distance; 
 

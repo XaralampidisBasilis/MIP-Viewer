@@ -23,4 +23,4 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     if (trace.distance > ray.end_distance) break; 
 }
 
-#include "./compute_mip"
+#include "./end_mip"

@@ -656,18 +656,24 @@ class UnidirectionalShadowMap implements GPGPUProgram
 
         vec4 getAAt(ivec3 cCoords)
         {
-            if (inBounds(cCoords))
-                return getA(cCoords.z, cCoords.y, cCoords.x, 0, 0);
-            else 
-                return vec4(0.0);
+            cCoords = clamp(cCoords, minCoords, maxCoords);
+            return getA(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+
+            // if (inBounds(cCoords))
+            //     return getA(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            // else 
+            //     return vec4(0.0);
         }
 
         vec4 getBAt(ivec3 cCoords)
         {
-            if (inBounds(cCoords))
-                return getB(cCoords.z, cCoords.y, cCoords.x, 0, 0);
-            else 
-                return vec4(1.0);
+            cCoords = clamp(cCoords, minCoords, maxCoords);
+            return getB(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+
+            // if (inBounds(cCoords))
+            //     return getB(cCoords.z, cCoords.y, cCoords.x, 0, 0);
+            // else 
+            //     return vec4(1.0);
         }
 
         vec3 getMaxValues(ivec3 coords)
@@ -1343,6 +1349,47 @@ export function computeUnidirectionalShadowMapReference(
     return unreversed as tf.Tensor3D
 }
 
+export function computeBidirectionalShadowMapReference(
+    volume: tf.Tensor3D, 
+    dominantAxis: Axis, 
+    octant: Octant, 
+    tolerance: number = 0.01,
+    verbose: boolean = false
+) : tf.Tensor3D
+{
+    const { permute, reverse } = permuteReverseFromDominantAxisOctant(dominantAxis, octant)
+    const reversed = volume.reverse(reverse) as tf.Tensor3D
+    const transposed = reversed.transpose(permute) as tf.Tensor3D
+    tf.dispose(reversed)
+
+    const backwardMinimaMap = unidirectionalMinimaMap(transposed, [0,1,2], [0,1,2])
+    const backwardMaximaMap = unidirectionalMaximaMap(transposed, [0,1,2], [0,1,2])
+    const backwardShadowMap = unidirectionalShadowMap(backwardMinimaMap, backwardMaximaMap, [0,1,2], [0,1,2], tolerance)
+    if (verbose) logTensor('backwardShadowMap', backwardShadowMap)
+
+    tf.dispose([backwardMinimaMap, backwardMaximaMap])
+
+    const forwardMinimaMap = unidirectionalMinimaMapHollow(transposed, backwardShadowMap, [0,1,2], [])
+    const forwardMaximaMap = unidirectionalMaximaMap(transposed, [0,1,2], [])
+    const forwardShadowMap = unidirectionalShadowMap(forwardMinimaMap, forwardMaximaMap, [0,1,2], [], tolerance)
+    if (verbose) logTensor('forwardShadowMap', forwardShadowMap)
+
+    tf.dispose([forwardMinimaMap, forwardMaximaMap])
+
+    const shadowMap = bidirectionalShadowMap(forwardShadowMap, backwardShadowMap)
+    if (verbose) logTensor('shadowMap', shadowMap)
+
+    tf.dispose([forwardShadowMap, backwardShadowMap])
+
+    tf.dispose(transposed)
+    const untransposed = shadowMap.transpose(inversePermutation(permute))
+    tf.dispose(shadowMap)
+    const unreversed = untransposed.reverse(reverse)
+    tf.dispose(untransposed)
+
+    return unreversed as tf.Tensor3D
+}
+
 export function computeExtendedAnisotropicUnidirectionalShadowMapReference(
     volume: tf.Tensor3D,
     tolerance: number = 0.01,
@@ -1378,6 +1425,52 @@ export function computeExtendedAnisotropicUnidirectionalShadowMapReference(
     anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'z', '+-+', tolerance))
     anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'z', '-++', tolerance))
     anisotropicMaps.push(computeUnidirectionalShadowMapReference(volume, 'z', '--+', tolerance))
+
+    extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
+    tf.dispose(anisotropicMaps)
+
+    const shadowMap = extendedAnisotropicBidirectionalShadowMap(extendedMaps as Array3<tf.Tensor3D>)
+    if (verbose) logExtendedAnisotropicBidirectionalShadowMaps(shadowMap)
+
+    tf.dispose(extendedMaps)
+    return shadowMap as tf.Tensor3D
+}
+
+export function computeExtendedAnisotropicBidirectionalShadowMapReference(
+    volume: tf.Tensor3D,
+    tolerance: number = 0.01,
+    verbose: boolean = false
+) : tf.Tensor3D
+{
+    let anisotropicMaps: tf.Tensor3D[] = []
+    let extendedMaps: tf.Tensor3D[] = []
+
+    // dominantAxis = x
+    anisotropicMaps = []
+    anisotropicMaps.push(computeBidirectionalShadowMapReference(volume, 'x', '+++', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMapReference(volume, 'x', '+-+', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMapReference(volume, 'x', '++-', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMapReference(volume, 'x', '+--', tolerance))
+
+    extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
+    tf.dispose(anisotropicMaps)
+
+    // dominantAxis = y
+    anisotropicMaps = []
+    anisotropicMaps.push(computeBidirectionalShadowMapReference(volume, 'y', '+++', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMapReference(volume, 'y', '-++', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMapReference(volume, 'y', '++-', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMapReference(volume, 'y', '-+-', tolerance))
+
+    extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
+    tf.dispose(anisotropicMaps)
+
+    // dominantAxis = z
+    anisotropicMaps = []
+    anisotropicMaps.push(computeBidirectionalShadowMapReference(volume, 'z', '+++', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMapReference(volume, 'z', '+-+', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMapReference(volume, 'z', '-++', tolerance))
+    anisotropicMaps.push(computeBidirectionalShadowMapReference(volume, 'z', '--+', tolerance))
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
