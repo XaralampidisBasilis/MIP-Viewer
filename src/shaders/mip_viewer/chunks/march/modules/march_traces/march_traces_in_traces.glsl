@@ -1,5 +1,5 @@
 
-#include "./start_trace"
+#include "./set_trace"
 #include "./start_mip"
 
 for (int i = 0; i < MAX_TRACES; i++) 

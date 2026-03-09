@@ -98,6 +98,7 @@ export default class MIPViewer extends EventEmitter
         // defines.MAX_BLOCKS_IN_GROUP = Math.ceil(defines.MAX_BLOCKS / defines.MAX_GROUPS)
         defines.MAX_GROUPS = Math.ceil(defines.MAX_TRACES / defines.MAX_TRACES_IN_BLOCK)
         defines.MAX_BLOCKS_IN_GROUP = Math.ceil(defines.MAX_BLOCKS / defines.MAX_GROUPS)
+
         this.material.needsUpdate = true
 
         console.log(defines)

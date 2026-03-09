@@ -1,22 +1,21 @@
 
-trace.spacing = ray.spacing / 2.0;
-
 // start trace
 #if SKIPPING_ENABLED == 1
 
-    trace.distance = floor(block.entry_distance / trace.spacing) * trace.spacing;
-    trace.distance += trace.spacing * random(block.entry_position);
-    trace.distance = clamp(trace.distance, ray.start_distance, ray.end_distance);
+    float jitter = random(block.entry_position);
+    trace.distance = trace.spacing * (floor(block.entry_distance / trace.spacing) + jitter);
 
 #else
 
-    trace.distance = floor(ray.start_distance / trace.spacing) * trace.spacing;
-    trace.distance += trace.spacing * random(ray.start_position);
+    float jitter = random(ray.start_position);
+    trace.distance = trace.spacing * (floor(ray.start_distance / trace.spacing) + jitter);
 
 #endif
 
-// start interpolant
+trace.distance = clamp(trace.distance, ray.start_distance, ray.end_distance);
 trace.position = camera.position + ray.direction * trace.distance; 
+
+// start interpolant
 trace.value = sample_volume(trace.position);
 
 #if DEBUG_ENABLED == 1

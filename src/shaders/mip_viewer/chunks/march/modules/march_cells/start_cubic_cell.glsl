@@ -3,7 +3,6 @@
 #if SKIPPING_ENABLED == 1
 
     cell.exit_distance = block.entry_distance;
-    cell.exit_distance = clamp(cell.exit_distance, ray.start_distance, ray.end_distance);
 
 #else
 
@@ -11,7 +10,9 @@
 
 #endif
 
+cell.exit_distance = clamp(cell.exit_distance, ray.start_distance, ray.end_distance);
 cell.exit_position = camera.position + ray.direction * cell.exit_distance; 
+
 cubic.values[3] = sample_volume(cell.exit_position);
 cell.coords = ivec3(round(cell.exit_position)); 
 

@@ -1,10 +1,10 @@
 
 #include "../march_blocks/start_block"
 
-#include "./start_trace"
+#include "./set_trace"
 #include "./start_mip"
 
-for (int j = 0; j < MAX_BLOCKS; j++) 
+for (int j = 0; j < u_debug.max_blocks; j++) 
 {
     #include "../march_blocks/update_block"
 
