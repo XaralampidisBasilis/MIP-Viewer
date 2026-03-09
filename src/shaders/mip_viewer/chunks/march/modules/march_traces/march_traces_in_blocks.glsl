@@ -4,7 +4,7 @@
 #include "./set_trace"
 #include "./start_mip"
 
-for (int j = 0; j < u_debug.max_blocks; j++) 
+for (int j = 0; j < MAX_BLOCKS; j++) 
 {
     #include "../march_blocks/update_block"
 

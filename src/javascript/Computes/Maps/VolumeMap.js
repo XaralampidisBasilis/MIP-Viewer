@@ -2,8 +2,10 @@ import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import { resizeTrilinear } from '../Programs/GPGPUResizeTrilinear'
+import { resizeNearestNeighbor } from '../Programs/GPGPUResizeNearestNeighbor'
 import { mapPacked } from '../Programs/map_packed'
 import { toHalfFloat } from '../../Utils/DataUtils'
+import * as TensorUtils from '../../Utils/TensorUtils'
 
 export default class VolumeMap
 {
@@ -43,12 +45,12 @@ export default class VolumeMap
 
             const newShape = this.volume.dimensions.toReversed().map((x) => Math.ceil(this.downscaleFactor * x))
             const newSpacing = this.volume.spacing.toReversed().map((x, i) => shape[i]/newShape[i] * x)
-
             this.dimensions.fromArray(newShape.toReversed())
             this.spacing.fromArray(newSpacing.toReversed())
 
             const resized = resizeTrilinear(mapped, newShape, false, true)
-
+            mapped.dispose()
+            
             // return TensorUtils.makeCartesianPlanes3d(resized.shape, true)
             return resized
         })  
@@ -61,23 +63,39 @@ export default class VolumeMap
     {
         console.time('computeMipmap') 
         
-        this.mipmap = {}
-        this.mipmap.tensor = tf.tidy(() =>
+        this.mipmap = { blockSize: this.configs.blockSize }
+
+        if (this.mipmap.blockSize === 1)
         {
-            const shape = this.tensor.shape.map(x => Math.ceil(x / this.mipmap.blockSize))
-            return resizeTrilinear(this.tensor, shape, false, true)
-        })  
+            this.mipmap.tensor = this.tensor
+            this.mipmap.dimensions = this.dimensions
+            return
+        }
+        else
+        {
+            this.mipmap.tensor = tf.tidy(() =>
+            {
+                const shape = this.tensor.shape.map(x => Math.ceil(x / this.configs.blockSize))
+                const resized = resizeTrilinear(this.tensor, shape, false, true)
+                this.mipmap.dimensions = new THREE.Vector3().fromArray(shape.toReversed())
 
-        this.mipmap.blockSize = this.configs.blockSize
-        this.mipmap.dimensions = new THREE.Vector3().fromArray(this.mipmap.shape.toReversed())
-
+                return resized
+            })  
+        }
+            
         console.timeEnd('computeMipmap') 
     }
 
     computeTexture()
     {
         console.time('computeTexture') 
-        this.texture = new THREE.Data3DTexture(this.getTextureData(), ...this.dimensions)
+
+        if (! this.textureData)
+        {
+            this.textureData = this.getTextureData()
+        }
+
+        this.texture = new THREE.Data3DTexture(this.textureData, ...this.dimensions)
         this.texture.format = THREE.RedFormat
         this.texture.type = THREE.HalfFloatType
         this.texture.internalFormat = 'R16F'
@@ -93,6 +111,26 @@ export default class VolumeMap
     {
         this.texture.image.data.set(this.getTextureData())
         this.texture.needsUpdate = true
+    }
+
+    computeTextureData()
+    {
+        const data = this.tensor.dataSync()
+        
+        try 
+        {
+            const f16 = new Float16Array(data)
+            this.textureData = new Uint16Array(f16.buffer)
+        }
+        catch (error)
+        {
+            this.textureData = new Uint16Array(data.length)
+
+            for (let i = 0; i < data.length; i++) 
+            {
+                this.textureData[i] = toHalfFloat(data[i])
+            }
+        }
     }
 
     getTextureData()

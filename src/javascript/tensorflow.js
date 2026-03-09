@@ -1,6 +1,16 @@
 import * as tf from '@tensorflow/tfjs'
 
-export function logTensorflow()
+export function setTensorflowFlags()
+{
+    tf.env().set('WEBGL_FORCE_F16_TEXTURES', true)
+    tf.env().set('WEBGL_PACK', true)
+    tf.env().set('WEBGL_CPU_FORWARD', false)
+    tf.env().set('WEBGL_VERSION', 2)
+    tf.env().set("WEBGL_DELETE_TEXTURE_THRESHOLD", 0) // force aggressive cleanup
+    tf.env().set('WEBGL_FLUSH_THRESHOLD', -1)
+}
+
+export function logTensorflowFlags()
 {
     const gl = tf.backend().getGPGPUContext().gl
 
@@ -24,17 +34,11 @@ export async function setTensorflow()
 
     tf.enableProdMode()
 
-    tf.env().set('WEBGL_FORCE_F16_TEXTURES', true)
-    tf.env().set('WEBGL_PACK', true)
-    tf.env().set('WEBGL_CPU_FORWARD', false)
-    tf.env().set('WEBGL_VERSION', 2)
-    // tf.env().set('WEBGL_DELETE_TEXTURE_THRESHOLD', 100)
-    // tf.env().set('WEBGL_FLUSH_THRESHOLD', 100)
+    setTensorflowFlags()
+    // logTensorflowFlags()
 
     await tf.setBackend('webgl')
     await tf.ready()
 
-    // logTensorflow()
-        
     console.timeEnd('setTensorflow')
 }

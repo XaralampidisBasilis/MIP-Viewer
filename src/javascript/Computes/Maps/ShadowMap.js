@@ -12,14 +12,13 @@ export default class ShadowMap
     {
         this.computes = new Computes()  
         this.configs = this.computes.configs
-        this.volumeMap = this.computes.volumeMap
     }
 
     computeTensor()
     {
         console.time('computeTensor') 
-        // this.tensor = S0.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0)
-        this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.tensor, 0.01, true)
+        this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(this.computes.volumeMap.tensor, 0.01, true)
+        // this.tensor = S0.computeExtendedAnisotropicBidirectionalShadowMap(this.volumeMap.mipmap.tensor, 0.01, true)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.toReversed())
 
         console.timeEnd('computeTensor') 
@@ -28,7 +27,13 @@ export default class ShadowMap
     computeTexture()
     {
         console.time('computeTexture') 
-        this.texture = new THREE.Data3DTexture(this.getTextureData(), ...this.dimensions)
+
+        if (! this.textureData)
+        {
+            this.textureData = this.getTextureData()
+        }
+
+        this.texture = new THREE.Data3DTexture(this.textureData, ...this.dimensions)
         this.texture.format = THREE.RedIntegerFormat
         this.texture.type = THREE.ShortType
         this.texture.internalFormat = 'R16I'
@@ -44,6 +49,11 @@ export default class ShadowMap
     {
         this.texture.image.data.set(this.getTextureData())
         this.texture.needsUpdate = true
+    }
+
+    computeTextureData()
+    {
+        this.textureData = new Int16Array(this.tensor.dataSync())
     }
 
     getTextureData()

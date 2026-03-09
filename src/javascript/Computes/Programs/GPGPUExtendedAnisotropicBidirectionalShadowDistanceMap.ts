@@ -366,10 +366,9 @@ export function computeShadowDistanceMapIsotropic(
     const t3 = runWebGLProgram(pass3, [t2], 'float32', [], false)
     tf.dispose(t2)
 
-    const distanceMap = t3 as tf.Tensor3D
-    if (verbose) logTensor(distanceMap, 'IsotropicDistanceMap')
+    if (verbose) logTensor(t3, 'IsotropicDistanceMap')
 
-    return distanceMap
+    return t3 as tf.Tensor3D
 }
 
 export function computeShadowDistanceMapExtendedAnisotropicUnidirectional(
@@ -403,11 +402,11 @@ export function computeShadowDistanceMapExtendedAnisotropicUnidirectional(
     tf.dispose(t1)
     const pass3 = new ExtendedChebyshevDistancePass(shape, inAxes[2], inSigns[2], maxDistance)
     const t3 = runWebGLProgram(pass3, [t2], 'float32', [], false)
+    tf.dispose(t2)
 
-    const distanceMap = t3 as tf.Tensor3D
-    if (verbose) logTensor(distanceMap, "distanceMap")
+    if (verbose) logTensor(t3, "distanceMap")
 
-    return distanceMap
+    return t3 as tf.Tensor3D
 }
 
 export function computeShadowDistanceMapExtendedAnisotropicBidirectional(
@@ -419,10 +418,7 @@ export function computeShadowDistanceMapExtendedAnisotropicBidirectional(
 ): tf.Tensor3D
 {
     const forwardDistanceMap = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, dominantAxis, octant, maxDistance)
-    if (verbose) logTensor(forwardDistanceMap, "forwardDistanceMap")
-
     const backwardDistanceMap = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, dominantAxis, reverseOctant(octant), maxDistance)
-    if (verbose) logTensor(backwardDistanceMap, "backwardDistanceMap")
 
     const distanceMap = tf.minimum(forwardDistanceMap, backwardDistanceMap)
     if (verbose) logTensor(distanceMap, "distanceMap")
@@ -521,13 +517,10 @@ export function computeExtendedAnisotropicBidirectionalDistanceMap(
 
     const pack = new PackChannels(shadowMaps.shape)
     const distanceMap = runWebGLProgram(pack, anisotropicMaps as Array4<tf.Tensor3D>, 'float32', [], true)
-
     tf.dispose(anisotropicMaps)
 
     if (verbose) 
-    {
         logTensor(distanceMap, "ExtendedAnisotropicBidirectionalShadowDistanceMap")
-    }
 
     return distanceMap as tf.Tensor5D
 }

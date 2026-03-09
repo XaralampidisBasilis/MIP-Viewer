@@ -38,36 +38,55 @@ export default class Computes extends EventEmitter
     {
         console.time('start@Computes') 
 
+        tf.engine().startScope()
+
         this.volumeMap.computeTensor()
         await tf.nextFrame()
 
         this.shadowMap.computeTensor()
         await tf.nextFrame()
 
-        this.volumeMap.computeTexture()
+        this.volumeMap.computeTextureData()
         this.volumeMap.tensor.dispose()
+        this.volumeMap.tensor = null
         await tf.nextFrame()
 
         this.distanceMap.computeTensor()
         await tf.nextFrame()
 
-        this.shadowMap.computeTexture()
+        this.shadowMap.computeTextureData()
         this.shadowMap.tensor.dispose()
+        this.shadowMap.tensor = null
+        await tf.nextFrame()
+
+        this.distanceMap.computeTextureData()
+        this.distanceMap.tensor.dispose()
+        this.distanceMap.tensor = null
+        await tf.nextFrame()
+
+        this.volumeMap.computeTexture()
+        this.volumeMap.textureData = null
+        await tf.nextFrame()
+
+        this.shadowMap.computeTexture()
+        this.shadowMap.textureData = null
         await tf.nextFrame()
 
         this.distanceMap.computeTexture()
-        this.distanceMap.tensor.dispose()
+        this.distanceMap.textureData = null
         await tf.nextFrame()
 
+        tf.engine().endScope()
+        tf.engine().disposeVariables()
+
         console.timeEnd('start@Computes') 
-        this.printResources()
     }
 
     async change(event)
     {
-        if      (event.key === 'blockSize'          ) await this.onChangeBlockSize(event)
-        else if (event.key === 'downscaleFactor'    ) await this.onChangeDownscaleFactor(event)
-        else if (event.key === 'skippingMethod'     ) await this.onChangeSkippingMethod(event)
+        if      (event.key === 'blockSize'      ) await this.onChangeBlockSize(event)
+        else if (event.key === 'downscaleFactor') await this.onChangeDownscaleFactor(event)
+        else if (event.key === 'skippingMethod' ) await this.onChangeSkippingMethod(event)
     }
 
     async onChangeBlockSize(event)

@@ -14,17 +14,16 @@ export default class DistanceMap
     {
         this.computes = new Computes()
         this.configs = this.computes.configs
-        this.shadowMap = this.computes.shadowMap
         this.maxDistance = 31
     }
 
     computeTensor()
     {
         console.time('computeTensor') 
-        this.dimensions = new THREE.Vector3(...this.shadowMap.dimensions)
-        // this.tensor = computeIsotropicDistanceMap(this.shadowMap.tensor, this.maxDistance, true)
-        this.tensor = computeExtendedAnisotropicBidirectionalDistanceMap(this.shadowMap.tensor, this.maxDistance, true)
-        // this.tensor = computeExtendedAnisotropicBidirectionalDistanceMapDebug(this.shadowMap.tensor, this.maxDistance, true)
+        this.dimensions = new THREE.Vector3(...this.computes.shadowMap.dimensions)
+        // this.tensor = computeIsotropicDistanceMap(this.computes.shadowMap.tensor, this.maxDistance, true)
+        this.tensor = computeExtendedAnisotropicBidirectionalDistanceMap(this.computes.shadowMap.tensor, this.maxDistance, true)
+        // this.tensor = computeExtendedAnisotropicBidirectionalDistanceMapDebug(this.computes.shadowMap.tensor, this.maxDistance, true)
 
         console.timeEnd('computeTensor') 
     }
@@ -32,7 +31,13 @@ export default class DistanceMap
     computeTexture()
     {
         console.time('computeTexture') 
-        this.texture = new THREE.Data3DTexture(this.getTextureData(), ...this.dimensions)
+
+        if (! this.textureData)
+        {
+            this.textureData = this.getTextureData()
+        }
+
+        this.texture = new THREE.Data3DTexture(this.textureData, ...this.dimensions)
         this.texture.format = THREE.RGBAIntegerFormat
         this.texture.type = THREE.UnsignedShortType
         this.texture.internalFormat = 'RGBA16UI'
@@ -48,6 +53,26 @@ export default class DistanceMap
     {
         this.texture.image.data.set(this.getTextureData())
         this.texture.needsUpdate = true
+    }
+
+    computeTextureData()
+    {
+        const data = this.tensor.dataSync()
+        
+        try 
+        {
+            const f16 = new Float16Array(data)
+            this.textureData = new Uint16Array(f16.buffer)
+        }
+        catch (error)
+        {
+            this.textureData = new Uint16Array(data.length)
+
+            for (let i = 0; i < data.length; i++) 
+            {
+                this.textureData[i] = toHalfFloat(data[i])
+            }            
+        }
     }
 
     getTextureData()
@@ -73,7 +98,6 @@ export default class DistanceMap
             return u16
         }
     }
-
 
     dispose()
     {
