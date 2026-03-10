@@ -35,7 +35,7 @@ class MapPackedProgram implements GPGPUProgram
     }
 }
 
-export function mapPacked(tensor: tf.Tensor3D, a: number, b: number): tf.Tensor3D  
+export function map(tensor: tf.Tensor3D, a: number, b: number): tf.Tensor3D  
 {
     const program = new MapPackedProgram(tensor.shape)
     const customValues = [[a], [b]]

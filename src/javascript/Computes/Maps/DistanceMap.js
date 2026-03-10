@@ -20,10 +20,9 @@ export default class DistanceMap
     computeTensor()
     {
         console.time('computeTensor') 
+        
         this.dimensions = new THREE.Vector3(...this.computes.shadowMap.dimensions)
-        // this.tensor = computeIsotropicDistanceMap(this.computes.shadowMap.tensor, this.maxDistance, true)
-        this.tensor = computeExtendedAnisotropicBidirectionalDistanceMap(this.computes.shadowMap.tensor, this.maxDistance, true)
-        // this.tensor = computeExtendedAnisotropicBidirectionalDistanceMapDebug(this.computes.shadowMap.tensor, this.maxDistance, true)
+        this.tensor = computeExtendedAnisotropicBidirectionalDistanceMap(this.computes.shadowMap.tensor, this.maxDistance)
 
         console.timeEnd('computeTensor') 
     }

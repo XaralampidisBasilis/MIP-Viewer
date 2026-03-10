@@ -94,8 +94,8 @@ export default class MIPViewer extends EventEmitter
         defines.MAX_TRACES = Math.ceil(this.computes.volumeMap.dimensions.length() * 4)
         defines.MAX_CELLS_IN_BLOCK = Math.ceil(this.configs.blockSize * 3)
         defines.MAX_TRACES_IN_BLOCK = Math.ceil(this.configs.blockSize * Math.sqrt(3) * 4)
-        // defines.MAX_GROUPS = Math.ceil(defines.MAX_CELLS / defines.MAX_CELLS_IN_BLOCK)
-        // defines.MAX_BLOCKS_IN_GROUP = Math.ceil(defines.MAX_BLOCKS / defines.MAX_GROUPS)
+        defines.MAX_GROUPS = Math.ceil(defines.MAX_CELLS / defines.MAX_CELLS_IN_BLOCK)
+        defines.MAX_BLOCKS_IN_GROUP = Math.ceil(defines.MAX_BLOCKS / defines.MAX_GROUPS)
         defines.MAX_GROUPS = Math.ceil(defines.MAX_TRACES / defines.MAX_TRACES_IN_BLOCK)
         defines.MAX_BLOCKS_IN_GROUP = Math.ceil(defines.MAX_BLOCKS / defines.MAX_GROUPS)
 

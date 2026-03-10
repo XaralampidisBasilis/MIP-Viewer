@@ -36,9 +36,8 @@ export default class Computes extends EventEmitter
 
     async start()
     {
+        console.log('start@Computes')
         console.time('start@Computes') 
-
-        tf.engine().startScope()
 
         this.volumeMap.computeTensor()
         await tf.nextFrame()
@@ -75,9 +74,6 @@ export default class Computes extends EventEmitter
         this.distanceMap.computeTexture()
         this.distanceMap.textureData = null
         await tf.nextFrame()
-
-        tf.engine().endScope()
-        tf.engine().disposeVariables()
 
         console.timeEnd('start@Computes') 
     }

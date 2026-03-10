@@ -1,5 +1,5 @@
 
-trace.spacing = ray.spacing / 3.0;
+trace.spacing = ray.spacing / 2.0;
 
 float jitter = random(ray.start_position);
 trace.distance = trace.spacing * (floor(ray.start_distance / trace.spacing) + jitter);
