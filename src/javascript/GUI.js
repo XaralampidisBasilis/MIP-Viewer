@@ -162,7 +162,7 @@ export default class GUI
         {
             option: folder.add(uniforms, 'option').options(
             { 
-                default                 : 0,
+                default           : 0,
                  
                 ray_discarded     : 101,
                 ray_direction     : 102,

@@ -27,7 +27,7 @@ export default class ShadowMap
         const blockSize = this.configs.blockSize
 
         // this.tensor = S0.computeExtendedAnisotropicBidirectionalShadowMap(volume, 0.01, true)
-        this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(volume, 0.01, true)
+        this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(volume, 0.01, false)
         // this.tensor = S2.computeExtendedAnisotropicBidirectionalShadowMap([avgVolume, maxVolume], 0.01, true)
         // this.tensor = S3.computeExtendedAnisotropicBidirectionalShadowMap([avgVolume, maxVolume], 0.01, true)
         // this.tensor = S4.computeExtendedAnisotropicBidirectionalShadowMap(volume, blockSize, 0.01, true)

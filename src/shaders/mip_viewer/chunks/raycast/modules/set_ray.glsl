@@ -75,9 +75,18 @@ if (ray.axis == 2)
     if (ray.octant == 7) ray.map = 8 + 0; // 'z', '+++'
 }
 
-if (ray.inverted)
-{
-    ray.direction *= -1.0;
-    ray.inv_direction *= -1.0;
-    ray.signs *= -1;
-}
+#if SKIPPING_ENABLED == 1
+
+    #if SKIPPING_METHOD == 1
+
+        if (ray.inverted)
+        {
+            ray.signs = -ray.signs;
+            ray.direction = -ray.direction;
+            ray.inv_direction = -ray.inv_direction;
+        }
+
+    #endif
+
+#endif
+

@@ -23,7 +23,7 @@ export default class DistanceMap
         console.time('computeTensor') 
         
         // this.tensor = computeExtendedAnisotropicBidirectionalDistanceMap(this.computes.shadowMap.tensor, this.maxDistance, true)
-        this.tensor = computeExtendedAnisotropicForwardDistanceMap(this.computes.shadowMap.tensor, this.maxDistance, true)
+        this.tensor = computeExtendedAnisotropicForwardDistanceMap(this.computes.shadowMap.tensor, this.maxDistance, false)
         // this.tensor = computeExtendedAnisotropicBackwardDistanceMap(this.computes.shadowMap.tensor, this.maxDistance, true)
 
         const [depth, height, width, ,] = this.tensor.shape
