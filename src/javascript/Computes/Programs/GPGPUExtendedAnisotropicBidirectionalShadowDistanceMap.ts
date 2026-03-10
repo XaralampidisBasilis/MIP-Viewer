@@ -478,6 +478,100 @@ export function computeIsotropicDistanceMap(
     return distanceMap as tf.Tensor5D
 }
 
+export function computeExtendedAnisotropicForwardDistanceMap(
+    shadowMaps: tf.Tensor3D,
+    maxDistance: number = 31,
+    verbose: boolean = false
+) : tf.Tensor5D
+{
+    let anisotropicMaps = []
+    let extendedMaps = [] 
+
+    extendedMaps[0] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'x', '+++', maxDistance, verbose)
+    extendedMaps[1] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'y', '+++', maxDistance, verbose)
+    extendedMaps[2] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'z', '+++', maxDistance, verbose)
+
+    anisotropicMaps[0] = packUnsignedShort5x3ToNormalizedHalfFloat(...extendedMaps as Array3<tf.Tensor3D>)
+    tf.dispose(extendedMaps)
+
+    extendedMaps[0] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'x', '+-+', maxDistance, verbose)
+    extendedMaps[1] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'y', '-++', maxDistance, verbose)
+    extendedMaps[2] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'z', '+-+', maxDistance, verbose)
+
+    anisotropicMaps[1] = packUnsignedShort5x3ToNormalizedHalfFloat(...extendedMaps as Array3<tf.Tensor3D>)
+    tf.dispose(extendedMaps)
+
+    extendedMaps[0] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'x', '++-', maxDistance, verbose)
+    extendedMaps[1] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'y', '++-', maxDistance, verbose)
+    extendedMaps[2] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'z', '-++', maxDistance, verbose)
+
+    anisotropicMaps[2] = packUnsignedShort5x3ToNormalizedHalfFloat(...extendedMaps as Array3<tf.Tensor3D>)
+    tf.dispose(extendedMaps)
+
+    extendedMaps[0] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'x', '+--', maxDistance, verbose)
+    extendedMaps[1] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'y', '-+-', maxDistance, verbose)
+    extendedMaps[2] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'z', '--+', maxDistance, verbose)
+
+    anisotropicMaps[3] = packUnsignedShort5x3ToNormalizedHalfFloat(...extendedMaps as Array3<tf.Tensor3D>)
+    tf.dispose(extendedMaps)
+
+    const pack = new PackChannels(shadowMaps.shape)
+    const distanceMap = runWebGLProgram(pack, anisotropicMaps as Array4<tf.Tensor3D>, 'float32', [], true)
+    tf.dispose(anisotropicMaps)
+
+    if (verbose) 
+        logTensor(distanceMap, "ExtendedAnisotropicBidirectionalShadowDistanceMap")
+
+    return distanceMap as tf.Tensor5D
+}
+
+export function computeExtendedAnisotropicBackwardDistanceMap(
+    shadowMaps: tf.Tensor3D,
+    maxDistance: number = 31,
+    verbose: boolean = false
+) : tf.Tensor5D
+{
+    let anisotropicMaps = []
+    let extendedMaps = [] 
+
+    extendedMaps[0] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'x', reverseOctant('+++'), maxDistance, verbose)
+    extendedMaps[1] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'y', reverseOctant('+++'), maxDistance, verbose)
+    extendedMaps[2] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'z', reverseOctant('+++'), maxDistance, verbose)
+
+    anisotropicMaps[0] = packUnsignedShort5x3ToNormalizedHalfFloat(...extendedMaps as Array3<tf.Tensor3D>)
+    tf.dispose(extendedMaps)
+
+    extendedMaps[0] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'x', reverseOctant('+-+'), maxDistance, verbose)
+    extendedMaps[1] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'y', reverseOctant('-++'), maxDistance, verbose)
+    extendedMaps[2] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'z', reverseOctant('+-+'), maxDistance, verbose)
+
+    anisotropicMaps[1] = packUnsignedShort5x3ToNormalizedHalfFloat(...extendedMaps as Array3<tf.Tensor3D>)
+    tf.dispose(extendedMaps)
+
+    extendedMaps[0] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'x', reverseOctant('++-'), maxDistance, verbose)
+    extendedMaps[1] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'y', reverseOctant('++-'), maxDistance, verbose)
+    extendedMaps[2] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'z', reverseOctant('-++'), maxDistance, verbose)
+
+    anisotropicMaps[2] = packUnsignedShort5x3ToNormalizedHalfFloat(...extendedMaps as Array3<tf.Tensor3D>)
+    tf.dispose(extendedMaps)
+
+    extendedMaps[0] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'x', reverseOctant('+--'), maxDistance, verbose)
+    extendedMaps[1] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'y', reverseOctant('-+-'), maxDistance, verbose)
+    extendedMaps[2] = computeShadowDistanceMapExtendedAnisotropicUnidirectional(shadowMaps, 'z', reverseOctant('--+'), maxDistance, verbose)
+
+    anisotropicMaps[3] = packUnsignedShort5x3ToNormalizedHalfFloat(...extendedMaps as Array3<tf.Tensor3D>)
+    tf.dispose(extendedMaps)
+
+    const pack = new PackChannels(shadowMaps.shape)
+    const distanceMap = runWebGLProgram(pack, anisotropicMaps as Array4<tf.Tensor3D>, 'float32', [], true)
+    tf.dispose(anisotropicMaps)
+
+    if (verbose) 
+        logTensor(distanceMap, "ExtendedAnisotropicBidirectionalShadowDistanceMap")
+
+    return distanceMap as tf.Tensor5D
+}
+
 export function computeExtendedAnisotropicBidirectionalDistanceMap(
     shadowMaps: tf.Tensor3D,
     maxDistance: number = 31,
@@ -523,6 +617,32 @@ export function computeExtendedAnisotropicBidirectionalDistanceMap(
         logTensor(distanceMap, "ExtendedAnisotropicBidirectionalShadowDistanceMap")
 
     return distanceMap as tf.Tensor5D
+}
+
+export function computeExtendedAnisotropicBidirectionalDistanceMapStack(
+    shadowMaps: tf.Tensor3D,
+    maxDistance: number = 255,
+    verbose: boolean = false
+) : tf.Tensor3D
+{
+    let anisotropicMaps = []
+    anisotropicMaps[ 0] = computeShadowDistanceMapExtendedAnisotropicBidirectional(shadowMaps, 'x', '+++', maxDistance, verbose)
+    anisotropicMaps[ 1] = computeShadowDistanceMapExtendedAnisotropicBidirectional(shadowMaps, 'x', '+-+', maxDistance, verbose)
+    anisotropicMaps[ 2] = computeShadowDistanceMapExtendedAnisotropicBidirectional(shadowMaps, 'x', '++-', maxDistance, verbose)
+    anisotropicMaps[ 3] = computeShadowDistanceMapExtendedAnisotropicBidirectional(shadowMaps, 'x', '+--', maxDistance, verbose)
+    anisotropicMaps[ 4] = computeShadowDistanceMapExtendedAnisotropicBidirectional(shadowMaps, 'y', '+++', maxDistance, verbose)
+    anisotropicMaps[ 5] = computeShadowDistanceMapExtendedAnisotropicBidirectional(shadowMaps, 'y', '-++', maxDistance, verbose)
+    anisotropicMaps[ 6] = computeShadowDistanceMapExtendedAnisotropicBidirectional(shadowMaps, 'y', '++-', maxDistance, verbose)
+    anisotropicMaps[ 7] = computeShadowDistanceMapExtendedAnisotropicBidirectional(shadowMaps, 'y', '-+-', maxDistance, verbose)
+    anisotropicMaps[ 8] = computeShadowDistanceMapExtendedAnisotropicBidirectional(shadowMaps, 'z', '+++', maxDistance, verbose)
+    anisotropicMaps[ 9] = computeShadowDistanceMapExtendedAnisotropicBidirectional(shadowMaps, 'z', '+-+', maxDistance, verbose)
+    anisotropicMaps[10] = computeShadowDistanceMapExtendedAnisotropicBidirectional(shadowMaps, 'z', '-++', maxDistance, verbose)
+    anisotropicMaps[11] = computeShadowDistanceMapExtendedAnisotropicBidirectional(shadowMaps, 'z', '--+', maxDistance, verbose)
+
+    const distanceMap = tf.concat(anisotropicMaps, 0)
+    tf.dispose(anisotropicMaps)
+
+    return distanceMap as tf.Tensor3D
 }
 
 export function computeExtendedAnisotropicBidirectionalDistanceMapDebug(

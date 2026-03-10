@@ -10,4 +10,4 @@ for (int i = 0; i < MAX_CELLS; i++)
     if (cell.terminated) break;
 }
 
-#include "./compute_mip"
+#include "./end_mip"

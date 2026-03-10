@@ -10,11 +10,10 @@ for (int k = 0; k < MAX_GROUPS; k++)
     {
         #include "../march_blocks/update_block"
 
-        if (!block.shadowed || block.exit_distance > ray.end_distance) break;
-
+        if (!block.shadowed || block.terminated) break;
     }
 
-    if (block.shadowed && block.exit_distance < ray.end_distance) continue;
+    if (block.shadowed && !block.terminated) continue;
 
     #include "./start_trace"
 
@@ -23,10 +22,10 @@ for (int k = 0; k < MAX_GROUPS; k++)
         #include "./update_mip"
         #include "./update_trace"
 
-        if (trace.distance > block.exit_distance || trace.distance > ray.end_distance) break;
+        if (trace.terminated || trace.distance > block.exit_distance) break;
     }    
 
-    if (trace.distance > ray.end_distance) break; 
+    if (trace.terminated || block.terminated) break; 
 
     #if DEBUG_ENABLED == 1
 

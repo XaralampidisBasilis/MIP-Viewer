@@ -1,9 +1,11 @@
 
 trace.spacing = ray.spacing / 2.0;
 
+// compute distance with jitter
 float jitter = random(ray.start_position);
 trace.distance = trace.spacing * (floor(ray.start_distance / trace.spacing) + jitter);
 
+// compute position
 trace.distance = clamp(trace.distance, ray.start_distance, ray.end_distance);
 trace.position = camera.position + ray.direction * trace.distance; 
 

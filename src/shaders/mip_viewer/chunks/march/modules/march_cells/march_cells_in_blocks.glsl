@@ -8,7 +8,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 {
     #include "../march_blocks/update_block"
 
-    if (block.shadowed && block.exit_distance < ray.end_distance) continue;
+    if (block.shadowed && !block.terminated) continue;
 
     #include "./start_cubic_cell"
 
@@ -17,11 +17,11 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         #include "./update_cubic_cell"
         #include "./update_mip"
 
-        if (cell.exit_distance > block.exit_distance || cell.exit_distance > ray.end_distance) break; 
+        if (cell.terminated || cell.exit_distance > block.exit_distance) break; 
     }   
 
-    if (cell.exit_distance > ray.end_distance) break;
+    if (cell.terminated) break;
 }
 
-#include "./compute_mip"
+#include "./end_mip"
 

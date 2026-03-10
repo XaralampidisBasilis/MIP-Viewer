@@ -1,7 +1,7 @@
 
 #include "../march_blocks/start_block"
-#include "./start_cell"
-#include "./start_cubic"
+
+#include "./start_cubic_cell"
 #include "./start_mip"
 
 for (int k = 0; k < MAX_GROUPS; k++) 
@@ -15,13 +15,11 @@ for (int k = 0; k < MAX_GROUPS; k++)
 
     if (block.shadowed && !block.terminated) continue;
     
-    #include "./start_cell"
-    #include "./start_cubic"
+    #include "./start_cubic_cell"
 
     for (int i = 0; i < MAX_CELLS_IN_BLOCK; i++) 
     {
-        #include "./update_cell"
-        #include "./update_cubic"
+        #include "./update_cubic_cell"
         #include "./update_mip"
 
         if (cell.terminated || cell.exit_distance > block.exit_distance) break; 
@@ -36,4 +34,4 @@ for (int k = 0; k < MAX_GROUPS; k++)
     #endif
 }
 
-#include "./compute_mip"
+#include "./end_mip"

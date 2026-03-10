@@ -4,8 +4,9 @@ import Computes from '../Computes'
 import { toHalfFloat } from '../../Utils/DataUtils'
 import { 
     computeIsotropicDistanceMap,
+    computeExtendedAnisotropicForwardDistanceMap,
+    computeExtendedAnisotropicBackwardDistanceMap,
     computeExtendedAnisotropicBidirectionalDistanceMap,
-    computeExtendedAnisotropicBidirectionalDistanceMapDebug,
 } from '../Programs/GPGPUExtendedAnisotropicBidirectionalShadowDistanceMap'
 
 export default class DistanceMap 
@@ -21,8 +22,12 @@ export default class DistanceMap
     {
         console.time('computeTensor') 
         
-        this.dimensions = new THREE.Vector3(...this.computes.shadowMap.dimensions)
-        this.tensor = computeExtendedAnisotropicBidirectionalDistanceMap(this.computes.shadowMap.tensor, this.maxDistance)
+        // this.tensor = computeExtendedAnisotropicBidirectionalDistanceMap(this.computes.shadowMap.tensor, this.maxDistance, true)
+        this.tensor = computeExtendedAnisotropicForwardDistanceMap(this.computes.shadowMap.tensor, this.maxDistance, true)
+        // this.tensor = computeExtendedAnisotropicBackwardDistanceMap(this.computes.shadowMap.tensor, this.maxDistance, true)
+
+        const [depth, height, width, ,] = this.tensor.shape
+        this.dimensions = new THREE.Vector3(width, height, depth)
 
         console.timeEnd('computeTensor') 
     }

@@ -18,7 +18,7 @@ export default class Configs extends EventEmitter
     ])
     static SkippingStrategies = Object.freeze([
         'blocks',
-        'blockGroups',
+        'groups',
     ])
     static SkippingMethods = Object.freeze([
         'binary',
@@ -32,7 +32,7 @@ export default class Configs extends EventEmitter
         this.blockSize = 1
 
         this.downscaleEnabled = true
-        this.downscaleFactor = 0.7
+        this.downscaleFactor = 0.8
         
         this.gradientsMethod = 'triquadraticBspline'
         this.marchingMethod = 'traces'

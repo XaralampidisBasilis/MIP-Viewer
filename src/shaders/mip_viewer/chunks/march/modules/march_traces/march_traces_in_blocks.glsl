@@ -8,7 +8,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 {
     #include "../march_blocks/update_block"
 
-    if (block.shadowed && block.exit_distance < ray.end_distance) continue;
+    if (block.shadowed && !block.terminated) continue;
     
     #include "./start_trace"
 
@@ -17,10 +17,10 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         #include "./update_mip"
         #include "./update_trace"
 
-        if (trace.distance > block.exit_distance || trace.distance > ray.end_distance) break;
+        if (trace.terminated || trace.distance > block.exit_distance) break;
     }   
 
-    if (trace.distance > ray.end_distance) break; 
+    if (trace.terminated || block.terminated) break; 
 }
 
 #include "./end_mip"

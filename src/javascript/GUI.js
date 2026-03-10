@@ -175,6 +175,7 @@ export default class GUI
                 ray_end_position  : 109,
                 ray_map           : 110,
                 ray_segment       : 111,
+                ray_inverted      : 112,
 
                 block_shadowed      : 402,
                 block_terminated    : 403,

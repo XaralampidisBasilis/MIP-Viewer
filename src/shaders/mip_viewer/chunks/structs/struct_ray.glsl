@@ -3,6 +3,7 @@
 
 struct Ray 
 {
+    bool  inverted;
     int   map;       
     int   axis;       
     bool  discarded;       // flag indicating if the ray has been discarded
@@ -22,6 +23,7 @@ Ray ray; // Global mutable struct
 
 void set_ray()
 {
+    ray.inverted = false;
     ray.map      = 0;
     ray.axis      = 0;
     ray.discarded      = false;

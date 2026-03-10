@@ -5,6 +5,7 @@ import * as S0 from '../Programs/GPGPUShadowMap'
 import * as S1 from '../Programs/GPGPUShadowMapDifferences'
 import * as S2 from '../Programs/GPGPUShadowMapReduced'
 import * as S3 from '../Programs/GPGPUShadowMapDifferencesReduced'
+import * as S4 from '../Programs/GPGPUShadowMapReduced2'
 
 import { minPool3d, maxPool3d, avgPool3d } from '../Programs/pool3d'
 import { resizeTrilinear } from '../Programs/resizeTrillinear'
@@ -25,17 +26,13 @@ export default class ShadowMap
         const volume = this.computes.volumeMap.tensor
         const blockSize = this.configs.blockSize
 
-        // const minVolume = minPool3d(volume, blockSize, blockSize, 'same')
-        // const maxVolume = maxPool3d(volume, blockSize, blockSize, 'same')
-        // const avgVolume = avgPool3d(volume, blockSize, blockSize, 'same')
-
         // this.tensor = S0.computeExtendedAnisotropicBidirectionalShadowMap(volume, 0.01, true)
         this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(volume, 0.01, true)
         // this.tensor = S2.computeExtendedAnisotropicBidirectionalShadowMap([avgVolume, maxVolume], 0.01, true)
         // this.tensor = S3.computeExtendedAnisotropicBidirectionalShadowMap([avgVolume, maxVolume], 0.01, true)
+        // this.tensor = S4.computeExtendedAnisotropicBidirectionalShadowMap(volume, blockSize, 0.01, true)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.toReversed())
 
-        // tf.dispose([minVolume, maxVolume, avgVolume])
 
         console.timeEnd('computeTensor') 
     }

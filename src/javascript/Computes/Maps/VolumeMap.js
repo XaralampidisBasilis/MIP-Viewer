@@ -53,8 +53,8 @@ export default class VolumeMap
         const shape = this.volume.dimensions.toReversed()
         const spacing = this.volume.spacing.toReversed()
 
-        const newShape = shape.toReversed().map((x) => Math.ceil(this.configs.downscaleFactor * x))
-        const newSpacing = spacing.toReversed().map((x, i) => shape[i]/newShape[i] * x)
+        const newShape = shape.map((x) => Math.ceil(this.configs.downscaleFactor * x))
+        const newSpacing = spacing.map((x, i) => shape[i]/newShape[i] * x)
         const resized = resizeTrilinear(this.tensor, newShape, false, true)
         this.tensor.dispose()
 
