@@ -13,7 +13,7 @@ import {
     inversePermutation,
     permuteReverseFromDominantAxisOctant,
     reverseOctant,
-} from './ShadowMapUtils'
+} from '../../Utils/ShadowMapUtils'
 
 type Array3<T> = [T, T, T]
 type Array4<T> = [T, T, T, T]

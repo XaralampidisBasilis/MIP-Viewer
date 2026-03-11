@@ -91,7 +91,7 @@ if (ray.axis == 2)
 }
 
 // inverted
-vec4 debug_ray_inverted = to_color(ray.inverted);
+vec4 debug_ray_reversed = to_color(ray.reversed);
 
 
 // PRINT DEBUG
@@ -108,5 +108,5 @@ switch (u_debug.option - 100)
     case  9: fragColor = debug_ray_end_position;    break;
     case 10: fragColor = debug_ray_map;             break;
     case 11: fragColor = debug_ray_segment;         break;
-    case 12: fragColor = debug_ray_inverted;        break;
+    case 12: fragColor = debug_ray_reversed;        break;
 }

@@ -28,6 +28,6 @@ block.terminated = block.exit_distance > ray.end_distance;
 
     stats.num_blocks += 1;
     stats.num_fetches += 1;
-    stats.occlusion_samples += 1;
+    stats.num_distance_fetches += 1;
     
 #endif

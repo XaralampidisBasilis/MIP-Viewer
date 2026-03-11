@@ -175,7 +175,7 @@ export default class GUI
                 ray_end_position  : 109,
                 ray_map           : 110,
                 ray_segment       : 111,
-                ray_inverted      : 112,
+                ray_reversed      : 112,
 
                 block_shadowed      : 402,
                 block_terminated    : 403,
@@ -233,11 +233,12 @@ export default class GUI
 
                 stats_num_cells        : 901,
                 stats_num_traces       : 902,
-                stats_num_blocks       : 903,
-                stats_num_groups       : 904,
-                stats_num_fetches      : 905,
-                stats_volume_samples   : 906,
-                stats_occlusion_samples: 907,
+                stats_num_mips         : 903,
+                stats_num_blocks       : 904,
+                stats_num_groups       : 905,
+                stats_num_fetches      : 906,
+                stats_num_volume_fetches  : 907,
+                stats_num_distance_fetches : 908,
                 
                 debug_variable0: 1000,
                 debug_variable1: 1001,

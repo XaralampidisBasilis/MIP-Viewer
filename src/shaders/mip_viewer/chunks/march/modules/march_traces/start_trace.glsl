@@ -17,7 +17,7 @@ trace.value = sample_volume(trace.position);
 
     stats.num_traces += 1;
     stats.num_fetches += 1;
-    stats.volume_samples += 1;
+    stats.num_volume_fetches += 1;
 
 #endif
 

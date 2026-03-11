@@ -10,7 +10,10 @@ vec2 box_min_max = intersection_box_bounds(box.min_position, box.max_position, c
 vec2 box_entry_exit = intersect_box(box.min_position, box.max_position, camera.position, ray.inv_direction);
 
 // set distances to zero when we are inside
-// box_entry_exit = max(box_entry_exit, 0.0); 
+if (ray.reversed)
+    box_entry_exit.y = min(box_entry_exit.y, 0.0); 
+else
+    box_entry_exit.x = max(box_entry_exit.x, 0.0); 
 
 // update ray if there is an intersection 
 if (box_entry_exit.x < box_entry_exit.y)

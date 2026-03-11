@@ -74,16 +74,15 @@ if (ray.axis == 2)
     if (ray.octant == 7) ray.map = 8 + 0; // 'z', '+++'
 }
 
-// #if SKIPPING_ENABLED == 1 
+#if SKIPPING_ENABLED == 1 
 
-//     ray.inverted = (ray.signs[ray.axis] < 0);
+    ray.reversed = (ray.signs[ray.axis] < 0);
+    if (ray.reversed)
+    {
+        ray.signs = -ray.signs;
+        ray.direction = -ray.direction;
+        ray.inv_direction = -ray.inv_direction;
+    }
 
-//     if (ray.inverted)
-//     {
-//         ray.signs = -ray.signs;
-//         ray.direction = -ray.direction;
-//         ray.inv_direction = -ray.inv_direction;
-//     }
-
-// #endif
+#endif
 

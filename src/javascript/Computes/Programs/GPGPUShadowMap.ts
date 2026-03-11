@@ -13,12 +13,12 @@ import {
     inversePermutation,
     permuteReverseFromDominantAxisOctant,
     reverseOctant,
-} from './ShadowMapUtils'
+} from '../../Utils/ShadowMapUtils'
 
 type Array3<T> = [T, T, T]
 type Array4<T> = [T, T, T, T]
 
-class UnidirectionalMinimaMapHollow implements GPGPUProgram 
+class HollowFaceMinima implements GPGPUProgram 
 {
     variableNames = ['A', 'B']
     outputShape: number[]
@@ -147,7 +147,7 @@ class UnidirectionalMinimaMapHollow implements GPGPUProgram
     }
 }
 
-class UnidirectionalMinimaMap implements GPGPUProgram 
+class FaceMinima implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -260,7 +260,7 @@ class UnidirectionalMinimaMap implements GPGPUProgram
     }
 }
 
-class UnidirectionalMaximaMap implements GPGPUProgram 
+class FaceMaxima implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -373,7 +373,7 @@ class UnidirectionalMaximaMap implements GPGPUProgram
     }
 }
 
-class PropagateUnidirectionalMinimaSlices implements GPGPUProgram 
+class PropagateFaceMinimaPerSlice implements GPGPUProgram 
 {
     variableNames = ['A', 'B']
     outputShape: number[]
@@ -500,7 +500,7 @@ class PropagateUnidirectionalMinimaSlices implements GPGPUProgram
     }
 }
 
-class PropagateUnidirectionalMinimaMap implements GPGPUProgram 
+class PropagateFaceMinimaPerIteration implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -973,7 +973,7 @@ function unidirectionalMinimaMapHollow(
     const axis = permute[0]
     const backwards = reverse.includes(axis)
 
-    const program = new UnidirectionalMinimaMapHollow(volume.shape, permute, reverse)
+    const program = new HollowFaceMinima(volume.shape, permute, reverse)
     let minima = runWebGLProgram(program, [volume, holes], 'float32', [], true) as tf.Tensor5D
     if (verbose) logTensor('minimaStart', minima)
 
@@ -981,7 +981,7 @@ function unidirectionalMinimaMapHollow(
     tf.dispose(minima)
 
     const shape = slices[0].shape as [number, number, number, 2, 2]
-    const propagate = new PropagateUnidirectionalMinimaSlices(shape, permute, reverse)
+    const propagate = new PropagateFaceMinimaPerSlice(shape, permute, reverse)
 
     const start = backwards ? slices.length - 2 : 1
     const end = backwards ? -1 : slices.length
@@ -989,7 +989,8 @@ function unidirectionalMinimaMapHollow(
 
     for (let i = start; i !== end; i += step) 
     {
-        const slice = runWebGLProgram(propagate, [slices[i], slices[i-step]], 'float32', [[i]], true)
+        const j = i - step
+        const slice = runWebGLProgram(propagate, [slices[i], slices[j]], 'float32', [[i]], true)
 
         tf.dispose(slices[i])
         slices[i] = slice
@@ -1012,7 +1013,7 @@ function unidirectionalMinimaMap(
     const axis = permute[0]
     const backwards = reverse.includes(axis)
 
-    const program = new UnidirectionalMinimaMap(volume.shape, permute, reverse)
+    const program = new FaceMinima(volume.shape, permute, reverse)
     let minima = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
     if (verbose) logTensor('minimaStart', minima)
 
@@ -1020,7 +1021,7 @@ function unidirectionalMinimaMap(
     tf.dispose(minima)
 
     const shape = slices[0].shape as [number, number, number, 2, 2]
-    const propagate = new PropagateUnidirectionalMinimaSlices(shape, permute, reverse)
+    const propagate = new PropagateFaceMinimaPerSlice(shape, permute, reverse)
 
     const start = backwards ? slices.length - 2 : 1
     const end = backwards ? -1 : slices.length
@@ -1028,7 +1029,8 @@ function unidirectionalMinimaMap(
 
     for (let i = start; i !== end; i += step) 
     {
-        const slice = runWebGLProgram(propagate, [slices[i], slices[i-step]], 'float32', [[i]], true)
+        const j = i - step
+        const slice = runWebGLProgram(propagate, [slices[i], slices[j]], 'float32', [[i]], true)
 
         tf.dispose(slices[i])
         slices[i] = slice
@@ -1048,7 +1050,7 @@ function unidirectionalMaximaMap(
     verbose: boolean = false
 ) : tf.Tensor5D
 {
-    const program = new UnidirectionalMaximaMap(volume.shape, permute, reverse)
+    const program = new FaceMaxima(volume.shape, permute, reverse)
     const maxima = runWebGLProgram(program, [volume], 'float32', [], true) 
     if (verbose) logTensor('maxima', maxima)
 
@@ -1155,6 +1157,28 @@ export function computeBidirectionalShadowMap(
     if (verbose) logTensor('backwardShadowMap', backwardShadowMap)
 
     tf.dispose([backwardMinimaMap, backwardMaximaMap])
+
+    const shadowMap = bidirectionalShadowMap(forwardShadowMap, backwardShadowMap)
+    if (verbose) logTensor('shadowMap', shadowMap)
+
+    tf.dispose([forwardShadowMap, backwardShadowMap])
+
+    return shadowMap as tf.Tensor3D
+}
+
+export function computeBidirectionalShadowMapNaive(
+    volume: tf.Tensor3D, 
+    dominantAxis: Axis, 
+    octant: Octant, 
+    tolerance: number = 0.01,
+    verbose: boolean = false
+) : tf.Tensor3D
+{
+    const forwardShadowMap = computeUnidirectionalShadowMap(volume, dominantAxis, octant, tolerance)
+    if (verbose) logTensor('forwardShadowMap', forwardShadowMap)
+
+    const backwardShadowMap = computeUnidirectionalShadowMap(volume, dominantAxis, reverseOctant(octant), tolerance)
+    if (verbose) logTensor('backwardShadowMap', backwardShadowMap)
 
     const shadowMap = bidirectionalShadowMap(forwardShadowMap, backwardShadowMap)
     if (verbose) logTensor('shadowMap', shadowMap)

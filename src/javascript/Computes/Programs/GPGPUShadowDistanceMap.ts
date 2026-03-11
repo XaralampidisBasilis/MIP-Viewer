@@ -6,14 +6,13 @@ import {
     type Dimension,
     type Octant,
     type Sign,
+    type Tuple,
     axisIndex,
     mapFromDominantAxisOctant,
     reverseOctant,
     reverseSign,
     signFromOctant,
-} from './ShadowMapUtils'
-
-type Tuple<T, N extends number, R extends unknown[] = []> = R['length'] extends N ? R : Tuple<T, N, [T, ...R]>
+} from '../../Utils/ShadowMapUtils'
 
 class ShadowChebyshevDistancePass implements GPGPUProgram 
 {

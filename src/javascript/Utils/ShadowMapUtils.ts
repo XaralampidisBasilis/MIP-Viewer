@@ -4,6 +4,7 @@ export type Dimension = 0 | 1 | 2
 export type Octant = `${Sign}${Sign}${Sign}`
 export type Permute = [Dimension, Dimension, Dimension]
 export type Reverse = Dimension[]
+export type Tuple<T, N extends number, R extends unknown[] = []> = R['length'] extends N ? R : Tuple<T, N, [T, ...R]>
 
 const INDEX_FROM_AXIS: Record<Axis, Dimension> = 
 {
