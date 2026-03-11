@@ -302,100 +302,6 @@ function runWebGLProgram(
     return tf.engine().makeTensorFromTensorInfo(info) 
 }
 
-function packToRGBA16UI(maps: Tuple<Int32Array, 12>): Uint16Array 
-{
-    const voxels = maps[0].length
-
-    for (let i = 1; i < 12; i++) 
-    {
-        if (maps[i].length !== voxels) 
-            throw new Error(`packToRGBA16UI expected all maps to have length ${voxels}, got ${maps[i].length} at index ${i}`)
-    }
-
-    // RGBA16UI => 4 uint16 values per voxel
-    const packed = new Uint16Array(voxels * 4)
-
-    for (let i = 0; i < voxels; i++) 
-    {
-        // Clamp values to 5 bits
-        const x0 = maps[ 0][i] & 0x1f
-        const x1 = maps[ 1][i] & 0x1f
-        const x2 = maps[ 2][i] & 0x1f
-        const x3 = maps[ 3][i] & 0x1f
-
-        // Clamp values to 5 bits
-        const y0 = maps[ 4][i] & 0x1f
-        const y1 = maps[ 5][i] & 0x1f
-        const y2 = maps[ 6][i] & 0x1f
-        const y3 = maps[ 7][i] & 0x1f
-
-        // Clamp values to 6 bits
-        const z0 = maps[ 8][i] & 0x3f
-        const z1 = maps[ 9][i] & 0x3f
-        const z2 = maps[10][i] & 0x3f
-        const z3 = maps[11][i] & 0x3f
-
-        // pack (5,5,6)-bit values into one uint16
-        const r = (x0 << 0) | (y0 << 5) | (z0 << 10)
-        const g = (x1 << 0) | (y1 << 5) | (z1 << 10)
-        const b = (x2 << 0) | (y2 << 5) | (z2 << 10)
-        const a = (x3 << 0) | (y3 << 5) | (z3 << 10)
-
-        const i4 = i * 4
-        packed[i4 + 0] = r >>> 0
-        packed[i4 + 1] = g >>> 0
-        packed[i4 + 2] = b >>> 0
-        packed[i4 + 3] = a >>> 0
-    }
-
-    return packed
-}
-
-function packToRGB32UI(maps: Tuple<Int32Array, 12>): Uint32Array 
-{
-    const voxels = maps[0].length
-
-    for (let i = 1; i < 12; i++) 
-    {
-        if (maps[i].length !== voxels) 
-            throw new Error(`packToRGB32UI expected all maps to have length ${voxels}, got ${maps[i].length} at index ${i}`)
-    }
-
-    // RGB32UI => 3 uint32 values per voxel
-    const packed = new Uint32Array(voxels * 3)
-
-    for (let i = 0; i < voxels; i++) 
-    {
-        // Clamp to 8 bits
-        const x0 = maps[ 0][i] & 0xff
-        const x1 = maps[ 1][i] & 0xff
-        const x2 = maps[ 2][i] & 0xff
-        const x3 = maps[ 3][i] & 0xff
-
-        const y0 = maps[ 4][i] & 0xff
-        const y1 = maps[ 5][i] & 0xff
-        const y2 = maps[ 6][i] & 0xff
-        const y3 = maps[ 7][i] & 0xff
-
-        const z0 = maps[ 8][i] & 0xff
-        const z1 = maps[ 9][i] & 0xff
-        const z2 = maps[10][i] & 0xff
-        const z3 = maps[11][i] & 0xff
-
-        // Pack 4x8-bit values into one uint32 per axis
-        const r = (x0 << 0) | (x1 << 8) | (x2 << 16) | (x3 << 24)
-        const g = (y0 << 0) | (y1 << 8) | (y2 << 16) | (y3 << 24)
-        const b = (z0 << 0) | (z1 << 8) | (z2 << 16) | (z3 << 24)
-
-        const i3 = i * 3
-        packed[i3 + 0] = r >>> 0
-        packed[i3 + 1] = g >>> 0
-        packed[i3 + 2] = b >>> 0
-    }
-
-    return packed
-}
-
 function isotropicDistanceMapInt32(
     shadows: tf.Tensor3D,
     dominantAxis: Axis,
@@ -531,7 +437,101 @@ function extendedAnisotropicBidirectionalDistanceMapInt32(
     return d as Int32Array
 }
 
-export function computeIsotropicDistanceMapRGBA16UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array
+function packToRGBA16UI(maps: Tuple<Int32Array, 12>): Uint16Array 
+{
+    const voxels = maps[0].length
+
+    for (let i = 1; i < 12; i++) 
+    {
+        if (maps[i].length !== voxels) 
+            throw new Error(`packToRGBA16UI expected all maps to have length ${voxels}, got ${maps[i].length} at index ${i}`)
+    }
+
+    // RGBA16UI => 4 uint16 values per voxel
+    const packed = new Uint16Array(voxels * 4)
+
+    for (let i = 0; i < voxels; i++) 
+    {
+        // Clamp values to 5 bits
+        const x0 = maps[ 0][i] & 0x1f
+        const x1 = maps[ 1][i] & 0x1f
+        const x2 = maps[ 2][i] & 0x1f
+        const x3 = maps[ 3][i] & 0x1f
+
+        // Clamp values to 5 bits
+        const y0 = maps[ 4][i] & 0x1f
+        const y1 = maps[ 5][i] & 0x1f
+        const y2 = maps[ 6][i] & 0x1f
+        const y3 = maps[ 7][i] & 0x1f
+
+        // Clamp values to 6 bits
+        const z0 = maps[ 8][i] & 0x3f
+        const z1 = maps[ 9][i] & 0x3f
+        const z2 = maps[10][i] & 0x3f
+        const z3 = maps[11][i] & 0x3f
+
+        // pack (5,5,6)-bit values into one uint16
+        const r = (x0 << 0) | (y0 << 5) | (z0 << 10)
+        const g = (x1 << 0) | (y1 << 5) | (z1 << 10)
+        const b = (x2 << 0) | (y2 << 5) | (z2 << 10)
+        const a = (x3 << 0) | (y3 << 5) | (z3 << 10)
+
+        const i4 = i * 4
+        packed[i4 + 0] = r >>> 0
+        packed[i4 + 1] = g >>> 0
+        packed[i4 + 2] = b >>> 0
+        packed[i4 + 3] = a >>> 0
+    }
+
+    return packed
+}
+
+function packToRGB32UI(maps: Tuple<Int32Array, 12>): Uint32Array 
+{
+    const voxels = maps[0].length
+
+    for (let i = 1; i < 12; i++) 
+    {
+        if (maps[i].length !== voxels) 
+            throw new Error(`packToRGB32UI expected all maps to have length ${voxels}, got ${maps[i].length} at index ${i}`)
+    }
+
+    // RGB32UI => 3 uint32 values per voxel
+    const packed = new Uint32Array(voxels * 3)
+
+    for (let i = 0; i < voxels; i++) 
+    {
+        // Clamp to 8 bits
+        const x0 = maps[ 0][i] & 0xff
+        const x1 = maps[ 1][i] & 0xff
+        const x2 = maps[ 2][i] & 0xff
+        const x3 = maps[ 3][i] & 0xff
+
+        const y0 = maps[ 4][i] & 0xff
+        const y1 = maps[ 5][i] & 0xff
+        const y2 = maps[ 6][i] & 0xff
+        const y3 = maps[ 7][i] & 0xff
+
+        const z0 = maps[ 8][i] & 0xff
+        const z1 = maps[ 9][i] & 0xff
+        const z2 = maps[10][i] & 0xff
+        const z3 = maps[11][i] & 0xff
+
+        // Pack 4x8-bit values into one uint32 per axis
+        const r = (x0 << 0) | (x1 << 8) | (x2 << 16) | (x3 << 24)
+        const g = (y0 << 0) | (y1 << 8) | (y2 << 16) | (y3 << 24)
+        const b = (z0 << 0) | (z1 << 8) | (z2 << 16) | (z3 << 24)
+
+        const i3 = i * 3
+        packed[i3 + 0] = r >>> 0
+        packed[i3 + 1] = g >>> 0
+        packed[i3 + 2] = b >>> 0
+    }
+
+    return packed
+}
+
+export function computeIsotropicDistanceMap_RGBA16UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array
 {
     const maps = new Array(12) 
 
@@ -551,7 +551,7 @@ export function computeIsotropicDistanceMapRGBA16UI(shadows: tf.Tensor3D, verbos
     return packToRGBA16UI(maps as Tuple<Int32Array, 12>) 
 }
 
-export function computeIsotropicDistanceMapRGB32UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint32Array
+export function computeIsotropicDistanceMap_RGB32UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint32Array
 {
     const maps = new Array(12)
 
@@ -571,7 +571,7 @@ export function computeIsotropicDistanceMapRGB32UI(shadows: tf.Tensor3D, verbose
     return packToRGB32UI(maps as Tuple<Int32Array, 12>) 
 }
 
-export function computeExtendedAnisotropicUnidirectionalDistanceMapRGBA16UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array
+export function computeExtendedAnisotropicUnidirectionalDistanceMap_RGBA16UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array
 {
     const maps = new Array(12) 
 
@@ -591,7 +591,7 @@ export function computeExtendedAnisotropicUnidirectionalDistanceMapRGBA16UI(shad
     return packToRGBA16UI(maps as Tuple<Int32Array, 12>) 
 }
 
-export function computeExtendedAnisotropicUnidirectionalDistanceMapRGB32UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint32Array
+export function computeExtendedAnisotropicUnidirectionalDistanceMap_RGB32UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint32Array
 {
     const maps = new Array(12)
 
@@ -611,7 +611,7 @@ export function computeExtendedAnisotropicUnidirectionalDistanceMapRGB32UI(shado
     return packToRGB32UI(maps as Tuple<Int32Array, 12>) 
 }
 
-export function computeExtendedAnisotropicBidirectionalDistanceMapRGBA16UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array
+export function computeExtendedAnisotropicBidirectionalDistanceMap_RGBA16UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array
 {
     const maps = new Array(12) 
 
@@ -631,7 +631,7 @@ export function computeExtendedAnisotropicBidirectionalDistanceMapRGBA16UI(shado
     return packToRGBA16UI(maps as Tuple<Int32Array, 12>) 
 }
 
-export function computeExtendedAnisotropicBidirectionalDistanceMapRGB32UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint32Array
+export function computeExtendedAnisotropicBidirectionalDistanceMap_RGB32UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint32Array
 {
     const maps = new Array(12)
 

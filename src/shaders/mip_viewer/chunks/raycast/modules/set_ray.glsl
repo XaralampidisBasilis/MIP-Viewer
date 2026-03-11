@@ -22,8 +22,8 @@ ray.spacing = 1.0 / sum(abs(ray.direction));
 ray.signs = ivec3(ssign(ray.direction));
 ray.axis = argmax(abs(ray.direction));
 
-ivec3 bits = ivec3(vec3(ray.signs) * 0.5 + 0.5); 
-ray.octant = (bits.z << 2) | (bits.y << 1) | (bits.x << 0);
+ivec3 sign_bits = ivec3(vec3(ray.signs) * 0.5 + 0.5); 
+ray.octant = (sign_bits.z << 2) | (sign_bits.y << 1) | (sign_bits.x << 0);
 
 // |  ray.map   |   ray.axis   |        ray.octants        |
 // | ---------: | :----------: | :-----------------------: |
@@ -74,15 +74,4 @@ if (ray.axis == 2)
     if (ray.octant == 7) ray.map = 8 + 0; // 'z', '+++'
 }
 
-#if SKIPPING_ENABLED == 1 
-
-    ray.reversed = (ray.signs[ray.axis] < 0);
-    if (ray.reversed)
-    {
-        ray.signs = -ray.signs;
-        ray.direction = -ray.direction;
-        ray.inv_direction = -ray.inv_direction;
-    }
-
-#endif
 
