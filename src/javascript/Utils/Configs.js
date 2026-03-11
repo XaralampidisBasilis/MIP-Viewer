@@ -31,8 +31,8 @@ export default class Configs extends EventEmitter
 
         this.blockSize = 1
 
-        this.downscaleEnabled = false
-        this.downscaleFactor = 0.8
+        this.downscaleEnabled = true
+        this.downscaleFactor = 0.7
         
         this.gradientsMethod = 'triquadraticBspline'
         this.marchingMethod = 'traces'
@@ -81,11 +81,6 @@ export default class Configs extends EventEmitter
             console.warn(`Invalid MarchingMethod: "${value}"`)
             return
         }
-        if (key === 'intersectionTest' && !Configs.IntersectionTests.includes(value)) 
-        {
-            console.warn(`Invalid IntersectionTest: "${value}"`)
-            return
-        }
         if (key === 'skippingStrategy' && !Configs.SkippingStrategies.includes(value)) 
         {
             console.warn(`Invalid SkippingStrategy: "${value}"`)
@@ -96,7 +91,6 @@ export default class Configs extends EventEmitter
             console.warn(`Invalid SkippingMethod: "${value}"`)
             return
         }
-
         if (key === 'blockSize' && (!Number.isInteger(value) || value <= 0)) 
         {
             console.warn(`blockSize must be a positive integer (got ${value})`)
@@ -105,11 +99,6 @@ export default class Configs extends EventEmitter
         if (key === 'downscaleFactor' && (typeof value !== 'number' || value <= 0 || value > 1)) 
         {
             console.warn(`downscaleFactor must be in (0,1] (got ${value})`)
-            return
-        }
-        if (key === 'isosurfaceValue' && (typeof value !== 'number' || value < 0 || value > 1)) 
-        {
-            console.warn(`isosurfaceValue must be in [0,1] (got ${value})`)
             return
         }
         if (key.endsWith('Enabled') && typeof value !== 'boolean') 

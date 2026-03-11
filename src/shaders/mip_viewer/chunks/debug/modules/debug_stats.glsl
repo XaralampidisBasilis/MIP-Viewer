@@ -2,25 +2,25 @@
 // COMPUTE DEBUG
 
 // num cells
-vec4 debug_stats_num_cells = to_color(float(stats.num_cells) / float(MAX_CELLS));
+vec4 debug_stats_num_cells = to_color(turbo(float(stats.num_cells) / float(MAX_CELLS)));
 
 // num traces
-vec4 debug_stats_num_traces = to_color(float(stats.num_traces) / float(MAX_TRACES));
+vec4 debug_stats_num_traces = to_color(turbo(float(stats.num_traces) / float(MAX_TRACES)));
 
 // num blocks
-vec4 debug_stats_num_blocks = to_color(float(stats.num_blocks) / float(MAX_BLOCKS));
+vec4 debug_stats_num_blocks = to_color(turbo(float(stats.num_blocks) / float(MAX_BLOCKS)));
 
 // num groups
-vec4 debug_stats_num_groups = to_color(float(stats.num_groups) / float(MAX_GROUPS));
+vec4 debug_stats_num_groups = to_color(turbo(float(stats.num_groups) / float(MAX_GROUPS)));
 
 // num fetches
-vec4 debug_stats_num_fetches = to_color(float(stats.num_fetches) / float(MAX_TRACES + MAX_BLOCKS));
+vec4 debug_stats_num_fetches = to_color(turbo(float(stats.num_fetches) / float(MAX_CELLS + MAX_BLOCKS)));
 
 // volume_samples
-vec4 debug_stats_volume_samples = to_color(float(stats.volume_samples) / float(MAX_TRACES));
+vec4 debug_stats_volume_samples = to_color(turbo(float(stats.volume_samples) / float(MAX_TRACES)));
 
 // occlusion_samples
-vec4 debug_stats_occlusion_samples = to_color(float(stats.occlusion_samples) / float(MAX_BLOCKS));
+vec4 debug_stats_occlusion_samples = to_color(turbo(float(stats.occlusion_samples) / float(MAX_BLOCKS)));
 
 
 // PRINT DEBUG

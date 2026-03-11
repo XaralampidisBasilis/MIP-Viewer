@@ -21,7 +21,6 @@ ray.spacing = 1.0 / sum(abs(ray.direction));
 // Compute the octant sign of the direction 
 ray.signs = ivec3(ssign(ray.direction));
 ray.axis = argmax(abs(ray.direction));
-ray.inverted = (ray.signs[ray.axis] < 0);
 
 ivec3 bits = ivec3(vec3(ray.signs) * 0.5 + 0.5); 
 ray.octant = (bits.z << 2) | (bits.y << 1) | (bits.x << 0);
@@ -75,18 +74,16 @@ if (ray.axis == 2)
     if (ray.octant == 7) ray.map = 8 + 0; // 'z', '+++'
 }
 
-#if SKIPPING_ENABLED == 1
+// #if SKIPPING_ENABLED == 1 
 
-    #if SKIPPING_METHOD == 1
+//     ray.inverted = (ray.signs[ray.axis] < 0);
 
-        if (ray.inverted)
-        {
-            ray.signs = -ray.signs;
-            ray.direction = -ray.direction;
-            ray.inv_direction = -ray.inv_direction;
-        }
+//     if (ray.inverted)
+//     {
+//         ray.signs = -ray.signs;
+//         ray.direction = -ray.direction;
+//         ray.inv_direction = -ray.inv_direction;
+//     }
 
-    #endif
-
-#endif
+// #endif
 

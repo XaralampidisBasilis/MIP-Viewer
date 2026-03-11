@@ -3,11 +3,13 @@ import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import { toHalfFloat } from '../../Utils/DataUtils'
 import { 
-    computeIsotropicDistanceMap,
-    computeExtendedAnisotropicForwardDistanceMap,
-    computeExtendedAnisotropicBackwardDistanceMap,
-    computeExtendedAnisotropicBidirectionalDistanceMap,
-} from '../Programs/GPGPUExtendedAnisotropicBidirectionalShadowDistanceMap'
+    computeIsotropicDistanceMapRGBA16UI,
+    computeIsotropicDistanceMapRGB32UI,
+    computeExtendedAnisotropicUnidirectionalDistanceMapRGBA16UI,
+    computeExtendedAnisotropicUnidirectionalDistanceMapRGB32UI,
+    computeExtendedAnisotropicBidirectionalDistanceMapRGBA16UI,
+    computeExtendedAnisotropicBidirectionalDistanceMapRGB32UI,
+} from '../Programs/GPGPUShadowDistanceMap'
 
 export default class DistanceMap 
 {
@@ -15,31 +17,14 @@ export default class DistanceMap
     {
         this.computes = new Computes()
         this.configs = this.computes.configs
-        this.maxDistance = 31
     }
-
-    computeTensor()
+ 
+    computeRGBA16UITexture()
     {
-        console.time('computeTensor') 
-        
-        // this.tensor = computeExtendedAnisotropicBidirectionalDistanceMap(this.computes.shadowMap.tensor, this.maxDistance, true)
-        this.tensor = computeExtendedAnisotropicForwardDistanceMap(this.computes.shadowMap.tensor, this.maxDistance, false)
-        // this.tensor = computeExtendedAnisotropicBackwardDistanceMap(this.computes.shadowMap.tensor, this.maxDistance, true)
+        console.time('computeRGBA16UITexture') 
 
-        const [depth, height, width, ,] = this.tensor.shape
-        this.dimensions = new THREE.Vector3(width, height, depth)
-
-        console.timeEnd('computeTensor') 
-    }
-
-    computeTexture()
-    {
-        console.time('computeTexture') 
-
-        if (! this.textureData)
-        {
-            this.textureData = this.getTextureData()
-        }
+        this.textureData = computeExtendedAnisotropicUnidirectionalDistanceMapRGBA16UI(this.computes.shadowMap.tensor, true)
+        this.dimensions = this.computes.shadowMap.dimensions
 
         this.texture = new THREE.Data3DTexture(this.textureData, ...this.dimensions)
         this.texture.format = THREE.RGBAIntegerFormat
@@ -50,62 +35,35 @@ export default class DistanceMap
         this.texture.generateMipmaps = false
         this.texture.unpackAlignment = 8
         this.texture.needsUpdate = true
-        console.timeEnd('computeTexture') 
+
+        console.timeEnd('computeRGBA16UITexture') 
     }   
 
-    updateTexture()
+    computeRGB32UITexture()
     {
-        this.texture.image.data.set(this.getTextureData())
+        console.time('computeRGB32UITexture') 
+
+        this.textureData = computeExtendedAnisotropicUnidirectionalDistanceMapRGB32UI(this.computes.shadowMap.tensor, true)
+        this.dimensions = this.computes.shadowMap.dimensions
+
+        // Workaround: this Three.js version does not map THREE.RGBIntegerFormat to WebGL's RGB_INTEGER
+        // for Data3DTexture uploads, so use the raw WebGL enum name string instead.
+        this.texture = new THREE.Data3DTexture(this.textureData, ...this.dimensions)
+        this.texture.format = 'RGB_INTEGER' // THREE.RGBIntegerFormat
+        this.texture.type = THREE.UnsignedIntType
+        this.texture.internalFormat = 'RGB32UI'
+        this.texture.minFilter = THREE.NearestFilter
+        this.texture.magFilter = THREE.NearestFilter
+        this.texture.generateMipmaps = false
+        this.texture.unpackAlignment = 1
         this.texture.needsUpdate = true
-    }
 
-    computeTextureData()
-    {
-        const data = this.tensor.dataSync()
-        
-        try 
-        {
-            const f16 = new Float16Array(data)
-            this.textureData = new Uint16Array(f16.buffer)
-        }
-        catch (error)
-        {
-            this.textureData = new Uint16Array(data.length)
-
-            for (let i = 0; i < data.length; i++) 
-            {
-                this.textureData[i] = toHalfFloat(data[i])
-            }            
-        }
-    }
-
-    getTextureData()
-    {
-        const data = this.tensor.dataSync()
-
-        try 
-        {
-            const f16 = new Float16Array(data)
-            const u16 = new Uint16Array(f16.buffer)
-
-            return u16
-        }
-        catch (error)
-        {
-            // Fallback if Float16Array is not supported
-            const u16 = new Uint16Array(data.length)
-
-            for (let i = 0; i < data.length; i++) 
-            {
-                u16[i] = toHalfFloat(data[i])
-            }            
-            return u16
-        }
-    }
+        console.timeEnd('computeRGB32UITexture') 
+    }   
 
     dispose()
     {
-        this.tensor?.dispose()
         this.texture?.dispose()
+        this.textureData = null
     }
 }

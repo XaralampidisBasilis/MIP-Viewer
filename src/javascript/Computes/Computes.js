@@ -24,19 +24,13 @@ export default class Computes extends EventEmitter
         this.configs = this.experience.configs
         this.resources = this.experience.resources
         
-        this.setMaps()
-    }
-
-    setMaps()
-    {
         this.volumeMap = new VolumeMap()
         this.shadowMap = new ShadowMap()
-        this.distanceMap = new DistanceMap()
+        this.distanceMap = new DistanceMap()    
     }
 
     async start()
     {
-        console.log('start@Computes')
         console.time('start@Computes') 
 
         this.volumeMap.computeTensor()
@@ -45,34 +39,16 @@ export default class Computes extends EventEmitter
         this.shadowMap.computeTensor()
         await tf.nextFrame()
 
-        this.volumeMap.computeTextureData()
-        this.volumeMap.tensor.dispose()
-        this.volumeMap.tensor = null
-        await tf.nextFrame()
-
-        this.distanceMap.computeTensor()
-        await tf.nextFrame()
-
-        this.shadowMap.computeTextureData()
-        this.shadowMap.tensor.dispose()
-        this.shadowMap.tensor = null
-        await tf.nextFrame()
-
-        this.distanceMap.computeTextureData()
-        this.distanceMap.tensor.dispose()
-        this.distanceMap.tensor = null
-        await tf.nextFrame()
-
         this.volumeMap.computeTexture()
-        this.volumeMap.textureData = null
+        this.volumeMap.tensor.dispose()
+        await tf.nextFrame()
+
+        this.distanceMap.computeRGBA16UITexture()
+        // this.distanceMap.computeRGB32UITexture()
         await tf.nextFrame()
 
         this.shadowMap.computeTexture()
-        this.shadowMap.textureData = null
-        await tf.nextFrame()
-
-        this.distanceMap.computeTexture()
-        this.distanceMap.textureData = null
+        this.shadowMap.tensor.dispose()
         await tf.nextFrame()
 
         console.timeEnd('start@Computes') 

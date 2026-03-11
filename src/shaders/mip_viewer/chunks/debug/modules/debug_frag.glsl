@@ -10,6 +10,6 @@ vec4 debug_frag_color = to_color(frag.color);
 switch (u_debug.option - 500)
 {
    
-    case 11: fragColor = debug_frag_color_material;     break; 
-    case 16: fragColor = debug_frag_color;              break; 
+    case 11: fragColor = debug_frag_color_material;  break; 
+    case 16: fragColor = debug_frag_color;           break; 
 }   
