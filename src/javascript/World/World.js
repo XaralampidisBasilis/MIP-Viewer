@@ -25,16 +25,12 @@ export default class World extends EventEmitter
     {
         this.viewer.start()
         this.scene.add(this.viewer.mesh)
-        
-        // this.camera.instance.position.x = 0
-        // this.camera.instance.position.y = 0
-        // this.camera.instance.position.z = -this.viewer.size.z * 2
-        // this.camera.instance.lookAt(0,0,0)
 
-        this.camera.instance.position.x = this.viewer.size.x
-        this.camera.instance.position.y = this.viewer.size.y
-        this.camera.instance.position.z = this.viewer.size.z
-        this.camera.instance.lookAt(0,0,0)
+        const bounds = new THREE.Box3().setFromObject(this.viewer.mesh)
+        const center = bounds.getCenter(new THREE.Vector3())
+        const size = bounds.getSize(new THREE.Vector3())
+
+        this.camera.frameBounds(center, size)
     }
 
     change(event)

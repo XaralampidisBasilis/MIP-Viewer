@@ -87,10 +87,10 @@ export default function()
     const material = new THREE.ShaderMaterial
     ({    
         side: THREE.BackSide,
-        blending: THREE.NormalBlending,
+        blending: THREE.NoBlending,
         depthTest: false,
         depthWrite: false,
-        transparent: true,           
+        transparent: false,           
 
         glslVersion: THREE.GLSL3,
         uniforms: uniforms,
