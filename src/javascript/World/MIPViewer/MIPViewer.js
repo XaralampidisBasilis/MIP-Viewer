@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import Experience from '../../Experience'
 import EventEmitter from '../../Utils/EventEmitter'
-import Configs from '../../Utils/Configs'
+import Configs from '../../Configs'
 import ISOMaterial from './MIPMaterial'
 
 export default class MIPViewer extends EventEmitter

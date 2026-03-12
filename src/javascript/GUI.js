@@ -1,6 +1,6 @@
 
 import Experience from './Experience'
-import Configs from './Utils/Configs'
+import Configs from './Configs'
 import Gui from 'lil-gui'
 
 export default class GUI
