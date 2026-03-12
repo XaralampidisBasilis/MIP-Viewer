@@ -1,4 +1,4 @@
-#if SKIPPING_ENABLED == 1 
+#if SKIPPING_ENABLED == 1 && SKIPPING_METHOD == 1
 
     ray.reversed = (ray.signs[ray.axis] < 0);
     if (ray.reversed)

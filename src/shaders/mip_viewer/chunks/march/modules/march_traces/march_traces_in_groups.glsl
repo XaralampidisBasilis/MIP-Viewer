@@ -17,7 +17,7 @@ for (int k = 0; k < MAX_GROUPS; k++)
         if (!block.shadowed || block.terminated) break;
     }
 
-    if (block.shadowed) continue;
+    if (block.shadowed && !block.terminated) continue;
     
     #include "./start_trace"
     #include "./update_mip"

@@ -16,7 +16,7 @@
 // |         10 |      z       |      -++      |
 // |         11 |      z       |      --+      |
 
-int sample_rgba16ui_distance(in ivec3 block_coords, in int ray_map, out bool block_shadowed)
+int sample_rgba16ui_distance(in ivec3 block_coords, out bool block_shadowed)
 {    
     uvec4 u = texelFetch(u_textures.distance_map, block_coords, 0); 
 
@@ -26,24 +26,24 @@ int sample_rgba16ui_distance(in ivec3 block_coords, in int ray_map, out bool blo
 
     uint d = 0u;
 
-         if (ray_map ==  0) d = x[0]; // 'x', '+++'
-    else if (ray_map ==  1) d = x[1]; // 'x', '+-+'
-    else if (ray_map ==  2) d = x[2]; // 'x', '++-'
-    else if (ray_map ==  3) d = x[3]; // 'x', '+--'
-    else if (ray_map ==  4) d = y[0]; // 'y', '+++'
-    else if (ray_map ==  5) d = y[1]; // 'y', '-++'
-    else if (ray_map ==  6) d = y[2]; // 'y', '++-'
-    else if (ray_map ==  7) d = y[3]; // 'y', '-+-'
-    else if (ray_map ==  8) d = z[0]; // 'z', '+++'
-    else if (ray_map ==  9) d = z[1]; // 'z', '+-+'
-    else if (ray_map == 10) d = z[2]; // 'z', '-++'
-    else if (ray_map == 11) d = z[3]; // 'z', '--+'
+         if (v_ray_map ==  0u) d = x[0]; // 'x', '+++'
+    else if (v_ray_map ==  1u) d = x[1]; // 'x', '+-+'
+    else if (v_ray_map ==  2u) d = x[2]; // 'x', '++-'
+    else if (v_ray_map ==  3u) d = x[3]; // 'x', '+--'
+    else if (v_ray_map ==  4u) d = y[0]; // 'y', '+++'
+    else if (v_ray_map ==  5u) d = y[1]; // 'y', '-++'
+    else if (v_ray_map ==  6u) d = y[2]; // 'y', '++-'
+    else if (v_ray_map ==  7u) d = y[3]; // 'y', '-+-'
+    else if (v_ray_map ==  8u) d = z[0]; // 'z', '+++'
+    else if (v_ray_map ==  9u) d = z[1]; // 'z', '+-+'
+    else if (v_ray_map == 10u) d = z[2]; // 'z', '-++'
+    else if (v_ray_map == 11u) d = z[3]; // 'z', '--+'
 
     block_shadowed = (d != 0u);
     return int(max(d, 1u));
 }
 
-int sample_rgb32ui_distance(in ivec3 block_coords, in int ray_map, out bool block_shadowed)
+int sample_rgb32ui_distance(in ivec3 block_coords, out bool block_shadowed)
 {    
     uvec3 u = texelFetch(u_textures.distance_map, block_coords, 0).rgb; 
 
@@ -54,52 +54,44 @@ int sample_rgb32ui_distance(in ivec3 block_coords, in int ray_map, out bool bloc
 
     uint d = 0u;
 
-         if (ray_map ==  0) d = u0.z; // 'x', '+++'
-    else if (ray_map ==  1) d = u1.z; // 'x', '+-+'
-    else if (ray_map ==  2) d = u2.z; // 'x', '++-'
-    else if (ray_map ==  3) d = u3.z; // 'x', '+--'
-    else if (ray_map ==  4) d = u0.y; // 'y', '+++'
-    else if (ray_map ==  5) d = u1.y; // 'y', '-++'
-    else if (ray_map ==  6) d = u2.y; // 'y', '++-'
-    else if (ray_map ==  7) d = u3.y; // 'y', '-+-'
-    else if (ray_map ==  8) d = u0.z; // 'z', '+++'
-    else if (ray_map ==  9) d = u1.z; // 'z', '+-+'
-    else if (ray_map == 10) d = u2.z; // 'z', '-++'
-    else if (ray_map == 11) d = u3.z; // 'z', '--+'
+         if (v_ray_map ==  0u) d = u0.z; // 'x', '+++'
+    else if (v_ray_map ==  1u) d = u1.z; // 'x', '+-+'
+    else if (v_ray_map ==  2u) d = u2.z; // 'x', '++-'
+    else if (v_ray_map ==  3u) d = u3.z; // 'x', '+--'
+    else if (v_ray_map ==  4u) d = u0.y; // 'y', '+++'
+    else if (v_ray_map ==  5u) d = u1.y; // 'y', '-++'
+    else if (v_ray_map ==  6u) d = u2.y; // 'y', '++-'
+    else if (v_ray_map ==  7u) d = u3.y; // 'y', '-+-'
+    else if (v_ray_map ==  8u) d = u0.z; // 'z', '+++'
+    else if (v_ray_map ==  9u) d = u1.z; // 'z', '+-+'
+    else if (v_ray_map == 10u) d = u2.z; // 'z', '-++'
+    else if (v_ray_map == 11u) d = u3.z; // 'z', '--+'
 
     block_shadowed = (d != 0u);
     return int(max(d, 1u));
 }
 
-int sample_rgba16ui_distance_fast(in ivec3 block_coords, in int ray_map, out bool block_shadowed)
+int sample_rgba16ui_distance_fast(in ivec3 block_coords, out bool block_shadowed)
 {
     uvec4 u = texelFetch(u_textures.distance_map, block_coords, 0);
 
-    uint map  = uint(ray_map);
-    uint idx  = map & 3u;   // 0..3
-    uint axis = map >> 2u;  // x=0, y=1, z=2
+    uint shift = v_ray_axis * 5u;
+    uint mask  = (v_ray_axis == 2u) ? 0x3Fu : 0x1Fu;
 
-    uint shift = axis * 5u;
-    uint mask  = (axis == 2u) ? 0x3Fu : 0x1Fu;
-
-    uint d = (u[idx] >> shift) & mask;
+    uint d = (u[v_ray_idx] >> shift) & mask;
 
     block_shadowed = (d != 0u);
     return int(max(d, 1u));
 }
 
-int sample_rgb32ui_distance_fast(in ivec3 block_coords, in int ray_map, out bool block_shadowed)
+int sample_rgb32ui_distance_fast(in ivec3 block_coords, out bool block_shadowed)
 {
     uvec3 u = texelFetch(u_textures.distance_map, block_coords, 0).rgb;
 
-    uint map   = uint(ray_map);
-    uint idx   = map & 3u;    // 0..3
-    uint axis  = map >> 2u;   // x=0, y=1, z=2
-
-    uint shift = idx * 8u;
+    uint shift = v_ray_idx * 8u;
     uint mask = 0xFFu;
 
-    uint d  = (u[axis] >> shift) & mask;
+    uint d = (u[v_ray_axis] >> shift) & mask;
 
     block_shadowed = (d != 0u);
     return int(max(d, 1u));

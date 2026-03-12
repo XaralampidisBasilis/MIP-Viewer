@@ -9,11 +9,6 @@ export default function()
 {
     const uniforms = 
     {
-        uCustomModelMatrix: new THREE.Uniform
-        (
-            new THREE.Matrix4()
-        ),
-
         u_volume: new THREE.Uniform
         ({
             dimensions        : new THREE.Vector3(),

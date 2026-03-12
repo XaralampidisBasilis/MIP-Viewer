@@ -17,7 +17,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         #include "./update_cubic_cell"
         #include "./update_mip"
 
-        if (cell.terminated || cell.exit_distance > block.exit_distance) break; 
+        if (cell.exit_distance > block.exit_distance || cell.terminated) break; 
     }   
 
     if (cell.terminated) break;

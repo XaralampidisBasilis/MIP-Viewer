@@ -23,7 +23,7 @@ export default class ShadowMap
         const volume = this.computes.volumeMap.tensor
 
         // this.tensor = S0.computeExtendedAnisotropicBidirectionalShadowMap(volume, 0.01, true)
-        this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(volume, 0.01, false)
+        this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(volume, 0.01, true)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.toReversed())
 
         console.timeEnd('computeTensor') 
@@ -45,7 +45,7 @@ export default class ShadowMap
         this.texture.minFilter = THREE.NearestFilter
         this.texture.magFilter = THREE.NearestFilter
         this.texture.generateMipmaps = false
-        this.texture.unpackAlignment = 2
+        this.texture.unpackAlignment = 1
         this.texture.needsUpdate = true
         console.timeEnd('computeTexture') 
     }   

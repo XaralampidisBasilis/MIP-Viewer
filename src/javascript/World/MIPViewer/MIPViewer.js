@@ -33,7 +33,7 @@ export default class MIPViewer extends EventEmitter
     {
         this.setMaterial()
         this.size = this.computes.volumeMap.size
-        this.mesh.scale.copy(this.size)
+        this.mesh.scale.copy(this.size) // scaled the unit cube into physical/world size, using the volume actual size.
         console.log(this)
     }
 
@@ -50,10 +50,6 @@ export default class MIPViewer extends EventEmitter
 
     setMaterial()
     {
-        const translation = new THREE.Matrix4().makeTranslation(0.5, 0.5, 0.5)
-        const scale = new THREE.Matrix4().makeScale(...this.computes.volumeMap.dimensions)
-        this.material.uniforms.uCustomModelMatrix.value.multiplyMatrices(scale, translation)
-
         this.setDefinesEnablers()
         this.setDefinesMethods()
         this.setDefinesIterators()
@@ -68,7 +64,6 @@ export default class MIPViewer extends EventEmitter
     {
         const configs = this.configs
         const defines = this.material.defines
-        defines.BERNSTEIN_ENABLED = Number(configs.bernsteinEnabled)
         defines.SKIPPING_ENABLED = Number(configs.skippingEnabled)
         defines.DEBUG_ENABLED = Number(configs.debugEnabled)
         defines.DISCARDING_ENABLED = Number(configs.discardingEnabled)

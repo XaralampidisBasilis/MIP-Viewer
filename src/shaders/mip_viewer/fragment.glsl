@@ -4,7 +4,14 @@ precision highp int;
 in vec3 v_position;
 in vec3 v_camera_position;
 in vec3 v_camera_direction;
-flat in vec3 v_ray_direction;
+
+flat in vec3  v_ray_direction;
+flat in vec3  v_ray_inv_direction;
+flat in float v_ray_spacing;
+flat in ivec3 v_ray_signs;
+flat in uint  v_ray_axis;
+flat in uint  v_ray_idx;
+flat in uint  v_ray_map;
 
 out vec4 fragColor;
 

@@ -38,7 +38,7 @@ vec4 debug_ray_map = to_color(vec3[12](
 
 vec4 debug_ray_segment;
 
-if (ray.axis == 0)
+if (ray.axis == 0u)
 {   
     if (ray.signs[0] > 0)
     {
@@ -55,7 +55,7 @@ if (ray.axis == 0)
         if (ray.signs[1] < 0 && ray.signs[2] < 0) debug_ray_segment = vec4(0.25 * COLOR.CYAN, 1.0);
     }
 }
-if (ray.axis == 1)
+if (ray.axis == 1u)
 {   
     if (ray.signs[1] > 0)
     {
@@ -72,7 +72,7 @@ if (ray.axis == 1)
         if (ray.signs[0] < 0 && ray.signs[2] < 0) debug_ray_segment = vec4(0.25 * COLOR.MAGENTA, 1.0);
     }
 }
-if (ray.axis == 2)
+if (ray.axis == 2u)
 {   
     if (ray.signs[2] > 0)
     {

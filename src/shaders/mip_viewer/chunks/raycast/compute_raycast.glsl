@@ -1,5 +1,3 @@
-// set ray
-#include "./modules/set_ray"
 
 // reverse ray
 #include "./modules/reverse_ray"

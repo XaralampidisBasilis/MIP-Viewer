@@ -4,16 +4,14 @@
 #include "./set_trace"
 #include "./start_mip"
 
-for (int j = 0; j < MAX_BLOCKS; j++) 
+for (int j = 0; j < u_debug.max_blocks; j++) 
 {
     #include "../march_blocks/update_block"
 
-    if (block.shadowed) continue;
+    if (block.shadowed && !block.terminated) continue;
     
     #include "./start_trace"
     #include "./update_mip"
-
-    if (block.terminated) break;
 
     for (int i = 0; i < MAX_TRACES_IN_BLOCK; i++) 
     {
