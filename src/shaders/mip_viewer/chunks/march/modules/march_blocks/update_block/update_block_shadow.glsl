@@ -17,11 +17,11 @@ block.exit_position = camera.position + ray.direction * block.exit_distance;
 // compute span distance
 block.span_distance = block.exit_distance - block.entry_distance;
 
-// compute next coordinates
-block.coords += block.exit_normal * ray.signs;
-
 // compute termination condition
 block.terminated = block.exit_distance > ray.end_distance;
+
+// compute next coordinates
+block.coords += block.exit_normal * ray.signs;
 
 // update stats
 #if DEBUG_ENABLED == 1

@@ -25,13 +25,13 @@ block.exit_position = camera.position + ray.direction * block.exit_distance;
 // compute span distance
 block.span_distance = block.exit_distance - block.entry_distance;
 
+// compute termination condition
+block.terminated = block.exit_distance > ray.end_distance;
+
 // compute next coordinates
 ivec3 exit_coords = ivec3(round(block.exit_position)) / u_volume.block_size;
 ivec3 skipped_coords = block.coords + block.skip_distance * ray.signs;
 block.coords = mmix(exit_coords, skipped_coords, block.exit_normal);
-
-// compute termination condition
-block.terminated = block.exit_distance > ray.end_distance;
 
 // update stats
 #if DEBUG_ENABLED == 1

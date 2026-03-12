@@ -2,7 +2,7 @@
 
     #if SKIPPING_STRATEGY == 0
     
-        #include "./march_cells_in_blocks"
+        #include "./march_cells_in_blocks_2"
 
     #elif SKIPPING_STRATEGY == 1
 

@@ -12,9 +12,9 @@
 
 cell.exit_distance = clamp(cell.exit_distance, ray.start_distance, ray.end_distance);
 cell.exit_position = camera.position + ray.direction * cell.exit_distance; 
+cell.coords = ivec3(round(cell.exit_position)); 
 
 cubic.values[3] = sample_volume(cell.exit_position);
-cell.coords = ivec3(round(cell.exit_position)); 
 
 #if DEBUG_ENABLED == 1
 
