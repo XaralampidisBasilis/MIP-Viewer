@@ -1,13 +1,15 @@
 
 #include "../march_blocks/start_block"
 
-#include "./set_trace"
+#include "./start_trace"
 #include "./start_mip"
 
 for (int k = 0; k < MAX_GROUPS; k++) 
 {
     #if DEBUG_ENABLED == 1
+
         stats.num_groups += 1;
+        
     #endif
 
     for (int j = 0; j < MAX_BLOCKS_IN_GROUP; j++) 
@@ -19,10 +21,8 @@ for (int k = 0; k < MAX_GROUPS; k++)
 
     if (block.shadowed && !block.terminated) continue;
     
-    #include "./start_trace"
+    #include "./start_trace_in_block"
     #include "./update_mip"
-
-    if (block.terminated) break;
 
     for (int i = 0; i < MAX_TRACES_IN_BLOCK; i++) 
     {

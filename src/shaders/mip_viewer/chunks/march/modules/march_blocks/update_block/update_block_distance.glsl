@@ -1,5 +1,6 @@
 // compute skip distance
-block.skip_distance = sample_rgba16ui_distance_fast(block.coords, block.shadowed);
+// block.skip_distance = sample_rgba16ui_distance_fast(block.coords, block.shadowed);
+block.skip_distance = sample_rgb32ui_distance_fast(block.coords, block.shadowed);
 
 // compute min/max coords
 block.min_coords = block.coords - (block.skip_distance - 1);
