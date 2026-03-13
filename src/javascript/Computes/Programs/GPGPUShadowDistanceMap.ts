@@ -437,6 +437,52 @@ function extendedAnisotropicBidirectionalDistanceMapInt32(
     return d as Int32Array
 }
 
+function packToR16UI(maps: Tuple<Int32Array, 12>): Uint16Array 
+{
+    const voxels = maps[0].length
+
+    for (let i = 1; i < 12; i++) 
+    {
+        if (maps[i].length !== voxels) 
+            throw new Error(`packToR16UI expected all maps to have length ${voxels}, got ${maps[i].length} at index ${i}`)
+    }
+
+    // RGBA16UI => 4 uint16 values per voxel
+    const packed = new Uint16Array(voxels * 4)
+
+    for (let i = 0; i < voxels; i++) 
+    {
+        // Clamp values to 5 bits
+        const x0 = maps[ 0][i] & 0x1
+        const x1 = maps[ 1][i] & 0x1
+        const x2 = maps[ 2][i] & 0x1
+        const x3 = maps[ 3][i] & 0x1
+
+        // Clamp values to 5 bits
+        const y0 = maps[ 4][i] & 0x1
+        const y1 = maps[ 5][i] & 0x1
+        const y2 = maps[ 6][i] & 0x1
+        const y3 = maps[ 7][i] & 0x1
+
+        // Clamp values to 6 bits
+        const z0 = maps[ 8][i] & 0x1
+        const z1 = maps[ 9][i] & 0x1
+        const z2 = maps[10][i] & 0x1
+        const z3 = maps[11][i] & 0x1
+
+        // pack 12-bits into one uint16
+        const r = 
+        (x0 << 0) | (x1 << 1) | (x2 <<  2) | (x2 <<  3) |
+        (y0 << 4) | (y1 << 5) | (y2 <<  6) | (y2 <<  7) |
+        (z0 << 8) | (z1 << 9) | (z2 << 10) | (z2 << 11)
+
+        packed[i] = r >>> 0
+
+    }
+
+    return packed
+}
+
 function packToRGBA16UI(maps: Tuple<Int32Array, 12>): Uint16Array 
 {
     const voxels = maps[0].length

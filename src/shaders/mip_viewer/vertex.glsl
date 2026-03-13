@@ -1,6 +1,4 @@
-out vec3 v_position;
-out vec3 v_camera_position;
-out vec3 v_camera_direction;
+out vec3 v_ray_origin;
 
 flat out vec3  v_ray_direction;
 flat out vec3  v_ray_inv_direction;
@@ -16,73 +14,111 @@ flat out uint  v_ray_reverse;
 #include "./chunks/utils/math/ssign"
 #include "./chunks/utils/math/argmax"
 
-vec3 local_position_to_index_space(vec3 p)
+vec3 positionLocalToIndexSpace(vec3 positionLocal)
 {
-    return (p + 0.5) * vec3(u_volume.dimensions);
+    return (positionLocal + 0.5) * vec3(u_volume.dimensions);
 }
 
-vec3 local_vector_to_index_space(vec3 v)
+vec3 directionLocalToIndexSpace(vec3 directionLocal)
 {
-    return v * vec3(u_volume.dimensions);
+    return directionLocal * vec3(u_volume.dimensions);
 }
+
+vec3 getCameraPositionLocalSpace()
+{
+    return (inverse(modelMatrix) * vec4(cameraPosition, 1.0)).xyz;
+}
+
+vec3 getCameraPositionIndexSpace()
+{
+    return positionLocalToIndexSpace(getCameraPositionLocalSpace());
+}
+
+vec3 getCameraDirectionLocalSpace()
+{
+    // In view space, camera looks down -Z.
+    vec3 cameraDirectionView = vec3(0.0, 0.0, -1.0);
+    return (inverse(modelViewMatrix) * vec4(cameraDirectionView, 0.0)).xyz;
+}
+
+vec3 getRayDirectionIndexSpace()
+{
+    return normalize(directionLocalToIndexSpace(getCameraDirectionLocalSpace()));
+}
+
+vec3 getRayOriginIndexSpace(vec3 vertexPosition, vec3 cameraPosition, vec3 rayDirection) 
+{
+    float t = dot(vertexPosition - cameraPosition, rayDirection);
+    return vertexPosition - rayDirection * t;
+}
+
+vec2 intersectBox(
+    vec3 boxMin,
+    vec3 boxMax,
+    vec3 rayOrigin,
+    vec3 rayInvDirection
+) {
+    vec3 t0 = (boxMin - rayOrigin) * rayInvDirection;
+    vec3 t1 = (boxMax - rayOrigin) * rayInvDirection;
+
+    vec3 tMin3 = min(t0, t1); 
+    vec3 tMax3 = max(t0, t1);
+
+    float tEntry = max(max(tMin3.x, tMin3.y), tMin3.z);
+    float tExit  = min(min(tMax3.x, tMax3.y), tMax3.z);
+
+    return vec2(tEntry, tExit);
+}
+
 
 // Returns the 2-bit quadrant index (0..3) after projecting the ray sign
 // configuration onto the plane orthogonal to the dominant axis.
-//
-// axis = 0 -> classify in the yz plane
-// axis = 1 -> classify in the xz plane
-// axis = 2 -> classify in the xy plane
-uint ray_quad_idx(ivec3 signs, uint axis)
+uint rayQuadrantIndex(ivec3 signs, uint axis)
 {
     uvec3 b = uvec3(greaterThan(signs, ivec3(0)));
-    
+
     uint xy = b.x ^ b.y;
     uint xz = b.x ^ b.z;
     uint yz = b.y ^ b.z;
 
-    if (axis == 0u) return (xz << 1) | xy; 
-    if (axis == 1u) return (yz << 1) | xy; 
-    if (axis == 2u) return (xz << 1) | yz;   
+    if (axis == 0u) return (xz << 1) | xy;
+    if (axis == 1u) return (yz << 1) | xy;
+    if (axis == 2u) return (xz << 1) | yz;
+
+    return 0u;
 }
 
-void main() 
+void classifyRay(vec3 rayDirection)
 {
-    vec3 volume_dimensions = vec3(u_volume.dimensions);
+    vec3  abs_dir = abs(rayDirection);
+    vec3  inv_direction = 1.0 / rayDirection;
+    ivec3 signs = ivec3(ssign(rayDirection));
+    float spacing = 1.0 / sum(abs_dir);
 
-    // Unit cube vertex in voxel/index space.
-    v_position = local_position_to_index_space(position);
+    uint axis = uint(argmax(abs_dir));
+    uint idx = rayQuadrantIndex(signs, axis);
+    uint map = idx + 4u * axis;
+    uint reverse = uint(signs[axis] < 0);
 
-    // Camera position in local space, then in voxel/index space.
-    vec3 camera_position_local = (inverse(modelMatrix) * vec4(cameraPosition, 1.0)).xyz;
-    vec3 camera_plane_position = local_position_to_index_space(camera_position_local);
+    v_ray_direction     = direction;
+    v_ray_inv_direction = inv_direction;
+    v_ray_signs         = signs;
+    v_ray_spacing       = spacing;
+    v_ray_axis          = axis;
+    v_ray_idx           = idx;
+    v_ray_map           = map;
+    v_ray_reverse       = reverse;
+}
 
-    // Orthographic view direction in local space.
-    // In view space, the camera looks down -Z.
-    vec3 camera_direction_view = vec3(0.0, 0.0, -1.0);
-    vec3 camera_direction_local = (inverse(modelViewMatrix) * vec4(camera_direction_view, 0.0)).xyz;
+void main()
+{
+    vec3 positionIndex = positionLocalToIndexSpace(position);
+    vec3 cameraIndex   = getCameraPositionIndexSpace();
+    vec3 direction     = getRayDirectionIndexSpace();
 
-    // Scale into voxel space so direction respects non-uniform volume dimensions.
-    v_camera_direction = local_vector_to_index_space(camera_direction_local);
-    v_ray_direction = normalize(v_camera_direction);
-    v_ray_inv_direction = 1.0 / v_ray_direction;
+    v_ray_origin = getRayOriginIndexSpace(positionIndex, cameraIndex, direction);
 
-    // Compute ray spacing
-    vec3 ray_abs_direction = abs(v_ray_direction);
-    v_ray_signs = ivec3(ssign(v_ray_direction));
-    v_ray_spacing = 1.0 / sum(ray_abs_direction);
-
-    // Compute ray classifications
-    v_ray_axis = uint(argmax(ray_abs_direction));
-    v_ray_idx = ray_quad_idx(v_ray_signs, v_ray_axis);
-    v_ray_map = v_ray_idx + v_ray_axis * 4u;
-
-    // If we have negative sign in the ray direction in the dominant axis reverse the ray
-    v_ray_reverse = uint(v_ray_signs[v_ray_axis] < 0);
-
-    // For orthographic projection, each ray starts on the camera plane and
-    // passes through the current vertex-aligned ray line.
-    float t = dot(v_position - camera_plane_position, v_ray_direction);
-    v_camera_position = v_position - v_ray_direction * t;
+    classifyRay(direction);
 
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }

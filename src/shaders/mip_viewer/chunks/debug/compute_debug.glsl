@@ -5,7 +5,6 @@
 #include "./modules/debug_mip"  
 #include "./modules/debug_frag"               
 #include "./modules/debug_box"   
-#include "./modules/debug_camera"          
 #include "./modules/debug_variables"               
 
 #if DEBUG_ENABLED == 1

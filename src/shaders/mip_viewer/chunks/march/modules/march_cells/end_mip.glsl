@@ -1,6 +1,6 @@
 
 // Compute position
-mip.position = camera.position + ray.direction * mip.distance; 
+mip.position = ray.origin + ray.direction * mip.distance; 
 
 // Compute gradients and hessian
 mip.gradient = compute_gradient(mip.position, mip.hessian);

@@ -220,10 +220,7 @@ export default class GUI
                 box_span_distance : 603,
                 box_entry_position: 604,
                 box_exit_position : 605,
-
-                camera_position : 701,
-                camera_direction: 702,
-
+                
                 cubic_root             : 801,
                 cubic_num_roots        : 802,
                 cubic_degree           : 803,

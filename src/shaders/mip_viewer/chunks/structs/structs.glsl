@@ -1,4 +1,3 @@
-#include "./struct_camera"
 #include "./struct_frag"
 #include "./struct_box"
 #include "./struct_ray"

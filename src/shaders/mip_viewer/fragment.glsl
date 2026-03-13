@@ -1,9 +1,7 @@
 precision highp float;
 precision highp int;
 
-in vec3 v_position;
-in vec3 v_camera_position;
-in vec3 v_camera_direction;
+in vec3 v_ray_origin;
 
 flat in vec3  v_ray_direction;
 flat in vec3  v_ray_inv_direction;
@@ -30,9 +28,5 @@ void main()
 
     #if DEBUG_ENABLED == 1
     #include "./chunks/debug/compute_debug"
-    #endif
-
-    #if DISCARDING_ENABLED == 1
-    fragColor.a *= hit.discarded ? 0.0 : 1.0;
     #endif
 }

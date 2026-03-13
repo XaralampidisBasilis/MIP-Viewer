@@ -7,7 +7,7 @@ float jitter = random(ray.start_position);
 trace.distance = trace.spacing * (ceil(ray.start_distance / trace.spacing) + jitter);
 
 // set position
-trace.position = camera.position + ray.direction * trace.distance; 
+trace.position = ray.origin + ray.direction * trace.distance; 
 
 // set value
 trace.value = sample_volume(trace.position);
