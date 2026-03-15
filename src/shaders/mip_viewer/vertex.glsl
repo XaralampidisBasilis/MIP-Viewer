@@ -1,3 +1,4 @@
+
 out vec3 v_ray_origin;
 
 flat out vec3  v_ray_direction;
@@ -24,6 +25,11 @@ vec3 directionLocalToIndexSpace(vec3 directionLocal)
     return directionLocal * vec3(u_volume.dimensions);
 }
 
+vec3 distanceToPosition(vec3 rayOrigin, vec3 rayDirection, float t)
+{
+    return rayOrigin + rayDirection * t;
+}
+
 vec3 getCameraPositionLocalSpace()
 {
     return (inverse(modelMatrix) * vec4(cameraPosition, 1.0)).xyz;
@@ -37,8 +43,7 @@ vec3 getCameraPositionIndexSpace()
 vec3 getCameraDirectionLocalSpace()
 {
     // In view space, camera looks down -Z.
-    vec3 cameraDirectionView = vec3(0.0, 0.0, -1.0);
-    return (inverse(modelViewMatrix) * vec4(cameraDirectionView, 0.0)).xyz;
+    return (inverse(modelViewMatrix) * vec4(0.0, 0.0, -1.0, 0.0)).xyz;
 }
 
 vec3 getRayDirectionIndexSpace()
@@ -46,30 +51,29 @@ vec3 getRayDirectionIndexSpace()
     return normalize(directionLocalToIndexSpace(getCameraDirectionLocalSpace()));
 }
 
-vec3 getRayOriginIndexSpace(vec3 vertexPosition, vec3 cameraPosition, vec3 rayDirection) 
+vec3 getRayOriginIndexSpace(vec3 vertexPosition, vec3 cameraPosition, vec3 cameraDirection) 
 {
-    float t = dot(vertexPosition - cameraPosition, rayDirection);
-    return vertexPosition - rayDirection * t;
+    // compute the intersection point with the camera orthographic plane 
+    float rayDistance = dot(vertexPosition - cameraPosition, cameraDirection);
+    return vertexPosition - cameraDirection * rayDistance;
 }
 
-vec2 intersectBox(
-    vec3 boxMin,
-    vec3 boxMax,
-    vec3 rayOrigin,
-    vec3 rayInvDirection
-) {
-    vec3 t0 = (boxMin - rayOrigin) * rayInvDirection;
-    vec3 t1 = (boxMax - rayOrigin) * rayInvDirection;
+vec2 getRayStartEndDistanceIndexSpace(vec3 rayOrigin, vec3 rayDirection) 
+{
+    vec3 boxMax = vec3(u_volume.dimensions);
+    vec3 boxMin = vec3(0.0);
 
-    vec3 tMin3 = min(t0, t1); 
-    vec3 tMax3 = max(t0, t1);
+    vec3 t0 = (boxMin - rayOrigin) / rayDirection;
+    vec3 t1 = (boxMax - rayOrigin) / rayDirection;
 
-    float tEntry = max(max(tMin3.x, tMin3.y), tMin3.z);
-    float tExit  = min(min(tMax3.x, tMax3.y), tMax3.z);
+    vec3 tMin = min(t0, t1); 
+    vec3 tMax = max(t0, t1);
+
+    float tEntry = max(max(tMin.x, tMin.y), tMin.z);
+    float tExit  = min(min(tMax.x, tMax.y), tMax.z);
 
     return vec2(tEntry, tExit);
 }
-
 
 // Returns the 2-bit quadrant index (0..3) after projecting the ray sign
 // configuration onto the plane orthogonal to the dominant axis.
@@ -90,35 +94,35 @@ uint rayQuadrantIndex(ivec3 signs, uint axis)
 
 void classifyRay(vec3 rayDirection)
 {
-    vec3  abs_dir = abs(rayDirection);
-    vec3  inv_direction = 1.0 / rayDirection;
+    vec3  absDirection = abs(rayDirection);
+    vec3  invDirection = 1.0 / rayDirection;
+    float spacing = 1.0 / sum(absDirection);
     ivec3 signs = ivec3(ssign(rayDirection));
-    float spacing = 1.0 / sum(abs_dir);
 
-    uint axis = uint(argmax(abs_dir));
+    uint axis = uint(argmax(absDirection));
     uint idx = rayQuadrantIndex(signs, axis);
-    uint map = idx + 4u * axis;
     uint reverse = uint(signs[axis] < 0);
+    uint map = idx + 4u * axis;
 
-    v_ray_direction     = direction;
-    v_ray_inv_direction = inv_direction;
-    v_ray_signs         = signs;
-    v_ray_spacing       = spacing;
-    v_ray_axis          = axis;
-    v_ray_idx           = idx;
-    v_ray_map           = map;
-    v_ray_reverse       = reverse;
+    v_ray_inv_direction = invDirection;
+    v_ray_signs = signs;
+    v_ray_spacing = spacing;
+    v_ray_axis = axis;
+    v_ray_idx = idx;
+    v_ray_map = map;
+    v_ray_reverse = reverse;
 }
 
 void main()
 {
-    vec3 positionIndex = positionLocalToIndexSpace(position);
-    vec3 cameraIndex   = getCameraPositionIndexSpace();
-    vec3 direction     = getRayDirectionIndexSpace();
+    vec3 vertexPosition = positionLocalToIndexSpace(position);
+    vec3 cameraPosition = getCameraPositionIndexSpace();
+    vec3 rayDirection = getRayDirectionIndexSpace();
+    vec3 rayOrigin = getRayOriginIndexSpace(vertexPosition, cameraPosition, rayDirection);
+    classifyRay(rayDirection);
 
-    v_ray_origin = getRayOriginIndexSpace(positionIndex, cameraIndex, direction);
-
-    classifyRay(direction);
+    v_ray_origin = rayOrigin;
+    v_ray_direction = rayDirection;
 
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }

@@ -4,10 +4,6 @@ debug.variable0 = to_color(turbo(box.entry_position.x / float(u_volume.dimension
 debug.variable1 = to_color(turbo(box.entry_position.y / float(u_volume.dimensions.y)));
 debug.variable2 = to_color(turbo(box.entry_position.z / float(u_volume.dimensions.z)));
 
-// start position
-debug.variable3 = to_color(map(box.min_position, box.max_position, v_position));
-
-
 // PRINT DEBUG
 switch (u_debug.option - 1000)
 { 
