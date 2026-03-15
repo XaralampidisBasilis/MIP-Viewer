@@ -1,6 +1,6 @@
 // compute skip distance
-// block.skip_distance = sample_rgba16ui_distance_fast(block.coords, block.shadowed);
-block.skip_distance = sample_rgb32ui_distance_fast(block.coords, block.shadowed);
+block.skip_distance = sample_rgba16ui_distance_fast(block.coords, block.shadowed);
+// block.skip_distance = sample_rgb32ui_distance_fast(block.coords, block.shadowed);
 
 // compute min/max coords
 block.min_coords = block.coords - (block.skip_distance - 1);
@@ -20,7 +20,7 @@ block.entry_position = block.exit_position;
 
 // compute exit from cell ray intersection 
 block.exit_distance = intersect_box_exit(block.min_position, block.max_position, ray.origin, ray.inv_direction, block.exit_normal);
-block.exit_position = ray.origin + ray.direction * block.exit_distance;
+block.exit_position = distanceToPosition(block.exit_distance);
 
 // compute span distance
 block.span_distance = block.exit_distance - block.entry_distance;

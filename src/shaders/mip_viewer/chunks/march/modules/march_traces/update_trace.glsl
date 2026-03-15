@@ -6,7 +6,7 @@ trace.prev_distance = trace.distance;
 trace.distance += trace.spacing;
 
 // Compute position
-trace.position = ray.origin + ray.direction * trace.distance; 
+trace.position = distanceToPosition(trace.distance); 
 
 // Compute termination condition
 trace.terminated = trace.distance > ray.end_distance; 

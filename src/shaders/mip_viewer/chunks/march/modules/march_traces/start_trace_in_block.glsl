@@ -7,7 +7,7 @@ trace.distance = trace.spacing * (floor(block.entry_distance / trace.spacing) + 
 trace.distance = clamp(trace.distance, ray.start_distance, ray.end_distance);
 
 // update position
-trace.position = ray.origin + ray.direction * trace.distance; 
+trace.position = distanceToPosition(trace.distance); 
 
 // start value
 trace.value = sample_volume(trace.position);

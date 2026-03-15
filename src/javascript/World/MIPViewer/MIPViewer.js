@@ -3,6 +3,7 @@ import Experience from '../../Experience'
 import EventEmitter from '../../Utils/EventEmitter'
 import Configs from '../../Configs'
 import ISOMaterial from './MIPMaterial'
+import { updateRayUniforms as updateRayUniformState } from './RayUniforms'
 
 export default class MIPViewer extends EventEmitter
 {
@@ -25,6 +26,9 @@ export default class MIPViewer extends EventEmitter
         this.computes = this.experience.computes
         this.debug = this.experience.debug
         this.configs = this.experience.configs
+        this.camera = this.experience.camera
+        this.onCameraChange = this.onCameraChange.bind(this)
+        this.cameraBound = false
 
         this.setMesh()
     }
@@ -33,7 +37,12 @@ export default class MIPViewer extends EventEmitter
     {
         this.setMaterial()
         this.size = this.computes.volumeMap.size
-        this.mesh.scale.copy(this.size) // scaled the unit cube into physical/world size, using the volume actual size.
+
+        // scaled the unit cube into physical/world size, using the volume actual size.
+        this.mesh.scale.copy(this.size) 
+        
+        this.bindCamera()
+        this.updateRayUniforms()
         console.log(this)
     }
 
@@ -57,7 +66,33 @@ export default class MIPViewer extends EventEmitter
         this.setUniformsVolume()
         this.setUniformsDebug()
         this.setUniformsShading()
+        this.updateRayUniforms()
+    }
 
+    bindCamera()
+    {
+        if (this.cameraBound)
+        {
+            return
+        }
+
+        this.camera.on('change.mipViewer', this.onCameraChange)
+        this.cameraBound = true
+    }
+
+    onCameraChange()
+    {
+        this.updateRayUniforms()
+    }
+
+    updateRayUniforms()
+    {
+        updateRayUniformState(
+            this.material.uniforms,
+            this.camera?.instance,
+            this.mesh,
+            this.computes?.volumeMap?.dimensions,
+        )
     }
 
     setDefinesEnablers()
@@ -207,6 +242,12 @@ export default class MIPViewer extends EventEmitter
 
     destroy() 
     {
+        if (this.cameraBound)
+        {
+            this.camera?.off('change.mipViewer')
+            this.cameraBound = false
+        }
+
         if (this.mesh) 
         {
             this.mesh.geometry.dispose()

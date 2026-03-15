@@ -3,3 +3,4 @@
 #include "./sample_distance"
 #include "./compute_gradient"
 #include "./compute_curvatures"
+#include "./distanceToPosition"

@@ -6,6 +6,7 @@ struct Ray
     bool  reversed;
     uint  map;       
     uint  axis;       
+    uint  idx;
     bool  discarded;       // flag indicating if the ray has been discarded
     vec3  origin;
     vec3  direction;       // direction vector for each step along the ray
@@ -25,13 +26,14 @@ void set_ray()
 {
     ray.reversed       = false;
     ray.discarded      = false;
-    ray.map            = v_ray_map;
-    ray.axis           = v_ray_axis;
+    ray.map            = uint(u_ray.map);
+    ray.axis           = uint(u_ray.axis);
+    ray.idx            = uint(u_ray.idx);
     ray.origin         = v_ray_origin;
-    ray.direction      = v_ray_direction;
-    ray.inv_direction  = v_ray_inv_direction;
-    ray.signs          = v_ray_signs;
-    ray.spacing        = v_ray_spacing;
+    ray.direction      = u_ray.direction;
+    ray.inv_direction  = u_ray.inv_direction;
+    ray.signs          = u_ray.signs;
+    ray.spacing        = u_ray.spacing;
     ray.start_position = vec3(0.0);
     ray.end_position   = vec3(0.0);
     ray.start_distance = 0.0;

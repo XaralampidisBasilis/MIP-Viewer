@@ -1,6 +1,6 @@
 #if SKIPPING_ENABLED == 1 && SKIPPING_METHOD == 1
 
-    ray.reversed = (ray.signs[ray.axis] < 0);
+    ray.reversed = (u_ray.reverse != 0);
     if (ray.reversed)
     {
         ray.signs = -ray.signs;

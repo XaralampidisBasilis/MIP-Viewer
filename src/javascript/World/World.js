@@ -31,6 +31,7 @@ export default class World extends EventEmitter
         const size = bounds.getSize(new THREE.Vector3())
 
         this.camera.frameBounds(center, size)
+        this.viewer.updateRayUniforms()
     }
 
     change(event)

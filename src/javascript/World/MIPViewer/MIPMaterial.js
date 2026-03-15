@@ -19,6 +19,18 @@ export default function()
             block_size        : 0,
         }),
 
+        u_ray: new THREE.Uniform
+        ({
+            direction    : new THREE.Vector3(0, 0, -1),
+            inv_direction: new THREE.Vector3(0, 0, -1),
+            signs        : new THREE.Vector3(1, 1, -1),
+            spacing      : 1.0,
+            axis         : 2,
+            idx          : 0,
+            map          : 8,
+            reverse      : 0,
+        }),
+
         u_textures: new THREE.Uniform
         ({
             volume_map : null,

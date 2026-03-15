@@ -9,7 +9,7 @@ cell.entry_position = cell.exit_position;
 
 // compute exit from cell ray intersection 
 cell.exit_distance = intersect_box_exit(cell.min_position, cell.max_position, ray.origin, ray.inv_direction, cell.exit_normal);
-cell.exit_position = ray.origin + ray.direction * cell.exit_distance; 
+cell.exit_position = distanceToPosition(cell.exit_distance); 
 
 // compute span distance
 cell.span_distance = cell.exit_distance - cell.entry_distance;

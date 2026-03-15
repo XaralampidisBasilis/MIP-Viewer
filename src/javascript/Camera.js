@@ -1,20 +1,24 @@
 import * as THREE from 'three'
 import Experience from './Experience'
+import EventEmitter from './Utils/EventEmitter'
 import { ArcballControls } from 'three/examples/jsm/controls/ArcballControls.js'
 // import { TrackballControls } from './Utils/TrackballControls'
 // import { FlyControls } from './Utils/FlyControls'
 // import { ToggleControls } from './Utils/ToggleControls'
 
-export default class Camera
+export default class Camera extends EventEmitter
 {
     constructor()
     {
+        super()
+
         this.experience = new Experience()
         this.mouse = this.experience.mouse
         this.sizes = this.experience.sizes
         this.scene = this.experience.scene
         this.canvas = this.experience.canvas
         this.time = this.experience.time
+        this.onControlsChange = this.onControlsChange.bind(this)
         
         this.orthographic = {
             near: 0.001,
@@ -36,7 +40,11 @@ export default class Camera
 
     setControls()
     {
-        this.controls?.dispose()
+        if (this.controls)
+        {
+            this.controls.removeEventListener('change', this.onControlsChange)
+            this.controls.dispose()
+        }
 
         this.controls = new ArcballControls(this.instance, this.canvas, this.scene)
         this.controls.enableAnimations = true
@@ -46,7 +54,14 @@ export default class Camera
         this.controls.minZoom = 0.5
         this.controls.maxZoom = 8.0
         this.controls.setGizmosVisible(false)
+        this.controls.addEventListener('change', this.onControlsChange)
         this.controls.update()
+    }
+
+    onControlsChange()
+    {
+        this.instance.updateWorldMatrix(true, false)
+        this.trigger('change')
     }
 
     frameBounds(center, size)
@@ -64,6 +79,7 @@ export default class Camera
         this.controls.update()
         this.controls.saveState?.()
         this.resize()
+        this.trigger('change')
     }
 
     updateOrthographicFrustum()
@@ -117,6 +133,7 @@ export default class Camera
 
         if (this.instance) 
         {
+            this.controls?.removeEventListener('change', this.onControlsChange)
             this.controls?.dispose()
             this.instance = null
         }
@@ -131,5 +148,4 @@ export default class Camera
         console.log('Camera destroyed')
     }
 }
-
 
