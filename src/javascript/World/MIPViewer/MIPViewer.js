@@ -89,9 +89,9 @@ export default class MIPViewer extends EventEmitter
     {
         updateRayUniformState(
             this.material.uniforms,
-            this.camera?.instance,
+            this.camera.instance,
             this.mesh,
-            this.computes?.volumeMap?.dimensions,
+            this.computes.volumeMap.dimensions,
         )
     }
 

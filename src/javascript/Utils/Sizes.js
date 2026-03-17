@@ -35,6 +35,7 @@ export default class Sizes extends EventEmitter
 
         // Respect both device DPR and quality bounds
         const capped = Math.min(devicePR, this.maxPixelRatio, budgetPR)
+
         return Math.max(this.minPixelRatio, capped)
     }
 

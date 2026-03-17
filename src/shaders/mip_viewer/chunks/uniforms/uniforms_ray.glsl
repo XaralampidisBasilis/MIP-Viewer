@@ -7,10 +7,10 @@ struct UniformsRay
     vec3   inv_direction;
     float  spacing;
     ivec3  signs;
-    int    axis;
-    int    idx;
-    int    map;
-    int    reverse;
+    uint   axis;
+    uint   idx;
+    uint   map;
+    bool   reverse;
 };
 
 uniform UniformsRay u_ray;

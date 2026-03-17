@@ -20,7 +20,7 @@ block.entry_position = block.exit_position;
 
 // compute exit from cell ray intersection 
 block.exit_distance = intersect_box_exit(block.min_position, block.max_position, ray.origin, ray.inv_direction, block.exit_normal);
-block.exit_position = distanceToPosition(block.exit_distance);
+block.exit_position = rayDistanceToPosition(block.exit_distance);
 
 // compute span distance
 block.span_distance = block.exit_distance - block.entry_distance;

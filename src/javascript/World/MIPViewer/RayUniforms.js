@@ -5,17 +5,9 @@ const _localDirection = new THREE.Vector3()
 const _indexDirection = new THREE.Vector3()
 const _inverseModelMatrix = new THREE.Matrix4()
 
-function argmax3(x, y, z)
+function argmax3(x, y, z) 
 {
-    let i = x < y ? 1 : 0
-    const maxXY = i === 0 ? x : y
-
-    if (maxXY < z)
-    {
-        i = 2
-    }
-
-    return i
+    return x >= y ? (x >= z ? 0 : 2) : (y >= z ? 1 : 2);
 }
 
 function rayQuadrantIndex(signs, axis)
@@ -30,16 +22,12 @@ function rayQuadrantIndex(signs, axis)
 
     if (axis === 0) return (xz << 1) | xy
     if (axis === 1) return (yz << 1) | xy
-    return (xz << 1) | yz
+    if (axis === 2) return (xz << 1) | yz
+    return 
 }
 
 export function updateRayUniforms(uniforms, camera, mesh, dimensions)
 {
-    if (!uniforms?.u_ray || !camera || !mesh || !dimensions)
-    {
-        return
-    }
-
     camera.updateWorldMatrix(true, false)
     mesh.updateWorldMatrix(true, false)
 
@@ -54,27 +42,39 @@ export function updateRayUniforms(uniforms, camera, mesh, dimensions)
         _localDirection.z * dimensions.z,
     ).normalize()
 
-    const absX = Math.abs(_indexDirection.x)
-    const absY = Math.abs(_indexDirection.y)
-    const absZ = Math.abs(_indexDirection.z)
-    const axis = argmax3(absX, absY, absZ)
-
     const ray = uniforms.u_ray.value
-    
+
+    ray.spacing = 1 / (absX + absY + absZ)
     ray.direction.copy(_indexDirection)
+
     ray.inv_direction.set(
         1 / _indexDirection.x,
         1 / _indexDirection.y,
         1 / _indexDirection.z,
     )
-    ray.spacing = 1 / (absX + absY + absZ)
+
     ray.signs.set(
         _indexDirection.x >= 0 ? 1 : -1,
         _indexDirection.y >= 0 ? 1 : -1,
         _indexDirection.z >= 0 ? 1 : -1,
     )
-    ray.axis = axis
-    ray.idx = rayQuadrantIndex(ray.signs, axis)
-    ray.map = ray.idx + 4 * axis
-    ray.reverse = Number(ray.signs.getComponent(axis) < 0)
+
+    const absX = Math.abs(_indexDirection.x)
+    const absY = Math.abs(_indexDirection.y)
+    const absZ = Math.abs(_indexDirection.z)
+
+    const dominantAxis = argmax3(absX, absY, absZ)
+    const dominantSign = ray.signs.getComponent(dominantAxis)
+
+    ray.axis = dominantAxis
+    ray.idx = rayQuadrantIndex(ray.signs, dominantAxis)
+    ray.map = ray.idx + 4 * dominantAxis
+    ray.reverse = dominantSign < 0
+    
+    if (ray.reverse)
+    {
+        ray.signs.negate()
+        ray.direction.negate()
+        ray.inv_direction.negate()
+    }
 }

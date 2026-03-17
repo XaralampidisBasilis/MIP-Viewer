@@ -11,7 +11,7 @@
 #endif
 
 cell.exit_distance = clamp(cell.exit_distance, ray.start_distance, ray.end_distance);
-cell.exit_position = distanceToPosition(cell.exit_distance); 
+cell.exit_position = rayDistanceToPosition(cell.exit_distance); 
 
 cell.coords = ivec3(round(cell.exit_position)); 
 

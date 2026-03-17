@@ -21,13 +21,13 @@ export default function()
 
         u_ray: new THREE.Uniform
         ({
-            direction    : new THREE.Vector3(0, 0, -1),
-            inv_direction: new THREE.Vector3(0, 0, -1),
-            signs        : new THREE.Vector3(1, 1, -1),
-            spacing      : 1.0,
-            axis         : 2,
+            direction    : new THREE.Vector3(),
+            inv_direction: new THREE.Vector3(),
+            signs        : new THREE.Vector3(),
+            spacing      : 1,
+            axis         : 0,
             idx          : 0,
-            map          : 8,
+            map          : 0,
             reverse      : 0,
         }),
 

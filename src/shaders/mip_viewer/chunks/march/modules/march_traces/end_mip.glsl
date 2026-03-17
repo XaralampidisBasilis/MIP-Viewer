@@ -1,7 +1,7 @@
 
 
 // Compute position
-mip.position = distanceToPosition(mip.distance); 
+mip.position = rayDistanceToPosition(mip.distance); 
 
 // Compute gradients and hessian
 mip.gradient = compute_gradient(mip.position, mip.hessian);
