@@ -18,10 +18,10 @@ vec4 debug_block_coords = to_color(vec3(block.coords) / vec3(u_volume.blocked_di
 vec4 debug_block_exit_normal = to_color(vec3(block.exit_normal));
 
 // entry distance
-vec4 debug_block_entry_distance = to_color(map(box.min_entry_distance, box.max_exit_distance, block.entry_distance));
+vec4 debug_block_entry_distance = to_color(map(box.min_distance, box.max_distance, block.entry_distance));
 
 // exit distance
-vec4 debug_block_exit_distance = to_color(map(box.min_entry_distance, box.max_exit_distance, block.exit_distance));
+vec4 debug_block_exit_distance = to_color(map(box.min_distance, box.max_distance, block.exit_distance));
 
 // span distance
 vec4 debug_block_span_distance = to_color(block.span_distance / length(block.max_position - block.min_position)); 

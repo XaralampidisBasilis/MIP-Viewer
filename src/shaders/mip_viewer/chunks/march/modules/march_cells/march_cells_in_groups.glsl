@@ -15,7 +15,7 @@ for (int k = 0; k < MAX_GROUPS; k++)
 
     if (block.shadowed && !block.terminated) continue;
     
-    #include "./start_cubic_cell"
+    #include "./start_cubic_cell_in_block"
 
     for (int i = 0; i < MAX_CELLS_IN_BLOCK; i++) 
     {

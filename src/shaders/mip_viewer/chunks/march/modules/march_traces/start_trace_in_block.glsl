@@ -1,7 +1,7 @@
 
-// start distance with jitter from block
-float jitter = random(block.entry_position);
-trace.distance = trace.spacing * (floor(block.entry_distance / trace.spacing) + jitter);
+// start distance with phase from block
+// trace.distance = trace.spacing * (ceil(block.entry_distance / trace.spacing) + ray.phase);
+trace.distance = block.entry_distance + trace.spacing * ray.phase;
 
 // clamp distance
 trace.distance = clamp(trace.distance, ray.start_distance, ray.end_distance);

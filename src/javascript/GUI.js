@@ -176,6 +176,7 @@ export default class GUI
                 ray_map           : 110,
                 ray_segment       : 111,
                 ray_reversed      : 112,
+                ray_phase         : 113,
 
                 block_shadowed      : 402,
                 block_terminated    : 403,
@@ -214,12 +215,6 @@ export default class GUI
         
                 frag_color_material: 511,
                 frag_color         : 516,
-
-                box_entry_distance: 601,
-                box_exit_distance : 602,
-                box_span_distance : 603,
-                box_entry_position: 604,
-                box_exit_position : 605,
                 
                 cubic_root             : 801,
                 cubic_num_roots        : 802,

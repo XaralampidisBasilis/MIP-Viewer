@@ -1,6 +1,6 @@
 
-
-cell.exit_distance = ray.start_distance;
+cell.exit_distance = block.entry_distance;
+cell.exit_distance = clamp(cell.exit_distance, ray.start_distance, ray.end_distance);
 cell.exit_position = rayDistanceToPosition(cell.exit_distance); 
 
 cell.coords = positionToCellCoords(cell.exit_position); 

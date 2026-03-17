@@ -4,6 +4,8 @@
 
 struct Cell 
 {
+    int   skip_distance;
+    bool  shadowed;
     bool  intersected;
     bool  terminated;
     ivec3 coords;
@@ -21,6 +23,8 @@ Cell cell; // Global mutable struct
 
 void set_cell()
 {
+    cell.skip_distance  = 0;
+    cell.shadowed       = false;
     cell.intersected    = false;
     cell.terminated     = false;
     cell.coords         = ivec3(0);

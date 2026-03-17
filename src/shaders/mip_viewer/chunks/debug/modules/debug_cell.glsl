@@ -14,10 +14,10 @@ vec4 debug_cell_coords = to_color(vec3(cell.coords) * u_volume.inv_dimensions);
 vec4 debug_cell_exit_normal = to_color(vec3(cell.exit_normal));
 
 // entry distance
-vec4 debug_cell_entry_distance = to_color(map(box.min_entry_distance, box.max_exit_distance, cell.entry_distance)); 
+vec4 debug_cell_entry_distance = to_color(map(box.min_distance, box.max_distance, cell.entry_distance)); 
 
 // exit distance
-vec4 debug_cell_exit_distance = to_color(map(box.min_entry_distance, box.max_exit_distance, cell.exit_distance)); 
+vec4 debug_cell_exit_distance = to_color(map(box.min_distance, box.max_distance, cell.exit_distance)); 
 
 // span distance
 vec4 debug_cell_span_distance = to_color(cell.span_distance / length(cell.max_position - cell.min_position)); 

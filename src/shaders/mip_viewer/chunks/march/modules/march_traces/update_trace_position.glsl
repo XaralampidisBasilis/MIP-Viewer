@@ -9,7 +9,7 @@ trace.distance += trace.spacing;
 trace.position = rayDistanceToPosition(trace.distance); 
 
 // Compute termination condition
-trace.terminated = trace.distance < ray.start_distance || trace.distance > ray.end_distance; 
+trace.terminated = trace.distance > ray.end_distance; 
 
 // update stats
 #if DEBUG_ENABLED == 1

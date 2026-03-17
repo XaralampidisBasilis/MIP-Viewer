@@ -6,4 +6,4 @@ block.exit_position = rayDistanceToPosition(block.exit_distance);
 block.entry_distance = block.exit_distance;
 block.entry_position = block.exit_position; 
 
-block.coords = ivec3(round(block.exit_position)) / u_volume.block_size;
+block.coords = positionToBlockCoords(block.exit_position);

@@ -2,9 +2,8 @@
 // set spacing
 trace.spacing = ray.spacing / 2.0;
 
-// set distance with jitter
-float jitter = random(ray.start_position);
-trace.distance = trace.spacing * (ceil(ray.start_distance / trace.spacing) + jitter);
+// set distance with phase
+trace.distance = ray.start_distance + trace.spacing * ray.phase;
 
 // set position
 trace.position = rayDistanceToPosition(trace.distance); 

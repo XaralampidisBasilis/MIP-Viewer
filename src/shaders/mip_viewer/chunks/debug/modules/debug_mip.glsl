@@ -1,7 +1,7 @@
 // COMPUTE DEBUG 
 
 // distance
-vec4 debug_mip_distance = to_color(map(box.min_entry_distance, box.max_exit_distance, mip.distance));
+vec4 debug_mip_distance = to_color(map(box.min_distance, box.max_distance, mip.distance));
 
 // position
 vec4 debug_mip_position = to_color(map(box.min_position, box.max_position, mip.position));
