@@ -44,7 +44,6 @@ export function updateRayUniforms(uniforms, camera, mesh, dimensions)
 
     const ray = uniforms.u_ray.value
 
-    ray.spacing = 1 / (absX + absY + absZ)
     ray.direction.copy(_indexDirection)
 
     ray.inv_direction.set(
@@ -66,7 +65,8 @@ export function updateRayUniforms(uniforms, camera, mesh, dimensions)
     const dominantAxis = argmax3(absX, absY, absZ)
     const dominantSign = ray.signs.getComponent(dominantAxis)
 
-    ray.axis = dominantAxis
+    ray.spacing = 1 / (absX + absY + absZ)
+    ray.axis = dominantAxis     
     ray.idx = rayQuadrantIndex(ray.signs, dominantAxis)
     ray.map = ray.idx + 4 * dominantAxis
     ray.reverse = dominantSign < 0

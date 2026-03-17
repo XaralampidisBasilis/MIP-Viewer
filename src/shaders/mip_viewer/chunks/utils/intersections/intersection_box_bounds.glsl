@@ -14,14 +14,16 @@
 #include "../math/mmax"
 #endif
 
-vec2 intersection_box_bounds(vec3 b_min, vec3 b_max, vec3 p) 
+vec2 intersection_box_bounds(vec3 boxMin, vec3 boxMax, vec3 point)
 {
-    vec3 c = (b_max + b_min) * 0.5;
-    vec3 s = (b_max - b_min) * 0.5;
-    vec3 aq = abs(p - c);
-    vec3 d_min = aq - s;
-    vec3 d_max = aq + s;    
-    return vec2(length(max(d_min, 0.0) + min(mmax(d_min), 0.0)), length(d_max));
+    vec3 center = 0.5 * (boxMin + boxMax);
+    vec3 halfExtent = 0.5 * (boxMax - boxMin);
+    vec3 q = abs(point - center) - halfExtent;
+
+    float minDist = length(max(q, 0.0)) + min(mmax(q), 0.0);
+    float maxDist = length(abs(point - center) + halfExtent);
+
+    return vec2(minDist, maxDist);
 }
 
 #endif // BOX_BOUNDS

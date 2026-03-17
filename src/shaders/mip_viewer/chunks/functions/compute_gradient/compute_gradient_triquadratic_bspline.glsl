@@ -11,7 +11,7 @@ GPU Gems 2, Chapter 20. Fast Third-Order Texture Filtering
 #define COMPUTE_GRADIENT_TRIQUADRATIC_BSPLINE
 
 #ifndef SAMPLE_TRILINEAR_VOLUME
-#include "../sample_volume"
+#include "../sampleVolume"
 #endif
 #ifndef COMPUTE_SECOND_DERIVATIVES
 #include "./compute_second_derivatives"
@@ -38,17 +38,17 @@ vec3 compute_gradient(in vec3 p)
  
     // Cube samples
     vec4 s_x0y0z0_x0y1z0_x0y0z1_x0y1z1 = vec4(
-        sample_volume(vec3(p0.x, p0.y, p0.z)), 
-        sample_volume(vec3(p0.x, p1.y, p0.z)), 
-        sample_volume(vec3(p0.x, p0.y, p1.z)), 
-        sample_volume(vec3(p0.x, p1.y, p1.z))  
+        sampleVolume(vec3(p0.x, p0.y, p0.z)), 
+        sampleVolume(vec3(p0.x, p1.y, p0.z)), 
+        sampleVolume(vec3(p0.x, p0.y, p1.z)), 
+        sampleVolume(vec3(p0.x, p1.y, p1.z))  
     );
 
     vec4 s_x1y0z0_x1y1z0_x1y0z1_x1y1z1 = vec4(
-        sample_volume(vec3(p1.x, p0.y, p0.z)), 
-        sample_volume(vec3(p1.x, p1.y, p0.z)), 
-        sample_volume(vec3(p1.x, p0.y, p1.z)), 
-        sample_volume(vec3(p1.x, p1.y, p1.z))  
+        sampleVolume(vec3(p1.x, p0.y, p0.z)), 
+        sampleVolume(vec3(p1.x, p1.y, p0.z)), 
+        sampleVolume(vec3(p1.x, p0.y, p1.z)), 
+        sampleVolume(vec3(p1.x, p1.y, p1.z))  
     );
 
     // Interpolate along x
@@ -114,17 +114,17 @@ vec3 compute_gradient(in vec3 p, out mat3 hessian)
 
     // Cube samples
     vec4 s_x0y0z0_x0y1z0_x0y0z1_x0y1z1 = vec4(
-        sample_volume(vec3(p0.x, p0.y, p0.z)), 
-        sample_volume(vec3(p0.x, p1.y, p0.z)), 
-        sample_volume(vec3(p0.x, p0.y, p1.z)), 
-        sample_volume(vec3(p0.x, p1.y, p1.z))  
+        sampleVolume(vec3(p0.x, p0.y, p0.z)), 
+        sampleVolume(vec3(p0.x, p1.y, p0.z)), 
+        sampleVolume(vec3(p0.x, p0.y, p1.z)), 
+        sampleVolume(vec3(p0.x, p1.y, p1.z))  
     );
 
     vec4 s_x1y0z0_x1y1z0_x1y0z1_x1y1z1 = vec4(
-        sample_volume(vec3(p1.x, p0.y, p0.z)), 
-        sample_volume(vec3(p1.x, p1.y, p0.z)), 
-        sample_volume(vec3(p1.x, p0.y, p1.z)), 
-        sample_volume(vec3(p1.x, p1.y, p1.z))  
+        sampleVolume(vec3(p1.x, p0.y, p0.z)), 
+        sampleVolume(vec3(p1.x, p1.y, p0.z)), 
+        sampleVolume(vec3(p1.x, p0.y, p1.z)), 
+        sampleVolume(vec3(p1.x, p1.y, p1.z))  
     );
 
     // Interpolate along x

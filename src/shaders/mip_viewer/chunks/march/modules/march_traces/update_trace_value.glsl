@@ -1,6 +1,6 @@
 
 // Update value
-trace.value = sample_volume(trace.position);
+trace.value = sampleVolume(trace.position);
 
 // update stats
 #if DEBUG_ENABLED == 1

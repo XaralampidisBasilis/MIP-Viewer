@@ -1,4 +1,4 @@
-#include "./sample_volume"
+#include "./sampleVolume"
 #include "./sample_shadow"
 #include "./sample_distance"
 #include "./compute_gradient"

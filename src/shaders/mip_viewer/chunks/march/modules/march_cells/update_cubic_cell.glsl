@@ -22,7 +22,7 @@ const vec4 sampling_points = vec4(0, 1, 2, 3) / 3.0;
 for (int i = 1; i <= 3; i++) 
 {
     vec3 position = mix(cell.entry_position, cell.exit_position, sampling_points[i]);
-    cubic.values[i] = sample_volume(position);
+    cubic.values[i] = sampleVolume(position);
 }
 
 // compute cubic coefficients

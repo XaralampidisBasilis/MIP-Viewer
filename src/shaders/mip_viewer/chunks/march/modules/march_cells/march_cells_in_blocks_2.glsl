@@ -18,7 +18,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     for (int i = 1; i <= 3; i++) 
     {
         vec3 position = mix(block.entry_position, block.exit_position, sampling_points[i]);
-        cubic.values[i] = sample_volume(position);
+        cubic.values[i] = sampleVolume(position);
     }
 
     // compute cubic coefficients

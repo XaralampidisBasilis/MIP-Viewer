@@ -3,6 +3,9 @@ precision highp int;
 
 in vec3 v_ray_origin;
 
+flat in float v_box_min_distance;
+flat in float v_box_max_distance;
+
 out vec4 fragColor;
 
 #include "./chunks/utils/utils"

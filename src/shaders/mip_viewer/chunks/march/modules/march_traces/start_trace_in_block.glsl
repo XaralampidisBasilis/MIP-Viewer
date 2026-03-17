@@ -10,7 +10,7 @@ trace.distance = clamp(trace.distance, ray.start_distance, ray.end_distance);
 trace.position = rayDistanceToPosition(trace.distance); 
 
 // start value
-trace.value = sample_volume(trace.position);
+trace.value = sampleVolume(trace.position);
 
 // update stats
 #if DEBUG_ENABLED == 1
