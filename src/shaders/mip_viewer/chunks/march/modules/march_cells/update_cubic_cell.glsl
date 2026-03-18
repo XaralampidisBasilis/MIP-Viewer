@@ -23,7 +23,7 @@ cubic.values[2] = sampleVolume(mix(cell.entry_position, cell.exit_position, 2.0 
 cubic.values[3] = sampleVolume(mix(cell.entry_position, cell.exit_position, 3.0 / 3.0));
 
 // compute cubic coefficients
-cubic.coeffs = cubic.values * cubic_inv_vander;
+cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
 
 // update stats
 #if DEBUG_ENABLED == 1

@@ -11,7 +11,7 @@ float intersectSkipBlockExit(ivec3 coords, int radius, out ivec3 exitNormal)
     ivec3 coordsMax = coords + r;
 
     // min/max positions
-    vec3 blockMin = blockCoordsToPosition(coordsMin + 0);
+    vec3 blockMin = blockCoordsToPosition(coordsMin);
     vec3 blockMax = blockCoordsToPosition(coordsMax + 1);  
 
     // min/max normalized box
