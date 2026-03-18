@@ -1,6 +1,6 @@
 
 // compute occupancy
-block.skip_distance = 1;
+block.skip_radius = 1;
 block.shadowed = sample_shadow(block.coords);
 
 // compute entry from previous exit
@@ -8,7 +8,7 @@ block.entry_distance = block.exit_distance;
 block.entry_position = block.exit_position;
 
 // compute exit from cell ray intersection 
-block.exit_distance = intersectSkipBlockExit(block.coords, block.skip_distance, block.exit_normal);
+block.exit_distance = intersectSkipBlockExit(block.coords, block.skip_radius, block.exit_normal);
 block.exit_position = rayDistanceToPosition(block.exit_distance);
 
 // compute span distance

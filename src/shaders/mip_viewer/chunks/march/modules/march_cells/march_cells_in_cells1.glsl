@@ -5,34 +5,35 @@ cell.exit_position = rayDistanceToPosition(cell.exit_distance);
 cell.coords = positionToCellCoords(cell.exit_position);
 cubic.values.w = sampleVolume(cell.exit_position);
 
-#if DEBUG_ENABLED == 1
-
-    stats.num_volume_fetches += 1;
-    stats.num_fetches += 1;
-
-#endif
-
 // START_MIP
 mip.value = cubic.values.w;
 mip.distance = ray.start_distance;
 
-float epsilon = ray.spacing * 0.001;
+#if DEBUG_ENABLED == 1
+
+    stats.num_volume_fetches += 1;
+    stats.num_fetches += 1;
+    stats.num_cells += 1;
+    stats.num_mips += 1;
+
+#endif
+
+// START_MARCH
 bool prevNonShadowed = true;
 
 for (int i = 0; i < u_debug.max_cells; i++) 
 {
     // UPDATE_CELL
 
-    // compute skip distance
-    cell.skip_distance = sample_rgba16ui_distance_fast(cell.coords, cell.shadowed);
-    // cell.skip_distance = sample_rgb32ui_distance_fast(cell.coords, cell.shadowed);
+    // compute shadowed
+    cell.shadowed = sample_shadow(cell.coords);
 
     // compute entry from previous exit
     cell.entry_distance = cell.exit_distance;
     cell.entry_position = cell.exit_position;
 
     // compute exit from cell ray intersection 
-    cell.exit_distance = intersectSkipCellExit(cell.coords, cell.skip_distance, cell.exit_normal) + epsilon;
+    cell.exit_distance = intersectCellExit(cell.coords, cell.exit_normal);
     cell.exit_position = rayDistanceToPosition(cell.exit_distance);
 
     // compute span distance
@@ -57,25 +58,17 @@ for (int i = 0; i < u_debug.max_cells; i++)
     {
         // UPDATE_CUBIC     
 
-        cubic.values.x = consecutiveNonShadowed ? cubic.values.w : sampleVolume(cell.entry_position);
-
-        #if DEBUG_ENABLED == 1
-
-            stats.num_volume_fetches += consecutiveNonShadowed ? 0 : 1;
-            stats.num_fetches += consecutiveNonShadowed ? 0 : 1;
-
-        #endif
-
         vec3 span_position = cell.exit_position - cell.entry_position;
-        
+
+        cubic.values.x = consecutiveNonShadowed ? cubic.values.w : sampleVolume(cell.entry_position);
         cubic.values.y = sampleVolume(cell.entry_position + span_position * (1.0 / 3.0));
         cubic.values.z = sampleVolume(cell.entry_position + span_position * (2.0 / 3.0));
         cubic.values.w = sampleVolume(cell.exit_position);
 
         #if DEBUG_ENABLED == 1
 
-            stats.num_volume_fetches += 3;
-            stats.num_fetches += 3;
+            stats.num_volume_fetches += consecutiveNonShadowed ? 3 : 4;
+            stats.num_fetches += consecutiveNonShadowed ? 3 : 4;
 
         #endif
 
@@ -96,15 +89,12 @@ for (int i = 0; i < u_debug.max_cells; i++)
 
             #endif
         }
-
     }
 
     if (cell.terminated) break;
 
     // compute next coordinates
-    ivec3 exit_coords = positionToCellCoords(cell.exit_position);
-    ivec3 skip_coords = cell.coords + cell.skip_distance * u_ray.signs;
-    cell.coords = mmix(exit_coords, skip_coords, cell.exit_normal);
+    cell.coords += cell.exit_normal * u_ray.signs;
 
 }
 

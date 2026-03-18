@@ -3,25 +3,27 @@
 cell.exit_distance = ray.start_distance;
 cell.exit_position = rayDistanceToPosition(cell.exit_distance); 
 cell.coords = positionToCellCoords(cell.exit_position);
-cubic.values.w = sampleVolume(cell.exit_position);
 
-// START_MIP
-mip.value = cubic.values.w;
-mip.distance = ray.start_distance;
+// START_TRACE
+trace.spacing = ray.spacing / 2.0;
+trace.distance = trace.spacing * (floor(ray.start_distance / trace.spacing) + ray.phase);
+trace.position = rayDistanceToPosition(trace.distance); 
+trace.value = sampleVolume(trace.position);
 
 #if DEBUG_ENABLED == 1
 
     stats.num_volume_fetches += 1;
     stats.num_fetches += 1;
-    stats.num_cells += 1;
-    stats.num_mips += 1;
 
 #endif
 
-float exitNudge = ray.spacing * 1e-3;
-bool prevNonShadowed = true;
+// START_MIP
+mip.value = trace.value ;
+mip.distance = ray.start_distance;
 
-for (int i = 0; i < u_debug.max_cells; i++) 
+float exitNudge = ray.spacing * 1e-3;
+
+for (int i = 0; i < MAX_CELLS; i++) 
 {
     // UPDATE_CELL
 
@@ -52,45 +54,46 @@ for (int i = 0; i < u_debug.max_cells; i++)
 
     #endif
 
-    bool consecutiveNonShadowed = prevNonShadowed && !cell.shadowed;
-    prevNonShadowed = !cell.shadowed;
-
     if (!cell.shadowed) 
     {
-        // UPDATE_CUBIC     
+        trace.distance = trace.spacing * (floor(cell.entry_distance / trace.spacing) + ray.phase);
 
-        vec3 span_position = cell.exit_position - cell.entry_position;
-
-        cubic.values.x = consecutiveNonShadowed ? cubic.values.w : sampleVolume(cell.entry_position);
-        cubic.values.y = sampleVolume(cell.entry_position + span_position * (1.0 / 3.0));
-        cubic.values.z = sampleVolume(cell.entry_position + span_position * (2.0 / 3.0));
-        cubic.values.w = sampleVolume(cell.exit_position);
-
-        #if DEBUG_ENABLED == 1
-
-            stats.num_volume_fetches += consecutiveNonShadowed ? 3 : 4;
-            stats.num_fetches += consecutiveNonShadowed ? 3 : 4;
-
-        #endif
-
-        // UPDATE_MIP
-        
-        cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
-        CubicMax cubic_max = cubicMaxFromCoeffs(cubic.coeffs);
-
-        if (mip.value < cubic_max.v) 
+        #pragma unroll
+        for (int i = 0; i < 4; i++) 
         {
-            // mip.distance = mix(cell.entry_distance, cell.exit_distance, cubic_max.t);
-            mip.distance = cell.entry_distance + cell.span_distance * cubic_max.t;
-            mip.value = cubic_max.v;
+            trace.distance += trace.spacing;
+            trace.position = rayDistanceToPosition(trace.distance); 
+            trace.terminated = trace.distance > ray.end_distance; 
 
             #if DEBUG_ENABLED == 1
 
-                stats.num_mips += 1;
+                stats.num_traces += 1;
 
             #endif
-        }
 
+            if (trace.distance > cell.exit_distance || trace.terminated) break;
+
+            trace.value = sampleVolume(trace.position);
+
+            if (trace.value > mip.value)
+            {
+                mip.distance = trace.distance;
+                mip.value = trace.value;
+                
+                #if DEBUG_ENABLED == 1
+
+                    stats.num_mips += 1;
+
+                #endif
+            }
+
+            #if DEBUG_ENABLED == 1
+
+                stats.num_volume_fetches += 1;
+                stats.num_fetches += 1;
+
+            #endif     
+        }   
     }
 
     if (cell.terminated) break;

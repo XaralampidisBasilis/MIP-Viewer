@@ -1,14 +1,14 @@
 #if SKIPPING_ENABLED == 1
 
-    #if SKIPPING_STRATEGY == 0
+    #if SKIPPING_METHOD == 0
     
-        #include "./march_traces_in_blocks"
+        #include "./march_traces_in_blocks3"
 
-    #elif SKIPPING_STRATEGY == 1
+    #elif SKIPPING_METHOD == 1
 
-        #include "./march_traces_in_groups"
+        #include "./march_traces_in_blocks2"
 
-    #endif
+    #endif    
 
 #else
 

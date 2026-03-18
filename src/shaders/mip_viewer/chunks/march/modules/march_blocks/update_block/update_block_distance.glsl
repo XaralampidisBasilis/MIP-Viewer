@@ -1,13 +1,13 @@
 // compute skip distance
-block.skip_distance = sample_rgba16ui_distance_fast(block.coords, block.shadowed);
-// block.skip_distance = sample_rgb32ui_distance_fast(block.coords, block.shadowed);
+block.skip_radius = sample_rgba16ui_distance_fast(block.coords, block.shadowed);
+// block.skip_radius = sample_rgb32ui_distance_fast(block.coords, block.shadowed);
 
 // compute entry from previous exit
 block.entry_distance = block.exit_distance;
 block.entry_position = block.exit_position;
 
 // compute exit from cell ray intersection 
-block.exit_distance = intersectSkipBlockExit(block.coords, block.skip_distance, block.exit_normal) + ray.spacing * 0.001;
+block.exit_distance = intersectSkipBlockExit(block.coords, block.skip_radius, block.exit_normal) + ray.spacing * 0.001;
 block.exit_position = rayDistanceToPosition(block.exit_distance);
 
 // compute span distance
@@ -18,7 +18,7 @@ block.terminated = block.exit_distance > ray.end_distance;
 
 // compute next coordinates
 ivec3 exit_coords = positionToBlockCoords(block.exit_position);
-ivec3 skipped_coords = block.coords + block.skip_distance * u_ray.signs;
+ivec3 skipped_coords = block.coords + block.skip_radius * u_ray.signs;
 block.coords = mmix(exit_coords, skipped_coords, block.exit_normal);
 
 // update stats

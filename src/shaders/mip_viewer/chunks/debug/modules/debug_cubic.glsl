@@ -53,6 +53,7 @@ vec4 debug_cubic_weights = to_color(
 ); 
 
 // bernstein weights
+cubic.bernstein_coeffs = cubic.values * CUBIC_INV_BERNSTEIN;
 vec4 cubic_bernstein_weights = abs(cubic.bernstein_coeffs) / sum(abs(cubic.bernstein_coeffs)); 
 
 vec4 debug_cubic_bernstein_weights = to_color(
