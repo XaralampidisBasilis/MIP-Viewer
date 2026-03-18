@@ -10,7 +10,7 @@ export default class Sizes extends EventEmitter
 {
     targetPixels = 1280 * 800 // 1920*1080, 1280*800, 800*600, 640*480
     minPixelRatio = 0.5
-    maxPixelRatio = 1.0
+    maxPixelRatio = 2.0
 
     constructor() 
     {
@@ -20,6 +20,7 @@ export default class Sizes extends EventEmitter
         this.width = window.innerWidth
         this.height = window.innerHeight
         this.pixelRatio = this.computePixelRatio(this.width, this.height) 
+        console.log(`pixelRatio: ${this.pixelRatio}`)
 
         // Bind resize event
         this.onResize = this.onResize.bind(this)
@@ -46,7 +47,7 @@ export default class Sizes extends EventEmitter
         this.width = window.innerWidth
         this.height = window.innerHeight
         this.pixelRatio = this.computePixelRatio(this.width, this.height)
-        console.log(this.pixelRatio)
+        console.log(`pixelRatio: ${this.pixelRatio}`)
 
         // Emit the `resize` event with updated values
         this.trigger('resize', 

@@ -16,23 +16,21 @@ cubic.values.w = sampleVolume(cell.exit_position);
 mip.value = cubic.values.w;
 mip.distance = ray.start_distance;
 
-float epsilon = ray.spacing * 0.001;
 bool prevNonShadowed = true;
 
 for (int i = 0; i < u_debug.max_cells; i++) 
 {
     // UPDATE_CELL
 
-    // compute skip distance
-    cell.skip_distance = sample_rgba16ui_distance_fast(cell.coords, cell.shadowed);
-    // cell.skip_distance = sample_rgb32ui_distance_fast(cell.coords, cell.shadowed);
+    // compute shadowed
+    cell.shadowed = sample_shadow(cell.coords);
 
     // compute entry from previous exit
     cell.entry_distance = cell.exit_distance;
     cell.entry_position = cell.exit_position;
 
     // compute exit from cell ray intersection 
-    cell.exit_distance = intersectSkipCellExit(cell.coords, cell.skip_distance, cell.exit_normal) + epsilon;
+    cell.exit_distance = intersectCellExit(cell.coords, cell.exit_normal);
     cell.exit_position = rayDistanceToPosition(cell.exit_distance);
 
     // compute span distance
@@ -102,9 +100,7 @@ for (int i = 0; i < u_debug.max_cells; i++)
     if (cell.terminated) break;
 
     // compute next coordinates
-    ivec3 exit_coords = positionToCellCoords(cell.exit_position);
-    ivec3 skip_coords = cell.coords + cell.skip_distance * u_ray.signs;
-    cell.coords = mmix(exit_coords, skip_coords, cell.exit_normal);
+    cell.coords += cell.exit_normal * u_ray.signs;
 
 }
 
