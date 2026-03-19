@@ -2,17 +2,29 @@
 
     #if SKIPPING_METHOD == 0
     
-        #include "./march_cells_in_cells1"
+        #if VARIATION_ENABLED == 1
+            #include "./march_cells_in_cells1_var"
+        #else
+            #include "./march_cells_in_cells1"
+        #endif
 
     #elif SKIPPING_METHOD == 1
 
-        #include "./march_cells_in_cells2"
+        #if VARIATION_ENABLED == 1
+            #include "./march_cells_in_cells2_var"
+        #else
+            #include "./march_cells_in_cells2"
+        #endif
 
     #endif    
 
 #else
 
-    #include "./march_cells_in_cells"
+    #if VARIATION_ENABLED == 1
+        #include "./march_cells_in_cells0_var"
+    #else
+        #include "./march_cells_in_cells0"
+    #endif
 
 #endif
 

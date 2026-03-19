@@ -5,7 +5,6 @@ cell.exit_position = rayDistanceToPosition(cell.exit_distance);
 cell.coords = positionToCellCoords(cell.exit_position);
 cubic.values.w = sampleVolume(cell.exit_position);
 
-
 #if DEBUG_ENABLED == 1
 
     stats.num_volume_fetches += 1;
@@ -24,21 +23,23 @@ mip.distance = ray.start_distance;
 #endif
 
 // START_MARCH
+float exitNudge = ray.spacing * 1e-3;
 bool prevNonShadowed = true;
 
 for (int i = 0; i < MAX_CELLS; i++) 
 {
     // UPDATE_CELL
 
-    // compute shadowed
-    cell.shadowed = sample_shadow(cell.coords);
+    // compute skip distance
+    cell.skip_radius = sample_rgba16ui_distance_fast(cell.coords, cell.shadowed);
+    // cell.skip_radius = sample_rgb32ui_distance_fast(cell.coords, cell.shadowed);
 
     // compute entry from previous exit
     cell.entry_distance = cell.exit_distance;
     cell.entry_position = cell.exit_position;
 
     // compute exit from cell ray intersection 
-    cell.exit_distance = intersectCellExit(cell.coords, cell.exit_normal);
+    cell.exit_distance = intersectSkipCellExit(cell.coords, cell.skip_radius, cell.exit_normal) + exitNudge;
     cell.exit_position = rayDistanceToPosition(cell.exit_distance);
 
     // compute span distance
@@ -48,7 +49,9 @@ for (int i = 0; i < MAX_CELLS; i++)
     cell.terminated = cell.exit_distance > ray.end_distance;
 
     // compute next coordinates
-    cell.coords += cell.exit_normal * u_ray.signs;
+    ivec3 exit_coords = positionToCellCoords(cell.exit_position);
+    ivec3 skip_coords = cell.coords + cell.skip_radius * u_ray.signs;
+    cell.coords = mmix(exit_coords, skip_coords, cell.exit_normal);
 
     // update stats
     #if DEBUG_ENABLED == 1
@@ -72,34 +75,27 @@ for (int i = 0; i < MAX_CELLS; i++)
         cubic.values.z = sampleVolume(cell.entry_position + span_position * (2.0 / 3.0));
         cubic.values.w = sampleVolume(cell.exit_position);
 
-        cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
-        CubicMax cubic_max = cubicMaxFromCoeffs(cubic.coeffs);
+        cubic.bernstein_coeffs = cubic.values * CUBIC_INV_BERNSTEIN;
 
         #if DEBUG_ENABLED == 1
 
             stats.num_volume_fetches += consecutiveNonShadowed ? 3 : 4;
-            stats.num_cubics += 1;
 
         #endif
 
-        #if VARIATION_ENABLED == 1
-
-            vec4 c = cubic.values * CUBIC_INV_BERNSTEIN;
-            if (mip.value < c.x ||
-                mip.value < c.y ||
-                mip.value < c.z ||
-                mip.value < c.w)
-            {
-                debug.variable0.r += 1.0;
-            }
-            
-        #endif
-
-        // UPDATE_MIP
-
-        if (mip.value < cubic_max.v) 
+        if (any(lessThan(vec4(mip.value), cubic.bernstein_coeffs)))
         {
-            // mip.distance = mix(cell.entry_distance, cell.exit_distance, cubic_max.t);
+            // MAXIMIZE CUBIC
+            cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
+            CubicMax cubic_max = cubicMaxFromCoeffs(cubic.coeffs);
+
+            #if DEBUG_ENABLED == 1
+
+                stats.num_cubics += 1;
+
+            #endif
+
+            // UPDATE_MIP
             mip.distance = cell.entry_distance + cell.span_distance * cubic_max.t;
             mip.value = cubic_max.v;
 

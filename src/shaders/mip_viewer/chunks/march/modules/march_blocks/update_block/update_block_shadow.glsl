@@ -24,7 +24,6 @@ block.coords += block.exit_normal * u_ray.signs;
 #if DEBUG_ENABLED == 1
 
     stats.num_blocks += 1;
-    stats.num_fetches += 1;
     stats.num_distance_fetches += 1;
     
 #endif

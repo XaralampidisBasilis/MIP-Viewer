@@ -29,6 +29,6 @@ cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
 #if DEBUG_ENABLED == 1
 
     stats.num_cells += 1;
-    stats.num_fetches += 3;
+    stats.num_volume_fetches += 3;
 
 #endif

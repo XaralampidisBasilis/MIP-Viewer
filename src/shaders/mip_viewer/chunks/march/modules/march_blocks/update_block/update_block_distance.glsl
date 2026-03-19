@@ -25,7 +25,6 @@ block.coords = mmix(exit_coords, skipped_coords, block.exit_normal);
 #if DEBUG_ENABLED == 1
 
     stats.num_blocks += 1;
-    stats.num_fetches += 1;
     stats.num_distance_fetches += 1;
 
 #endif

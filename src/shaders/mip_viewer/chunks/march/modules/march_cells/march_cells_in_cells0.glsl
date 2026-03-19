@@ -5,6 +5,13 @@ cell.exit_position = rayDistanceToPosition(cell.exit_distance);
 cell.coords = positionToCellCoords(cell.exit_position);
 cubic.values.w = sampleVolume(cell.exit_position);
 
+#if DEBUG_ENABLED == 1
+
+    stats.num_volume_fetches += 1;
+    stats.num_cells += 1;
+
+#endif
+
 // START_MIP
 mip.distance = ray.start_distance;
 mip.value = cubic.values.w;
@@ -12,14 +19,11 @@ mip.value = cubic.values.w;
 // update stats
 #if DEBUG_ENABLED == 1
 
-    stats.num_volume_fetches += 1;
-    stats.num_fetches += 1;
-    stats.num_cells += 1;
     stats.num_mips += 1;
 
 #endif
 
-for (int i = 0; i < u_debug.max_cells; i++) 
+for (int i = 0; i < MAX_CELLS; i++) 
 {
     // UPDATE_CELL
 
@@ -37,11 +41,13 @@ for (int i = 0; i < u_debug.max_cells; i++)
     // compute termination condition
     cell.terminated = cell.exit_distance > ray.end_distance;
 
+    // compute next coordinates
+    cell.coords += cell.exit_normal * u_ray.signs;
+
     // update stats
     #if DEBUG_ENABLED == 1
 
         stats.num_distance_fetches += 1;
-        stats.num_fetches += 1;
         stats.num_cells += 1;
 
     #endif
@@ -54,18 +60,31 @@ for (int i = 0; i < u_debug.max_cells; i++)
     cubic.values.z = sampleVolume(cell.entry_position + span_position * (2.0 / 3.0));
     cubic.values.w = sampleVolume(cell.exit_position);
 
+    cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
+    CubicMax cubic_max = cubicMaxFromCoeffs(cubic.coeffs);
+
     // update stats
     #if DEBUG_ENABLED == 1
 
         stats.num_volume_fetches += 3;
-        stats.num_fetches += 3;
+        stats.num_cubics += 1;
 
     #endif
 
-    // UPDATE_MIP
+    #if VARIATION_ENABLED == 1
 
-    cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
-    CubicMax cubic_max = cubicMaxFromCoeffs(cubic.coeffs);
+        vec4 c = cubic.values * CUBIC_INV_BERNSTEIN;
+        if (mip.value < c.x ||
+            mip.value < c.y ||
+            mip.value < c.z ||
+            mip.value < c.w)
+        {
+            debug.variable0.r += 1.0;
+        }
+        
+    #endif
+
+    // UPDATE_MIP
 
     if (mip.value < cubic_max.v) 
     {
@@ -81,10 +100,6 @@ for (int i = 0; i < u_debug.max_cells; i++)
     }
 
     if (cell.terminated) break;
-
-    // compute next coordinates
-    cell.coords += cell.exit_normal * u_ray.signs;
-
 }
 
 mip.position = rayDistanceToPosition(mip.distance); 

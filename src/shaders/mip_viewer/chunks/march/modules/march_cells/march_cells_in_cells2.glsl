@@ -5,23 +5,28 @@ cell.exit_position = rayDistanceToPosition(cell.exit_distance);
 cell.coords = positionToCellCoords(cell.exit_position);
 cubic.values.w = sampleVolume(cell.exit_position);
 
+#if DEBUG_ENABLED == 1
+
+    stats.num_volume_fetches += 1;
+    stats.num_cells += 1;
+
+#endif
+
 // START_MIP
 mip.value = cubic.values.w;
 mip.distance = ray.start_distance;
 
 #if DEBUG_ENABLED == 1
 
-    stats.num_volume_fetches += 1;
-    stats.num_fetches += 1;
-    stats.num_cells += 1;
     stats.num_mips += 1;
 
 #endif
 
+// START_MARCH
 float exitNudge = ray.spacing * 1e-3;
 bool prevNonShadowed = true;
 
-for (int i = 0; i < u_debug.max_cells; i++) 
+for (int i = 0; i < MAX_CELLS; i++) 
 {
     // UPDATE_CELL
 
@@ -43,11 +48,15 @@ for (int i = 0; i < u_debug.max_cells; i++)
     // compute termination condition
     cell.terminated = cell.exit_distance > ray.end_distance;
 
+    // compute next coordinates
+    ivec3 exit_coords = positionToCellCoords(cell.exit_position);
+    ivec3 skip_coords = cell.coords + cell.skip_radius * u_ray.signs;
+    cell.coords = mmix(exit_coords, skip_coords, cell.exit_normal);
+
     // update stats
     #if DEBUG_ENABLED == 1
 
         stats.num_distance_fetches += 1;
-        stats.num_fetches += 1;
         stats.num_cells += 1;
 
     #endif
@@ -66,17 +75,17 @@ for (int i = 0; i < u_debug.max_cells; i++)
         cubic.values.z = sampleVolume(cell.entry_position + span_position * (2.0 / 3.0));
         cubic.values.w = sampleVolume(cell.exit_position);
 
+        cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
+        CubicMax cubic_max = cubicMaxFromCoeffs(cubic.coeffs);
+
         #if DEBUG_ENABLED == 1
 
             stats.num_volume_fetches += consecutiveNonShadowed ? 3 : 4;
-            stats.num_fetches += consecutiveNonShadowed ? 3 : 4;
+            stats.num_cubics += 1;
 
         #endif
 
         // UPDATE_MIP
-        
-        cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
-        CubicMax cubic_max = cubicMaxFromCoeffs(cubic.coeffs);
 
         if (mip.value < cubic_max.v) 
         {
@@ -94,12 +103,6 @@ for (int i = 0; i < u_debug.max_cells; i++)
     }
 
     if (cell.terminated) break;
-
-    // compute next coordinates
-    ivec3 exit_coords = positionToCellCoords(cell.exit_position);
-    ivec3 skip_coords = cell.coords + cell.skip_radius * u_ray.signs;
-    cell.coords = mmix(exit_coords, skip_coords, cell.exit_normal);
-
 }
 
 mip.position = rayDistanceToPosition(mip.distance); 

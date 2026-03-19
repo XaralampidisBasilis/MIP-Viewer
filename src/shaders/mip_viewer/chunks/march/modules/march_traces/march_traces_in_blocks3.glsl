@@ -14,7 +14,6 @@ trace.value = sampleVolume(trace.position);
 #if DEBUG_ENABLED == 1
 
     stats.num_volume_fetches += 1;
-    stats.num_fetches += 1;
 
 #endif
 
@@ -49,7 +48,6 @@ for (int i = 0; i < MAX_CELLS; i++)
     #if DEBUG_ENABLED == 1
 
         stats.num_distance_fetches += 1;
-        stats.num_fetches += 1;
         stats.num_cells += 1;
 
     #endif
@@ -93,7 +91,6 @@ for (int i = 0; i < MAX_CELLS; i++)
             #if DEBUG_ENABLED == 1
 
                 stats.num_volume_fetches += 1;
-                stats.num_fetches += 1;
 
             #endif     
         }      

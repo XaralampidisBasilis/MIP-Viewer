@@ -7,8 +7,8 @@ export function setTensorflowFlags()
     tf.env().set('WEBGL_LAZILY_UNPACK', true)
     tf.env().set('WEBGL_CPU_FORWARD', false)
     tf.env().set('WEBGL_VERSION', 2)
-    tf.env().set("WEBGL_DELETE_TEXTURE_THRESHOLD", 128) // -1, 0, 8, 16, 32, 64, 128: avoid gpu memory buildup and reuse
-    tf.env().set('WEBGL_FLUSH_THRESHOLD', 1) // -1, 1: avoid unnecessary flush overhead
+    // tf.env().set("WEBGL_DELETE_TEXTURE_THRESHOLD", 0) // -1, 0, 8, 16, 32, 64, 128: avoid gpu memory buildup and reuse
+    // tf.env().set('WEBGL_FLUSH_THRESHOLD', 1) // -1, 1: avoid unnecessary flush overhead
 }
 
 export function logTensorflowFlags()
@@ -25,6 +25,10 @@ export function logTensorflowFlags()
     console.log('WEBGL_VERSION', tf.env().getNumber('WEBGL_VERSION'))
     console.log('WEBGL_FORCE_F16_TEXTURES', tf.env().getBool('WEBGL_FORCE_F16_TEXTURES'))
     console.log('WEBGL_PACK', tf.env().getBool('WEBGL_PACK'))
+    console.log('WEBGL_LAZILY_UNPACK', tf.env().getBool('WEBGL_LAZILY_UNPACK'))
+    console.log('WEBGL_CPU_FORWARD', tf.env().getBool('WEBGL_CPU_FORWARD'))
+    console.log('WEBGL_DELETE_TEXTURE_THRESHOLD', tf.env().getNumber('WEBGL_DELETE_TEXTURE_THRESHOLD'))
+    console.log('WEBGL_FLUSH_THRESHOLD', tf.env().getNumber('WEBGL_FLUSH_THRESHOLD'))
     console.log('WEBGL_RENDER_FLOAT32_CAPABLE', tf.env().getBool('WEBGL_RENDER_FLOAT32_CAPABLE'))
     console.log('WEBGL_RENDER_FLOAT32_ENABLED enabled', tf.env().getBool('WEBGL_RENDER_FLOAT32_ENABLED'))
 }
@@ -36,7 +40,7 @@ export async function setTensorflow()
     tf.enableProdMode()
 
     setTensorflowFlags()
-    // logTensorflowFlags()
+    logTensorflowFlags()
 
     await tf.setBackend('webgl')
     await tf.ready()

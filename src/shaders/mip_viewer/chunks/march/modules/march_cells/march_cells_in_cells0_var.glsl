@@ -5,7 +5,6 @@ cell.exit_position = rayDistanceToPosition(cell.exit_distance);
 cell.coords = positionToCellCoords(cell.exit_position);
 cubic.values.w = sampleVolume(cell.exit_position);
 
-
 #if DEBUG_ENABLED == 1
 
     stats.num_volume_fetches += 1;
@@ -14,24 +13,19 @@ cubic.values.w = sampleVolume(cell.exit_position);
 #endif
 
 // START_MIP
-mip.value = cubic.values.w;
 mip.distance = ray.start_distance;
+mip.value = cubic.values.w;
 
+// update stats
 #if DEBUG_ENABLED == 1
 
     stats.num_mips += 1;
 
 #endif
 
-// START_MARCH
-bool prevNonShadowed = true;
-
 for (int i = 0; i < MAX_CELLS; i++) 
 {
     // UPDATE_CELL
-
-    // compute shadowed
-    cell.shadowed = sample_shadow(cell.coords);
 
     // compute entry from previous exit
     cell.entry_distance = cell.exit_distance;
@@ -58,59 +52,45 @@ for (int i = 0; i < MAX_CELLS; i++)
 
     #endif
 
-    bool consecutiveNonShadowed = prevNonShadowed && !cell.shadowed;
-    prevNonShadowed = !cell.shadowed;
+    // UPDATE_CUBIC     
+    vec3 span_position = cell.exit_position - cell.entry_position;
 
-    if (!cell.shadowed) 
+    cubic.values.x = cubic.values.w;
+    cubic.values.y = sampleVolume(cell.entry_position + span_position * (1.0 / 3.0));
+    cubic.values.z = sampleVolume(cell.entry_position + span_position * (2.0 / 3.0));
+    cubic.values.w = sampleVolume(cell.exit_position);
+
+    cubic.bernstein_coeffs = cubic.values * CUBIC_INV_BERNSTEIN;
+
+    #if DEBUG_ENABLED == 1
+
+        stats.num_volume_fetches += 3;
+
+    #endif
+
+    if (any(lessThan(vec4(mip.value), cubic.bernstein_coeffs)))
     {
-        // UPDATE_CUBIC     
-
-        vec3 span_position = cell.exit_position - cell.entry_position;
-
-        cubic.values.x = consecutiveNonShadowed ? cubic.values.w : sampleVolume(cell.entry_position);
-        cubic.values.y = sampleVolume(cell.entry_position + span_position * (1.0 / 3.0));
-        cubic.values.z = sampleVolume(cell.entry_position + span_position * (2.0 / 3.0));
-        cubic.values.w = sampleVolume(cell.exit_position);
-
+        // MAXIMIZE CUBIC
         cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
         CubicMax cubic_max = cubicMaxFromCoeffs(cubic.coeffs);
 
         #if DEBUG_ENABLED == 1
 
-            stats.num_volume_fetches += consecutiveNonShadowed ? 3 : 4;
             stats.num_cubics += 1;
 
         #endif
 
-        #if VARIATION_ENABLED == 1
-
-            vec4 c = cubic.values * CUBIC_INV_BERNSTEIN;
-            if (mip.value < c.x ||
-                mip.value < c.y ||
-                mip.value < c.z ||
-                mip.value < c.w)
-            {
-                debug.variable0.r += 1.0;
-            }
-            
-        #endif
-
         // UPDATE_MIP
+        mip.distance = cell.entry_distance + cell.span_distance * cubic_max.t;
+        mip.value = cubic_max.v;
 
-        if (mip.value < cubic_max.v) 
-        {
-            // mip.distance = mix(cell.entry_distance, cell.exit_distance, cubic_max.t);
-            mip.distance = cell.entry_distance + cell.span_distance * cubic_max.t;
-            mip.value = cubic_max.v;
+        #if DEBUG_ENABLED == 1
 
-            #if DEBUG_ENABLED == 1
+            stats.num_mips += 1;
 
-                stats.num_mips += 1;
-
-            #endif
-        }
+        #endif
     }
-
+        
     if (cell.terminated) break;
 }
 
