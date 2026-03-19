@@ -80,12 +80,14 @@ for (int i = 0; i < MAX_CELLS; i++)
 
         #endif
 
-        if (any(lessThan(vec4(mip.value), cubic.bernstein_coeffs)))
+        if (any(greaterThan(cubic.bernstein_coeffs, vec4(mip.value))))
         {
             // MAXIMIZE CUBIC
             cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
-            CubicMax cubic_max = cubicMaxFromCoeffs(cubic.coeffs);
-
+            CubicMax cubicMax = cubicMaxFromCoeffs_v2(cubic.coeffs);
+            cubic.max_value = cubicMax.v;
+            cubic.argmax_time = cubicMax.t;
+            
             #if DEBUG_ENABLED == 1
 
                 stats.num_cubics += 1;
@@ -93,8 +95,8 @@ for (int i = 0; i < MAX_CELLS; i++)
             #endif
 
             // UPDATE_MIP
-            mip.distance = cell.entry_distance + cell.span_distance * cubic_max.t;
-            mip.value = cubic_max.v;
+            mip.distance = cell.entry_distance + cell.span_distance * cubic.argmax_time;
+            mip.value = cubic.max_value;
 
             #if DEBUG_ENABLED == 1
 

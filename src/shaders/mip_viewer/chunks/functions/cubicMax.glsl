@@ -63,4 +63,66 @@ CubicMax cubicMaxFromCoeffs(vec4 c)
     return CubicMax(v[i], t[i]);
 }
 
+// Find the maximum value of a cubic on [0, 1] from power-basis coefficients
+CubicMax cubicMaxFromCoeffs_v2(vec4 c)
+{
+    // Start with endpoint t = 0
+    float bestT = 0.0;
+    float bestV = c.x;
+
+    // Test endpoint t = 1
+    float v1 = c.x + c.y + c.z + c.w;
+    if (v1 > bestV)
+    {
+        bestV = v1;
+        bestT = 1.0;
+    }
+
+    // Derivative: c.y + 2*c.z*t + 3*c.w*t^2
+    float a = 3.0 * c.w;
+    float b = 2.0 * c.z;
+    float d = c.y;
+
+    float disc = b * b - 4.0 * a * d;
+    if (disc >= 0.0)
+    {
+        float s = sqrt(disc);
+        float q = -0.5 * (b + ssign(b) * s);
+
+        // t1 also becomes the linear root when a == 0
+        if (q != 0.0)
+        {
+            float t1 = d / q;
+            if (t1 > 0.0 && t1 < 1.0)
+            {
+                // Evaluate cubic at t1 using Horner form
+                float v = ((c.w * t1 + c.z) * t1 + c.y) * t1 + c.x;
+                if (v > bestV)
+                {
+                    bestV = v;
+                    bestT = t1;
+                }
+            }
+        }
+
+        // Only valid for the true quadratic case
+        if (a != 0.0)
+        {
+            float t0 = q / a;
+            if (t0 > 0.0 && t0 < 1.0)
+            {
+                // Evaluate cubic at t0 using Horner 
+                float v = ((c.w * t0 + c.z) * t0 + c.y) * t0 + c.x;
+                if (v > bestV)
+                {
+                    bestV = v;
+                    bestT = t0;
+                }
+            }
+        }
+    }
+
+    return CubicMax(bestV, bestT);
+}
+
 #endif

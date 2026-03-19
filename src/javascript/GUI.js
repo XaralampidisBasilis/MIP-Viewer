@@ -215,8 +215,8 @@ export default class GUI
                 frag_color_material: 511,
                 frag_color         : 516,
                 
-                cubic_root             : 801,
-                cubic_num_roots        : 802,
+                cubic_max_value        : 801,
+                cubic_argmax_time     : 802,
                 cubic_degree           : 803,
                 cubic_weights          : 804,
                 cubic_bernstein_weights: 805,

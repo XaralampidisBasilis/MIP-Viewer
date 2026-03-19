@@ -3,7 +3,7 @@
 
 float intersectSkipCellExit(ivec3 coords, int radius, out ivec3 exitNormal)
 {
-    ivec3 cMin = coords - ivec3(radius - 1);
+    ivec3 cMin = coords + ivec3(1 - radius);
     ivec3 cMax = coords + ivec3(radius);
 
     vec3 boxMin = cellCoordsToPosition(cMin);

@@ -8,7 +8,7 @@ vec4 debug_stats_num_cells = to_color(turbo(float(stats.num_cells) / float(MAX_C
 vec4 debug_stats_num_traces = to_color(turbo(float(stats.num_traces) / float(MAX_TRACES)));
 
 // num mips
-vec4 debug_stats_num_mips = to_color(turbo(float(stats.num_mips) / float(MAX_TRACES)));
+vec4 debug_stats_num_mips = to_color(turbo(float(stats.num_mips) / float(MAX_CELLS)));
 
 // num cubics
 vec4 debug_stats_num_cubics = to_color(turbo(float(stats.num_cubics) / float(MAX_CELLS)));
@@ -21,10 +21,14 @@ vec4 debug_stats_num_groups = to_color(turbo(float(stats.num_groups) / float(MAX
 
 // num fetches
 stats.num_fetches = stats.num_volume_fetches + stats.num_distance_fetches;
-vec4 debug_stats_num_fetches = to_color(turbo(float(stats.num_fetches) / float(MAX_CELLS + MAX_BLOCKS)));
+float x_num_fetches = float(stats.num_fetches) / float(MAX_CELLS + MAX_BLOCKS);
+vec3 color = turbo(min(x_num_fetches, 1.0));
+float over = max(x_num_fetches - 1.0, 0.0); // how far above 1.0 we are
+float burn = 1.0 - exp(-4.0 * over); // burn toward white
+vec4 debug_stats_num_fetches = to_color(mix(color, vec3(1.0), burn));
 
 // num_volume_fetches
-vec4 debug_stats_num_volume_fetches = to_color(turbo(float(stats.num_volume_fetches) / float(MAX_TRACES)));
+vec4 debug_stats_num_volume_fetches = to_color(turbo(float(stats.num_volume_fetches) / float(MAX_CELLS)));
 
 // num_distance_fetches
 vec4 debug_stats_num_distance_fetches = to_color(turbo(float(stats.num_distance_fetches) / float(MAX_BLOCKS)));

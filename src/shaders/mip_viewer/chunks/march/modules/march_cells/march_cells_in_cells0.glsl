@@ -61,7 +61,9 @@ for (int i = 0; i < MAX_CELLS; i++)
     cubic.values.w = sampleVolume(cell.exit_position);
 
     cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
-    CubicMax cubic_max = cubicMaxFromCoeffs(cubic.coeffs);
+    CubicMax cubicMax = cubicMaxFromCoeffs_v2(cubic.coeffs);
+    cubic.max_value = cubicMax.v;
+    cubic.argmax_time = cubicMax.t;
 
     // update stats
     #if DEBUG_ENABLED == 1
@@ -71,26 +73,13 @@ for (int i = 0; i < MAX_CELLS; i++)
 
     #endif
 
-    #if VARIATION_ENABLED == 1
-
-        vec4 c = cubic.values * CUBIC_INV_BERNSTEIN;
-        if (mip.value < c.x ||
-            mip.value < c.y ||
-            mip.value < c.z ||
-            mip.value < c.w)
-        {
-            debug.variable0.r += 1.0;
-        }
-        
-    #endif
-
     // UPDATE_MIP
 
-    if (mip.value < cubic_max.v) 
+    if (mip.value < cubic.max_value) 
     {
-        // mip.distance = mix(cell.entry_distance, cell.exit_distance, cubic_max.t);
-        mip.distance = cell.entry_distance + cell.span_distance * cubic_max.t;
-        mip.value = cubic_max.v;
+        // mip.distance = mix(cell.entry_distance, cell.exit_distance, cubic.argmax_time);
+        mip.distance = cell.entry_distance + cell.span_distance * cubic.argmax_time;
+        mip.value = cubic.max_value;
 
         #if DEBUG_ENABLED == 1
 

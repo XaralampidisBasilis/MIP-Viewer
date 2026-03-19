@@ -1,29 +1,19 @@
 
 // COMPUTE DEBUG
 
-// root
-vec4 debug_cubic_root = to_color(cubic.root);
+// max_value
+vec4 debug_cubic_max_value = to_color(cubic.max_value);
 
-// num roots
-int cubic_num_roots = 0;
-for (int i = 0; i <= 3; ++i) 
-{   
-    if (cubic.roots[i] != cubic.roots[3])
-    {
-        cubic_num_roots++;
-    }
-}
-
-vec4 debug_cubic_num_roots = to_color(float(cubic_num_roots) / 3.0);
+// argmax_time
+vec4 debug_cubic_argmax_time = to_color(cubic.argmax_time);
 
 // degree
-float cubic_maxabs = 0.0;
-for (int i = 0; i <= 3; ++i) 
-{
-    cubic_maxabs = max(cubic_maxabs, abs(cubic.coeffs[i]));
-}
-
 int cubic_degree = 0;
+float cubic_maxabs = 0.0;
+
+for (int i = 0; i <= 3; ++i) 
+    cubic_maxabs = max(cubic_maxabs, abs(cubic.coeffs[i]));
+
 for (int i = 3; i >= 0; --i)
 {
     if (abs(cubic.coeffs[i]) / cubic_maxabs > 0.01)
@@ -69,8 +59,8 @@ vec4 debug_cubic_bernstein_spread = to_color(mmax(cubic.bernstein_coeffs) - mmin
 // PRINT DEBUG
 switch (u_debug.option - 800)
 { 
-    case 1: fragColor = debug_cubic_root;              break;
-    case 2: fragColor = debug_cubic_num_roots;         break;
+    case 1: fragColor = debug_cubic_max_value;         break;
+    case 2: fragColor = debug_cubic_argmax_time;      break;
     case 3: fragColor = debug_cubic_degree;            break;
     case 4: fragColor = debug_cubic_weights;           break;
     case 5: fragColor = debug_cubic_bernstein_weights; break;
