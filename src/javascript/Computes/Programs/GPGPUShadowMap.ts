@@ -14,6 +14,7 @@ import {
     permuteReverseFromDominantAxisOctant,
     reverseOctant,
 } from '../../Utils/ShadowMapUtils'
+import { maxPool3d, minPool3d, avgPool3d } from './pool3d'
 
 type Array3<T> = [T, T, T]
 type Array4<T> = [T, T, T, T]
@@ -1503,6 +1504,51 @@ export function computeExtendedAnisotropicBidirectionalShadowMapReference(
     if (verbose) logExtendedAnisotropicBidirectionalShadowMaps(shadowMap)
 
     tf.dispose(extendedMaps)
+    return shadowMap as tf.Tensor3D
+}
+
+export function computeBlockExtendedAnisotropicBidirectionalShadowMap(
+    volume: tf.Tensor3D, 
+    tolerance: number = 0.01,
+    blockSize: number,
+    verbose: boolean = false
+) : tf.Tensor3D
+{
+    let anisotropicMaps = [] 
+    let extendedMaps = []
+
+    anisotropicMaps = []
+    anisotropicMaps.push(tf.tidy(() => minPool3d(computeBidirectionalShadowMap(volume, 'x', '+++', tolerance), blockSize, blockSize, 'same')))
+    anisotropicMaps.push(tf.tidy(() => minPool3d(computeBidirectionalShadowMap(volume, 'x', '+-+', tolerance), blockSize, blockSize, 'same')))
+    anisotropicMaps.push(tf.tidy(() => minPool3d(computeBidirectionalShadowMap(volume, 'x', '++-', tolerance), blockSize, blockSize, 'same')))
+    anisotropicMaps.push(tf.tidy(() => minPool3d(computeBidirectionalShadowMap(volume, 'x', '+--', tolerance), blockSize, blockSize, 'same')))
+
+    extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
+    tf.dispose(anisotropicMaps)
+   
+    anisotropicMaps = []
+    anisotropicMaps.push(tf.tidy(() => minPool3d(computeBidirectionalShadowMap(volume, 'y', '+++', tolerance), blockSize, blockSize, 'same')))
+    anisotropicMaps.push(tf.tidy(() => minPool3d(computeBidirectionalShadowMap(volume, 'y', '-++', tolerance), blockSize, blockSize, 'same')))
+    anisotropicMaps.push(tf.tidy(() => minPool3d(computeBidirectionalShadowMap(volume, 'y', '++-', tolerance), blockSize, blockSize, 'same')))
+    anisotropicMaps.push(tf.tidy(() => minPool3d(computeBidirectionalShadowMap(volume, 'y', '-+-', tolerance), blockSize, blockSize, 'same')))
+
+    extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
+    tf.dispose(anisotropicMaps)
+
+    anisotropicMaps = []
+    anisotropicMaps.push(tf.tidy(() => minPool3d(computeBidirectionalShadowMap(volume, 'z', '+++', tolerance), blockSize, blockSize, 'same')))
+    anisotropicMaps.push(tf.tidy(() => minPool3d(computeBidirectionalShadowMap(volume, 'z', '+-+', tolerance), blockSize, blockSize, 'same')))
+    anisotropicMaps.push(tf.tidy(() => minPool3d(computeBidirectionalShadowMap(volume, 'z', '-++', tolerance), blockSize, blockSize, 'same')))
+    anisotropicMaps.push(tf.tidy(() => minPool3d(computeBidirectionalShadowMap(volume, 'z', '--+', tolerance), blockSize, blockSize, 'same')))
+
+    extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
+    tf.dispose(anisotropicMaps)
+
+    const shadowMap = extendedAnisotropicBidirectionalShadowMap(extendedMaps as Array3<tf.Tensor3D>)
+    if (verbose) logExtendedAnisotropicBidirectionalShadowMaps(shadowMap)
+        
+    tf.dispose(extendedMaps)
+
     return shadowMap as tf.Tensor3D
 }
 

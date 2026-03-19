@@ -13,6 +13,7 @@ import {
     reverseSign,
     signFromOctant,
 } from '../../Utils/ShadowMapUtils'
+import { maxPool3d, minPool3d, avgPool3d } from './pool3d'
 
 class ShadowChebyshevDistancePass implements GPGPUProgram 
 {
@@ -577,7 +578,7 @@ function packToRGB32UI(maps: Tuple<Int32Array, 12>): Uint32Array
     return packed
 }
 
-export function computeIsotropicDistanceMap_RGBA16UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array
+export function computeIsotropicDistanceMap5bit(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array
 {
     const maps = new Array(12) 
 
@@ -597,7 +598,7 @@ export function computeIsotropicDistanceMap_RGBA16UI(shadows: tf.Tensor3D, verbo
     return packToRGBA16UI(maps as Tuple<Int32Array, 12>) 
 }
 
-export function computeIsotropicDistanceMap_RGB32UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint32Array
+export function computeIsotropicDistanceMap8bit(shadows: tf.Tensor3D, verbose: boolean = false) : Uint32Array
 {
     const maps = new Array(12)
 
@@ -617,7 +618,7 @@ export function computeIsotropicDistanceMap_RGB32UI(shadows: tf.Tensor3D, verbos
     return packToRGB32UI(maps as Tuple<Int32Array, 12>) 
 }
 
-export function computeExtendedAnisotropicUnidirectionalDistanceMap_RGBA16UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array
+export function computeExtendedAnisotropicUnidirectionalDistanceMap5bit(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array
 {
     const maps = new Array(12) 
 
@@ -637,7 +638,7 @@ export function computeExtendedAnisotropicUnidirectionalDistanceMap_RGBA16UI(sha
     return packToRGBA16UI(maps as Tuple<Int32Array, 12>) 
 }
 
-export function computeExtendedAnisotropicUnidirectionalDistanceMap_RGB32UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint32Array
+export function computeExtendedAnisotropicUnidirectionalDistanceMap8bit(shadows: tf.Tensor3D, verbose: boolean = false) : Uint32Array
 {
     const maps = new Array(12)
 
@@ -657,7 +658,7 @@ export function computeExtendedAnisotropicUnidirectionalDistanceMap_RGB32UI(shad
     return packToRGB32UI(maps as Tuple<Int32Array, 12>) 
 }
 
-export function computeExtendedAnisotropicBidirectionalDistanceMap_RGBA16UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array
+export function computeExtendedAnisotropicBidirectionalDistanceMap5bit(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array
 {
     const maps = new Array(12) 
 
@@ -677,7 +678,7 @@ export function computeExtendedAnisotropicBidirectionalDistanceMap_RGBA16UI(shad
     return packToRGBA16UI(maps as Tuple<Int32Array, 12>) 
 }
 
-export function computeExtendedAnisotropicBidirectionalDistanceMap_RGB32UI(shadows: tf.Tensor3D, verbose: boolean = false) : Uint32Array
+export function computeExtendedAnisotropicBidirectionalDistanceMap8bit(shadows: tf.Tensor3D, verbose: boolean = false) : Uint32Array
 {
     const maps = new Array(12)
 

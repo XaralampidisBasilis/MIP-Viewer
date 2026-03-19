@@ -3,12 +3,12 @@ import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import { toHalfFloat } from '../../Utils/DataUtils'
 import { 
-    computeIsotropicDistanceMap_RGBA16UI,
-    computeIsotropicDistanceMap_RGB32UI,
-    computeExtendedAnisotropicUnidirectionalDistanceMap_RGBA16UI,
-    computeExtendedAnisotropicUnidirectionalDistanceMap_RGB32UI,
-    computeExtendedAnisotropicBidirectionalDistanceMap_RGBA16UI,
-    computeExtendedAnisotropicBidirectionalDistanceMap_RGB32UI,
+    computeIsotropicDistanceMap5bit,
+    computeIsotropicDistanceMap8bit,
+    computeExtendedAnisotropicUnidirectionalDistanceMap5bit,
+    computeExtendedAnisotropicUnidirectionalDistanceMap8bit,
+    computeExtendedAnisotropicBidirectionalDistanceMap5bit,
+    computeExtendedAnisotropicBidirectionalDistanceMap8bit,
 } from '../Programs/GPGPUShadowDistanceMap'
 
 export default class DistanceMap 
@@ -24,8 +24,8 @@ export default class DistanceMap
         console.time('computeRGBA16UITexture') 
 
         // this.textureData = computeIsotropicDistanceMapRGBA16UI(this.computes.shadowMap.tensor, true)
-        this.textureData = computeExtendedAnisotropicUnidirectionalDistanceMap_RGBA16UI(this.computes.shadowMap.tensor, true)
-        // this.textureData = computeExtendedAnisotropicBidirectionalDistanceMapRGBA16UI(this.computes.shadowMap.tensor, true)
+        this.textureData = computeExtendedAnisotropicUnidirectionalDistanceMap5bit(this.computes.shadowMap.tensor, true)
+        // this.textureData = computeExtendedAnisotropicBidirectionalDistanceMap5bit(this.computes.shadowMap.tensor, true)
         this.dimensions = this.computes.shadowMap.dimensions
 
         this.texture = new THREE.Data3DTexture(this.textureData, ...this.dimensions)
@@ -46,8 +46,8 @@ export default class DistanceMap
         console.time('computeRGB32UITexture') 
 
         // this.textureData = computeIsotropicDistanceMapRGB32UI(this.computes.shadowMap.tensor, true)
-        this.textureData = computeExtendedAnisotropicUnidirectionalDistanceMap_RGB32UI(this.computes.shadowMap.tensor, true)
-        // this.textureData = computeExtendedAnisotropicBidirectionalDistanceMapRGB32UI(this.computes.shadowMap.tensor, true)
+        this.textureData = computeExtendedAnisotropicUnidirectionalDistanceMap8bit(this.computes.shadowMap.tensor, true)
+        // this.textureData = computeExtendedAnisotropicBidirectionalDistanceMap8bit(this.computes.shadowMap.tensor, true)
         this.dimensions = this.computes.shadowMap.dimensions
 
         // Workaround: this Three.js version does not map THREE.RGBIntegerFormat to WebGL's RGB_INTEGER
