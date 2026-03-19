@@ -17,4 +17,11 @@ vec3 turbo(float t)
     return palette(clamp(t, 0.0, 1.0), a, b0, c0, d0, b1, c1, d1);
 }
 
+vec3 turboBurn(float t)
+{
+    vec3 white = vec3(1.0);
+    float burn = 1.0 - exp(-4.0 * max(t - 1.0, 0.0));
+    return mix(turbo(t), white, burn);
+}
+
 #endif

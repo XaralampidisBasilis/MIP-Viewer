@@ -54,7 +54,6 @@ export default class MIPViewer extends EventEmitter
 
         this.geometry = new THREE.BoxGeometry(1, 1, 1)
         this.mesh = new THREE.Mesh(this.geometry, this.material)
-       
     }
 
     setMaterial()
@@ -64,7 +63,6 @@ export default class MIPViewer extends EventEmitter
         this.setDefinesIterators()
         this.setUniformsTextures()
         this.setUniformsVolume()
-        this.setUniformsDebug()
         this.setUniformsShading()
         this.updateRayUniforms()
     }
@@ -157,14 +155,6 @@ export default class MIPViewer extends EventEmitter
     {
         const uniforms = this.material.uniforms
         uniforms.u_shading.value.colormap = Configs.Colormaps.findIndex((x) => x === this.configs.colormap)
-    }
-
-    setUniformsDebug()
-    {
-        const uniforms = this.material.uniforms
-        uniforms.u_debug.value.max_groups = this.material.defines.MAX_GROUPS
-        uniforms.u_debug.value.max_blocks = this.material.defines.MAX_BLOCKS_IN_GROUP 
-        uniforms.u_debug.value.max_cells  = this.material.defines.MAX_CELLS_IN_BLOCK  
     }
 
     change(event)
