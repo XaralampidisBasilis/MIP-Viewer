@@ -27,15 +27,15 @@ for (int i = 0; i < MAX_CELLS; i++)
     // UPDATE_CELL
 
     // compute skip distance
-    cell.skip_radius = sample_rgba16ui_distance_fast(cell.coords, cell.shadowed);
-    // cell.skip_radius = sample_rgb32ui_distance_fast(cell.coords, cell.shadowed);
+    cell.step_radius = sample_rgba16ui_distance_fast(cell.coords, cell.shadowed);
+    // cell.step_radius = sample_rgb32ui_distance_fast(cell.coords, cell.shadowed);
 
     // compute entry from previous exit
     cell.entry_distance = cell.exit_distance;
     cell.entry_position = cell.exit_position;
 
     // compute exit from cell ray intersection 
-    cell.exit_distance = intersectSkipCellExit(cell.coords, cell.skip_radius, cell.exit_normal) + exitNudge;
+    cell.exit_distance = intersectSkipCellExit(cell.coords, cell.step_radius, cell.exit_step) + exitNudge;
     cell.exit_position = rayDistanceToPosition(cell.exit_distance);
 
     // compute span distance
@@ -97,8 +97,8 @@ for (int i = 0; i < MAX_CELLS; i++)
 
     // compute next coordinates
     ivec3 exit_coords = positionToCellCoords(cell.exit_position);
-    ivec3 skip_coords = cell.coords + cell.skip_radius * u_ray.signs;
-    cell.coords = mmix(exit_coords, skip_coords, cell.exit_normal);
+    ivec3 skip_coords = cell.coords + cell.step_radius * u_ray.signs;
+    cell.coords = mmix(exit_coords, skip_coords, cell.exit_step);
 
 }
 

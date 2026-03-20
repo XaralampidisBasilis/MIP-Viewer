@@ -1,21 +1,21 @@
 
-// START_CUBIC_CELL
+// START_CELL
 cell.exit_distance = ray.start_distance;
-cell.exit_position = rayDistanceToPosition(cell.exit_distance); 
-cell.coords = positionToCellCoords(cell.exit_position);
-cubic.values.w = sampleVolume(cell.exit_position);
+cell.exit_position = ray.start_position; 
+cell.coords = positionToCellCoords(ray.start_position);
 
+// START_CUBIC
+cubic.values.w = sampleVolume(ray.start_position);
 
 #if DEBUG_ENABLED == 1
 
     stats.num_volume_fetches += 1;
-    stats.num_cells += 1;
 
 #endif
 
 // START_MIP
-mip.value = cubic.values.w;
 mip.distance = ray.start_distance;
+mip.value = cubic.values.w;
 
 #if DEBUG_ENABLED == 1
 
@@ -24,6 +24,7 @@ mip.distance = ray.start_distance;
 #endif
 
 // START_MARCH
+float exitNudge = ray.spacing * 1e-3;
 bool prevNonShadowed = true;
 
 for (int i = 0; i < MAX_CELLS; i++) 
@@ -38,17 +39,17 @@ for (int i = 0; i < MAX_CELLS; i++)
     cell.entry_position = cell.exit_position;
 
     // compute exit from cell ray intersection 
-    cell.exit_distance = intersectCellExit(cell.coords, cell.exit_normal);
+    cell.exit_distance = intersectCellExit(cell.coords, cell.exit_step);
     cell.exit_position = rayDistanceToPosition(cell.exit_distance);
 
     // compute span distance
     cell.span_distance = cell.exit_distance - cell.entry_distance;
 
     // compute termination condition
-    cell.terminated = cell.exit_distance > ray.end_distance;
+    cell.terminated = cell.exit_distance + exitNudge > ray.end_distance;
 
     // compute next coordinates
-    cell.coords += cell.exit_normal * u_ray.signs;
+    cell.coords = advanceCellCoords(cell.coords, cell.exit_step);
 
     // update stats
     #if DEBUG_ENABLED == 1
@@ -72,14 +73,22 @@ for (int i = 0; i < MAX_CELLS; i++)
         cubic.values.z = sampleVolume(cell.entry_position + span_position * (2.0 / 3.0));
         cubic.values.w = sampleVolume(cell.exit_position);
 
+        #if DEBUG_ENABLED == 1
+
+            stats.num_volume_fetches += consecutiveNonShadowed ? 3 : 4;
+
+        #endif
+
+        // SOLVE_CUBIC
+
         cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
         CubicMax cubicMax = cubicMaxFromCoeffs_v2(cubic.coeffs);
+        
         cubic.max_value = cubicMax.v;
         cubic.argmax_time = cubicMax.t;
 
         #if DEBUG_ENABLED == 1
 
-            stats.num_volume_fetches += consecutiveNonShadowed ? 3 : 4;
             stats.num_cubics += 1;
 
         #endif
@@ -88,7 +97,6 @@ for (int i = 0; i < MAX_CELLS; i++)
 
         if (mip.value < cubic.max_value) 
         {
-            // mip.distance = mix(cell.entry_distance, cell.exit_distance, cubic.argmax_time);
             mip.distance = cell.entry_distance + cell.span_distance * cubic.argmax_time;
             mip.value = cubic.max_value;
 

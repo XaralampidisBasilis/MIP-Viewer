@@ -1,21 +1,20 @@
-// INITIALIZE FIRST CELL AT RAY START
-
+// START_CELL
 cell.exit_distance = ray.start_distance;
-cell.exit_position = rayDistanceToPosition(cell.exit_distance); 
-cell.coords = positionToCellCoords(cell.exit_position);
-cubic.values.w = sampleVolume(cell.exit_position);
+cell.exit_position = ray.start_position; 
+cell.coords = positionToCellCoords(ray.start_position);
+
+// START_CUBIC
+cubic.values.w = sampleVolume(ray.start_position);
 
 #if DEBUG_ENABLED == 1
 
     stats.num_volume_fetches += 1;
-    stats.num_cells += 1;
 
 #endif
 
-// INITIALIZE MIP WITH FIRST SAMPLE
-
-mip.value = cubic.values.w;
+// START_MIP
 mip.distance = ray.start_distance;
+mip.value = cubic.values.w;
 
 #if DEBUG_ENABLED == 1
 
@@ -25,7 +24,8 @@ mip.distance = ray.start_distance;
 
 // MARCH THROUGH CELLS ALONG THE RAY
 
-float exitNudge = ray.spacing * 1e-3;
+const float eps = 0.001;
+vec3 exitNudge = u_ray.direction * eps;
 bool prevNonShadowed = true;
 
 for (int i = 0; i < MAX_CELLS; i++) 
@@ -33,15 +33,15 @@ for (int i = 0; i < MAX_CELLS; i++)
     // ADVANCE CELL STATE
 
     // Read skip radius and shadow flag for the current cell
-    cell.skip_radius = sample_rgba16ui_distance_fast(cell.coords, cell.shadowed);
-    // cell.skip_radius = sample_rgb32ui_distance_fast(cell.coords, cell.shadowed);
+    cell.step_radius = sample_rgba16ui_distance_fast(cell.coords, cell.shadowed);
+    // cell.step_radius = sample_rgb32ui_distance_fast(cell.coords, cell.shadowed);
 
     // Current entry is the previous step's exit
     cell.entry_distance = cell.exit_distance;
     cell.entry_position = cell.exit_position;
 
-    // Find exit point of the current skip cell and nudge forward slightly
-    cell.exit_distance = intersectSkipCellExit(cell.coords, cell.skip_radius, cell.exit_normal) + exitNudge;
+    // Find exit point of the current skip cell
+    cell.exit_distance = intersectCellExit(cell.coords, cell.step_radius, cell.exit_step);
     cell.exit_position = rayDistanceToPosition(cell.exit_distance);
 
     // Distance covered inside this cell span
@@ -51,9 +51,7 @@ for (int i = 0; i < MAX_CELLS; i++)
     cell.terminated = cell.exit_distance > ray.end_distance;
 
     // Choose next cell coords from either geometric exit or skip step
-    ivec3 exit_coords = positionToCellCoords(cell.exit_position);
-    ivec3 skip_coords = cell.coords + cell.skip_radius * u_ray.signs;
-    cell.coords = mmix(exit_coords, skip_coords, cell.exit_normal);
+    cell.coords = advanceCellCoords(cell.coords, cell.exit_position + exitNudge, cell.step_radius, cell.exit_step);
 
     // Update traversal stats
     #if DEBUG_ENABLED == 1
@@ -92,6 +90,7 @@ for (int i = 0; i < MAX_CELLS; i++)
             // Compute exact cubic maximum only if the Bernstein bound can beat the MIP
             cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
             CubicMax cubicMax = cubicMaxFromCoeffs_v2(cubic.coeffs);
+
             cubic.max_value = cubicMax.v;
             cubic.argmax_time = cubicMax.t;
 

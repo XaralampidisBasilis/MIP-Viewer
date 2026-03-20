@@ -40,7 +40,7 @@ export async function setTensorflow()
     tf.enableProdMode()
 
     setTensorflowFlags()
-    logTensorflowFlags()
+    // logTensorflowFlags()
 
     await tf.setBackend('webgl')
     await tf.ready()

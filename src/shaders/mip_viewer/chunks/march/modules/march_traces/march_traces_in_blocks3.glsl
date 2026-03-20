@@ -35,7 +35,7 @@ for (int i = 0; i < MAX_CELLS; i++)
     cell.entry_position = cell.exit_position;
 
     // compute exit from cell ray intersection 
-    cell.exit_distance = intersectCellExit(cell.coords, cell.exit_normal);
+    cell.exit_distance = intersectCellExit(cell.coords, cell.exit_step);
     cell.exit_position = rayDistanceToPosition(cell.exit_distance);
 
     // compute span distance
@@ -98,7 +98,7 @@ for (int i = 0; i < MAX_CELLS; i++)
 
     if (cell.terminated) break;
 
-    cell.coords += cell.exit_normal * u_ray.signs;
+    cell.coords += cell.exit_step * u_ray.signs;
 
 }
 

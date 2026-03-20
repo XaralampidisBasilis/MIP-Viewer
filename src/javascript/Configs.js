@@ -37,7 +37,7 @@ export default class Configs extends EventEmitter
         this.gradientsMethod = 'triquadraticBspline'
         this.marchingMethod = 'cells'
         this.skippingStrategy = 'blocks'
-        this.skippingMethod = 'distance'
+        this.skippingMethod = 'binary'
         this.colormap = 'viridis'
 
         this.skippingEnabled = true

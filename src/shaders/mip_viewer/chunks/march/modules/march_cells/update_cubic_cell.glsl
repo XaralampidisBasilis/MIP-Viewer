@@ -4,7 +4,7 @@ cell.entry_distance = cell.exit_distance;
 cell.entry_position = cell.exit_position;
 
 // compute exit from cell ray intersection 
-cell.exit_distance = intersectCellExit(cell.coords, cell.exit_normal);
+cell.exit_distance = intersectCellExit(cell.coords, cell.exit_step);
 cell.exit_position = rayDistanceToPosition(cell.exit_distance); 
 
 // compute span distance
@@ -14,7 +14,7 @@ cell.span_distance = cell.exit_distance - cell.entry_distance;
 cell.terminated = cell.exit_distance > ray.end_distance; 
 
 // compute next coordinates
-cell.coords += cell.exit_normal * u_ray.signs;
+cell.coords += cell.exit_step * u_ray.signs;
 
 // compute cubic values
 cubic.values[0] = cubic.values[3];

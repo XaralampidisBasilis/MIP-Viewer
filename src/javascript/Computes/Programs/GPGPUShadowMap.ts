@@ -1167,28 +1167,6 @@ export function computeBidirectionalShadowMap(
     return shadowMap as tf.Tensor3D
 }
 
-export function computeBidirectionalShadowMapNaive(
-    volume: tf.Tensor3D, 
-    dominantAxis: Axis, 
-    octant: Octant, 
-    tolerance: number = 0.01,
-    verbose: boolean = false
-) : tf.Tensor3D
-{
-    const forwardShadowMap = computeUnidirectionalShadowMap(volume, dominantAxis, octant, tolerance)
-    if (verbose) logTensor('forwardShadowMap', forwardShadowMap)
-
-    const backwardShadowMap = computeUnidirectionalShadowMap(volume, dominantAxis, reverseOctant(octant), tolerance)
-    if (verbose) logTensor('backwardShadowMap', backwardShadowMap)
-
-    const shadowMap = bidirectionalShadowMap(forwardShadowMap, backwardShadowMap)
-    if (verbose) logTensor('shadowMap', shadowMap)
-
-    tf.dispose([forwardShadowMap, backwardShadowMap])
-
-    return shadowMap as tf.Tensor3D
-}
-
 export function computeBidirectionalShadowMapReverse(
     volume: tf.Tensor3D, 
     dominantAxis: Axis, 
@@ -1291,40 +1269,73 @@ export function computeExtendedAnisotropicBidirectionalShadowMap(
     return shadowMap as tf.Tensor3D
 }
 
-export function computeExtendedAnisotropicBidirectionalShadowMapSingular(
+export function computeBidirectionalBlockShadowMap(
     volume: tf.Tensor3D, 
+    dominantAxis: Axis, 
+    octant: Octant, 
     tolerance: number = 0.01,
+    blockSize = 2,
     verbose: boolean = false
 ) : tf.Tensor3D
 {
-    const t = computeUnidirectionalShadowMap(volume, 'z', '+++', tolerance)
+    const { permute, reverse } = permuteReverseFromDominantAxisOctant(dominantAxis, octant)
 
+    const backwardReverse = complementReverse(reverse)
+
+    const forwardShadowMap = computeUnidirectionalShadowMap(volume, dominantAxis, octant, tolerance)
+    if (verbose) logTensor('forwardShadowMap', forwardShadowMap)
+
+    const backwardMinimaMap = unidirectionalMinimaMapHollow(volume, forwardShadowMap, permute, backwardReverse)
+    const backwardMaximaMap = unidirectionalMaximaMap(volume, permute, backwardReverse)
+
+    const backwardShadowMap = unidirectionalShadowMap(backwardMinimaMap, backwardMaximaMap, permute, backwardReverse, tolerance)
+    if (verbose) logTensor('backwardShadowMap', backwardShadowMap)
+    tf.dispose([backwardMinimaMap, backwardMaximaMap])
+
+    const shadowMap = bidirectionalShadowMap(forwardShadowMap, backwardShadowMap)
+    if (verbose) logTensor('shadowMap', shadowMap)
+    tf.dispose([forwardShadowMap, backwardShadowMap])
+
+    const blockShadowMap = minPool3d(shadowMap, blockSize, blockSize, 1, 'ceil')
+    if (verbose) logTensor('blockShadowMap', blockShadowMap)
+    tf.dispose(shadowMap)
+
+    return blockShadowMap as tf.Tensor3D
+}
+
+export function computeExtendedAnisotropicBidirectionalBlockShadowMap(
+    volume: tf.Tensor3D, 
+    tolerance: number = 0.01,
+    blockSize: number = 2,
+    verbose: boolean = false
+) : tf.Tensor3D
+{
     let anisotropicMaps = [] 
     let extendedMaps = []
 
     anisotropicMaps = []
-    anisotropicMaps.push(tf.onesLike(t)) // [2,1,0], [   ]
-    anisotropicMaps.push(tf.onesLike(t)) // [2,1,0], [  1]
-    anisotropicMaps.push(tf.onesLike(t)) // [2,1,0], [  0]
-    anisotropicMaps.push(tf.onesLike(t)) // [2,1,0], [1,0]
+    anisotropicMaps.push(computeBidirectionalBlockShadowMap(volume, 'x', '+++', tolerance, blockSize))
+    anisotropicMaps.push(computeBidirectionalBlockShadowMap(volume, 'x', '+-+', tolerance, blockSize))
+    anisotropicMaps.push(computeBidirectionalBlockShadowMap(volume, 'x', '++-', tolerance, blockSize))
+    anisotropicMaps.push(computeBidirectionalBlockShadowMap(volume, 'x', '+--', tolerance, blockSize))
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
    
     anisotropicMaps = []
-    anisotropicMaps.push(tf.onesLike(t)) // [1,2,0], [   ]
-    anisotropicMaps.push(tf.onesLike(t)) // [1,2,0], [  2]
-    anisotropicMaps.push(tf.onesLike(t)) // [1,2,0], [  0]
-    anisotropicMaps.push(tf.onesLike(t)) // [1,2,0], [2,0]
+    anisotropicMaps.push(computeBidirectionalBlockShadowMap(volume, 'y', '+++', tolerance, blockSize))
+    anisotropicMaps.push(computeBidirectionalBlockShadowMap(volume, 'y', '-++', tolerance, blockSize))
+    anisotropicMaps.push(computeBidirectionalBlockShadowMap(volume, 'y', '++-', tolerance, blockSize))
+    anisotropicMaps.push(computeBidirectionalBlockShadowMap(volume, 'y', '-+-', tolerance, blockSize))
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
 
     anisotropicMaps = []
-    anisotropicMaps.push(tf.clone(t)) // [0,1,2], [   ]
-    anisotropicMaps.push(tf.onesLike(t)) // [0,1,2], [  1]
-    anisotropicMaps.push(tf.onesLike(t)) // [0,1,2], [  2]
-    anisotropicMaps.push(tf.onesLike(t)) // [0,1,2], [1,2]
+    anisotropicMaps.push(computeBidirectionalBlockShadowMap(volume, 'z', '+++', tolerance, blockSize))
+    anisotropicMaps.push(computeBidirectionalBlockShadowMap(volume, 'z', '+-+', tolerance, blockSize))
+    anisotropicMaps.push(computeBidirectionalBlockShadowMap(volume, 'z', '-++', tolerance, blockSize))
+    anisotropicMaps.push(computeBidirectionalBlockShadowMap(volume, 'z', '--+', tolerance, blockSize))
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
@@ -1333,7 +1344,6 @@ export function computeExtendedAnisotropicBidirectionalShadowMapSingular(
     if (verbose) logExtendedAnisotropicBidirectionalShadowMaps(shadowMap)
         
     tf.dispose(extendedMaps)
-    tf.dispose(t)
 
     return shadowMap as tf.Tensor3D
 }
@@ -1548,6 +1558,77 @@ export function computeBlockExtendedAnisotropicBidirectionalShadowMap(
     if (verbose) logExtendedAnisotropicBidirectionalShadowMaps(shadowMap)
         
     tf.dispose(extendedMaps)
+
+    return shadowMap as tf.Tensor3D
+}
+
+// debug functions
+
+export function computeBidirectionalShadowMapNaive(
+    volume: tf.Tensor3D, 
+    dominantAxis: Axis, 
+    octant: Octant, 
+    tolerance: number = 0.01,
+    verbose: boolean = false
+) : tf.Tensor3D
+{
+    const forwardShadowMap = computeUnidirectionalShadowMap(volume, dominantAxis, octant, tolerance)
+    if (verbose) logTensor('forwardShadowMap', forwardShadowMap)
+
+    const backwardShadowMap = computeUnidirectionalShadowMap(volume, dominantAxis, reverseOctant(octant), tolerance)
+    if (verbose) logTensor('backwardShadowMap', backwardShadowMap)
+
+    const shadowMap = bidirectionalShadowMap(forwardShadowMap, backwardShadowMap)
+    if (verbose) logTensor('shadowMap', shadowMap)
+
+    tf.dispose([forwardShadowMap, backwardShadowMap])
+
+    return shadowMap as tf.Tensor3D
+}
+
+export function computeExtendedAnisotropicBidirectionalShadowMapSingular(
+    volume: tf.Tensor3D, 
+    tolerance: number = 0.01,
+    verbose: boolean = false
+) : tf.Tensor3D
+{
+    const t = computeUnidirectionalShadowMap(volume, 'z', '+++', tolerance)
+
+    let anisotropicMaps = [] 
+    let extendedMaps = []
+
+    anisotropicMaps = []
+    anisotropicMaps.push(tf.onesLike(t)) // [2,1,0], [   ]
+    anisotropicMaps.push(tf.onesLike(t)) // [2,1,0], [  1]
+    anisotropicMaps.push(tf.onesLike(t)) // [2,1,0], [  0]
+    anisotropicMaps.push(tf.onesLike(t)) // [2,1,0], [1,0]
+
+    extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
+    tf.dispose(anisotropicMaps)
+   
+    anisotropicMaps = []
+    anisotropicMaps.push(tf.onesLike(t)) // [1,2,0], [   ]
+    anisotropicMaps.push(tf.onesLike(t)) // [1,2,0], [  2]
+    anisotropicMaps.push(tf.onesLike(t)) // [1,2,0], [  0]
+    anisotropicMaps.push(tf.onesLike(t)) // [1,2,0], [2,0]
+
+    extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
+    tf.dispose(anisotropicMaps)
+
+    anisotropicMaps = []
+    anisotropicMaps.push(tf.clone(t)) // [0,1,2], [   ]
+    anisotropicMaps.push(tf.onesLike(t)) // [0,1,2], [  1]
+    anisotropicMaps.push(tf.onesLike(t)) // [0,1,2], [  2]
+    anisotropicMaps.push(tf.onesLike(t)) // [0,1,2], [1,2]
+
+    extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
+    tf.dispose(anisotropicMaps)
+
+    const shadowMap = extendedAnisotropicBidirectionalShadowMap(extendedMaps as Array3<tf.Tensor3D>)
+    if (verbose) logExtendedAnisotropicBidirectionalShadowMaps(shadowMap)
+        
+    tf.dispose(extendedMaps)
+    tf.dispose(t)
 
     return shadowMap as tf.Tensor3D
 }

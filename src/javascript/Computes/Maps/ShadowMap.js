@@ -26,7 +26,7 @@ export default class ShadowMap
         this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(volume, 0.01, true)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.toReversed())
 
-        S1.computeBlockExtendedAnisotropicBidirectionalShadowMap(volume, 0.01, 2, true).dispose()
+        // S1.computeExtendedAnisotropicBidirectionalBlockShadowMap(volume, 0.01, 2, true).dispose()
 
         console.timeEnd('computeTensor') 
     }
