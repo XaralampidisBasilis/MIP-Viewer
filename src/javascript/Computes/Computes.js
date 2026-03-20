@@ -43,8 +43,8 @@ export default class Computes extends EventEmitter
         this.volumeMap.tensor.dispose()
         await tf.nextFrame()
 
-        this.distanceMap.computeRGBA16UITexture()
-        // this.distanceMap.computeRGB32UITexture()
+        // this.distanceMap.computeRGBA16UITexture()
+        this.distanceMap.computeRGB32UITexture()
         await tf.nextFrame()
 
         this.shadowMap.computeTexture()

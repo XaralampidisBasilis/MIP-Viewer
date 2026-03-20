@@ -38,8 +38,8 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     block.coords = advanceBlockCoords(block.coords, block.exit_position + epsStep, block.step_radius, block.exit_step);
 
     // Read skip radius and shadow flag for the current block
-    block.step_radius = sample_rgba16ui_distance_fast(block.coords, block.shadowed);
-    // block.step_radius = sample_rgb32ui_distance_fast(block.coords, block.shadowed);
+    // block.step_radius = sample_rgba16ui_distance_fast(block.coords, block.shadowed);
+    block.step_radius = sample_rgb32ui_distance_fast(block.coords, block.shadowed);
 
     // Current entry is the previous step's exit
     block.entry_distance = block.exit_distance;

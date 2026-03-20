@@ -19,8 +19,8 @@ export default class ShadowMap
         const volume = this.computes.volumeMap.tensor
 
         // this.tensor = S0.computeExtendedAnisotropicBidirectionalShadowMap(volume, 0.01, true)
-        this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(volume, 0.01, true)
-        // this.tensor = S1.computeExtendedAnisotropicBidirectionalBlockShadowMap(volume, 0.01, 2, true)
+        // this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(volume, 0.01, true)
+        this.tensor = S1.computeExtendedAnisotropicBidirectionalBlockShadowMap(volume, 0.01, 2, true)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.toReversed())
 
         console.timeEnd('computeTensor') 
