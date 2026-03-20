@@ -7,8 +7,8 @@ export function setTensorflowFlags()
     tf.env().set('WEBGL_LAZILY_UNPACK', true)
     tf.env().set('WEBGL_CPU_FORWARD', false)
     tf.env().set('WEBGL_VERSION', 2)
-    tf.env().set("WEBGL_DELETE_TEXTURE_THRESHOLD", -1) // -1, 0, 8, 16, 32, 64, 128: avoid gpu memory buildup and reuse
-    tf.env().set('WEBGL_FLUSH_THRESHOLD', -1) // -1, 1: avoid unnecessary flush overhead
+    tf.env().set("WEBGL_DELETE_TEXTURE_THRESHOLD", 0) // -1, 0, 8, 16, 32, 64, 128: avoid gpu memory buildup and reuse
+    tf.env().set('WEBGL_FLUSH_THRESHOLD', 1) // -1, 1: avoid unnecessary flush overhead
 }
 
 export function logTensorflowFlags()

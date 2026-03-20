@@ -1,31 +1,36 @@
-// #if SKIPPING_ENABLED == 1
+#if SKIPPING_ENABLED == 1
 
-//     #if SKIPPING_METHOD == 0
+    #if SKIPPING_METHOD == 0
     
-//         #if VARIATION_ENABLED == 1
-//             #include "./march_cells_in_blocks1_var"
-//         #else
-//             #include "./march_cells_in_cells1_var"
-//         #endif
+        // #if VARIATION_ENABLED == 1
+        //     #include "./march_cells_in_blocks1_var"
+        // #else
+        //     #include "./march_cells_in_cells1_var"
+        // #endif
 
-//     #elif SKIPPING_METHOD == 1
+        #include "./march_cells_in_blocks1_var"
 
-//         #if VARIATION_ENABLED == 1
-//             #include "./march_cells_in_blocks2_var"
-//         #else
-//             #include "./march_cells_in_cells2_var"
-//         #endif
+    #elif SKIPPING_METHOD == 1
 
-//     #endif    
+        // #if VARIATION_ENABLED == 1
+        //     #include "./march_cells_in_blocks2_var"
+        // #else
+        //     #include "./march_cells_in_cells2_var"
+        // #endif
 
-// #else
+        #include "./march_cells_in_blocks2_var"
 
-//     #if VARIATION_ENABLED == 1
-//         #include "./march_cells_in_cells0_var"
-//     #else
-//         #include "./march_cells_in_cells0"
-//     #endif
+    #endif    
 
-// #endif
+#else
 
-#include "./march_cells_in_blocks2_var"
+    // #if VARIATION_ENABLED == 1
+    //     #include "./march_cells_in_cells0_var"
+    // #else
+    //     #include "./march_cells_in_cells0"
+    // #endif
+
+    #include "./march_cells_in_cells0_var"
+
+#endif
+
