@@ -4,10 +4,6 @@ import Computes from '../Computes'
 import * as S0 from '../Programs/GPGPUShadowMap'
 import * as S1 from '../Programs/GPGPUShadowMapDifferences'
 
-import { minPool3d, maxPool3d, avgPool3d } from '../Programs/pool3d'
-import { resizeTrilinear } from '../Programs/resizeTrillinear'
-import { resizeNearestNeighbor } from '../Programs/resizeNearestNeighbor'
-
 export default class ShadowMap
 {
     constructor()
@@ -24,9 +20,8 @@ export default class ShadowMap
 
         // this.tensor = S0.computeExtendedAnisotropicBidirectionalShadowMap(volume, 0.01, true)
         this.tensor = S1.computeExtendedAnisotropicBidirectionalShadowMap(volume, 0.01, true)
+        // this.tensor = S1.computeExtendedAnisotropicBidirectionalBlockShadowMap(volume, 0.01, 2, true)
         this.dimensions = new THREE.Vector3(...this.tensor.shape.toReversed())
-
-        // S1.computeExtendedAnisotropicBidirectionalBlockShadowMap(volume, 0.01, 2, true).dispose()
 
         console.timeEnd('computeTensor') 
     }

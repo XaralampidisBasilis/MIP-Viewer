@@ -1,8 +1,9 @@
 
 // START_CELL
+cell.coords = positionToCellCoords(ray.start_position);
 cell.exit_distance = ray.start_distance;
 cell.exit_position = ray.start_position; 
-cell.coords = positionToCellCoords(ray.start_position);
+cell.exit_step = ivec3(0);
 
 // START_CUBIC
 cubic.values.w = sampleVolume(ray.start_position);
@@ -25,11 +26,15 @@ mip.value = cubic.values.w;
 #endif
 
 // START_MARCH
-float exitNudge = ray.spacing * 1e-3;
+const float eps = 0.001;
+vec3 epsStep = u_ray.direction * eps;
 
 for (int i = 0; i < MAX_CELLS; i++) 
 {
     // UPDATE_CELL
+
+    // compute coordinates
+    cell.coords = advanceCellCoords(cell.coords, cell.exit_step);
 
     // compute entry from previous exit
     cell.entry_distance = cell.exit_distance;
@@ -43,10 +48,7 @@ for (int i = 0; i < MAX_CELLS; i++)
     cell.span_distance = cell.exit_distance - cell.entry_distance;
 
     // compute termination condition
-    cell.terminated = cell.exit_distance + exitNudge > ray.end_distance;
-
-    // compute next coordinates
-    cell.coords = advanceCellCoords(cell.coords, cell.exit_step);
+    cell.terminated = cell.exit_distance > ray.end_distance - eps;
 
     // update stats
     #if DEBUG_ENABLED == 1
@@ -89,8 +91,8 @@ for (int i = 0; i < MAX_CELLS; i++)
         #endif
 
         // UPDATE_MIP
-        mip.distance = cell.entry_distance + cell.span_distance * cubic.argmax_time;
-        mip.value = cubic.max_value;
+        mip.distance = mix(cell.entry_distance, cell.exit_distance, cubicMax.t);
+        mip.value = cubicMax.v;
 
         #if DEBUG_ENABLED == 1
 

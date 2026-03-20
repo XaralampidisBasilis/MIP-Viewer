@@ -1,8 +1,9 @@
 
 // START_CELL
+cell.coords = positionToCellCoords(ray.start_position);
 cell.exit_distance = ray.start_distance;
 cell.exit_position = ray.start_position; 
-cell.coords = positionToCellCoords(ray.start_position);
+cell.exit_step = ivec3(0);
 
 // START_CUBIC
 cubic.values.w = sampleVolume(ray.start_position);
@@ -25,12 +26,15 @@ mip.value = cubic.values.w;
 
 // START_MARCH
 const float eps = 0.001;
-vec3 exitNudge = u_ray.direction * eps;
+vec3 epsStep = u_ray.direction * eps;
 bool prevNonShadowed = true;
 
 for (int i = 0; i < MAX_CELLS; i++) 
 {
     // UPDATE_CELL
+
+    // compute current coordinates from previous exit
+    cell.coords = advanceCellCoords(cell.coords, cell.exit_position + epsStep, cell.step_radius, cell.exit_step);
 
     // compute skip distance
     cell.step_radius = sample_rgba16ui_distance_fast(cell.coords, cell.shadowed);
@@ -48,10 +52,7 @@ for (int i = 0; i < MAX_CELLS; i++)
     cell.span_distance = cell.exit_distance - cell.entry_distance;
 
     // compute termination condition
-    cell.terminated = cell.exit_distance > ray.end_distance;
-
-    // compute next coordinates
-    cell.coords = advanceCellCoords(cell.coords, cell.exit_position + exitNudge, cell.step_radius, cell.exit_step);
+    cell.terminated = cell.exit_distance > ray.end_distance - eps;
 
     // update stats
     #if DEBUG_ENABLED == 1
@@ -75,6 +76,14 @@ for (int i = 0; i < MAX_CELLS; i++)
         cubic.values.z = sampleVolume(cell.entry_position + span_position * (2.0 / 3.0));
         cubic.values.w = sampleVolume(cell.exit_position);
 
+        #if DEBUG_ENABLED == 1
+
+            stats.num_volume_fetches += consecutiveNonShadowed ? 3 : 4;
+
+        #endif
+
+        // SOLVE_CUBIC
+
         cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
         CubicMax cubicMax = cubicMaxFromCoeffs_v2(cubic.coeffs);
 
@@ -83,7 +92,6 @@ for (int i = 0; i < MAX_CELLS; i++)
 
         #if DEBUG_ENABLED == 1
 
-            stats.num_volume_fetches += consecutiveNonShadowed ? 3 : 4;
             stats.num_cubics += 1;
 
         #endif
@@ -93,8 +101,8 @@ for (int i = 0; i < MAX_CELLS; i++)
         if (cubic.max_value > mip.value) 
         {
             // mip.distance = mix(cell.entry_distance, cell.exit_distance, cubic.argmax_time);
-            mip.distance = cell.entry_distance + cell.span_distance * cubic.argmax_time;
-            mip.value = cubic.max_value;
+            mip.distance = mix(cell.entry_distance, cell.exit_distance, cubicMax.t);
+            mip.value = cubicMax.v;
 
             #if DEBUG_ENABLED == 1
 

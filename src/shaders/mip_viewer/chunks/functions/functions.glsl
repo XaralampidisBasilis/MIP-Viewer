@@ -10,6 +10,8 @@
 #include "./cellCoordsToPosition"
 #include "./intersectBlockExit"
 #include "./intersectCellExit"
+#include "./intersectCell"
 #include "./advanceCellCoords"
 #include "./advanceBlockCoords"
+#include "./advanceCellCoordsAtBlock"
 #include "./cubicMax"

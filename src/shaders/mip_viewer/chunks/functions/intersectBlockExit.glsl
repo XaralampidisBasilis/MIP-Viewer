@@ -1,7 +1,6 @@
 #ifndef INTERSECT_BLOCK_EXIT
 #define INTERSECT_BLOCK_EXIT
 
-
 float intersectBlockExit(ivec3 coords, out ivec3 exitStep)
 {
     ivec3 cMin = coords;

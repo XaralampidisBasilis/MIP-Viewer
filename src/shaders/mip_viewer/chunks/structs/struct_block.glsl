@@ -7,29 +7,31 @@ struct Block
     int   step_radius;
     bool  shadowed;
     bool  terminated;
-    ivec3 exit_step;
     ivec3 coords;  
     float entry_distance;
     float exit_distance;
     float span_distance;
     vec3  entry_position;
     vec3  exit_position;
+    ivec3 entry_step;
+    ivec3 exit_step;
 };
 
 Block block; // Global mutable struct
 
 void set_block()
 {
-    block.step_radius  = 0;
+    block.step_radius    = 0;
     block.shadowed       = false;
     block.terminated     = false;
     block.coords         = ivec3(0);
-    block.exit_step    = ivec3(0);
     block.entry_distance = 0.0;
     block.exit_distance  = 0.0;
     block.span_distance  = 0.0;
     block.entry_position = vec3(0.0);
     block.exit_position  = vec3(0.0);
+    block.entry_step     = ivec3(0);
+    block.exit_step      = ivec3(0);
 }
 
 #endif // STRUCT_BLOCK

@@ -1,3 +1,4 @@
+
 const float eps = 0.001;
 vec3 epsStep = u_ray.direction * eps;
 
@@ -29,29 +30,30 @@ mip.value = cubic.values.w;
 // START_MARCH
 bool prevNonShadowed = true;
 
-for (int j = 0; j < u_debug.max_blocks; j++) 
+for (int j = 0; j < MAX_BLOCKS; j++) 
 {
     // UPDATE_BLOCK
-    
-    // compute next coordinates
-    block.coords = advanceBlockCoords(block.coords, block.exit_step);
 
-    // compute shadowed
-    block.shadowed = sample_shadow(block.coords);
+    // Choose next block coords from either geometric exit or skip step
+    block.coords = advanceBlockCoords(block.coords, block.exit_position + epsStep, block.step_radius, block.exit_step);
 
-    // compute entry from previous exit
+    // Read skip radius and shadow flag for the current block
+    block.step_radius = sample_rgba16ui_distance_fast(block.coords, block.shadowed);
+    // block.step_radius = sample_rgb32ui_distance_fast(block.coords, block.shadowed);
+
+    // Current entry is the previous step's exit
     block.entry_distance = block.exit_distance;
     block.entry_position = block.exit_position;
     block.entry_step = block.exit_step;
 
-    // compute exit from block ray intersection 
-    block.exit_distance = intersectBlockExit(block.coords, block.exit_step);
+    // Find exit point of the current skip block
+    block.exit_distance = intersectBlockExit(block.coords, block.step_radius, block.exit_step);
     block.exit_position = rayDistanceToPosition(block.exit_distance);
 
-    // compute span distance
+    // Distance covered inside this block span
     block.span_distance = block.exit_distance - block.entry_distance;
 
-    // compute termination condition
+    // Stop once the ray exit goes beyond the ray end
     block.terminated = block.exit_distance > ray.end_distance - eps;
 
     // update stats
@@ -65,12 +67,12 @@ for (int j = 0; j < u_debug.max_blocks; j++)
     bool consecutiveNonShadowed = prevNonShadowed && !block.shadowed;
     prevNonShadowed = !block.shadowed;
 
-    if (block.shadowed && !block.terminated)
+    if (block.shadowed && !block.terminated) 
     {
         continue;
     }
 
-    // START_CELL_AT_BLOCK
+    // START_CELL_TO_BLOCK
     cell.coords = advanceCellCoordsAtBlock(block.coords, block.entry_position + epsStep, block.entry_step);
     cell.exit_distance = block.entry_distance;
     cell.exit_position = block.entry_position; 

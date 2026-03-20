@@ -14,6 +14,9 @@ vec4 debug_block_terminated = to_color(block.terminated);
 // coords
 vec4 debug_block_coords = to_color(vec3(block.coords) / vec3(u_volume.blocked_dimensions - 1));
 
+// entry_step
+vec4 debug_block_entry_step = to_color(vec3(block.entry_step));
+
 // exit_step
 vec4 debug_block_exit_step = to_color(vec3(block.exit_step));
 
@@ -33,10 +36,11 @@ switch (u_debug.option - 400)
     case  2: fragColor = debug_block_shadowed;       break;
     case  3: fragColor = debug_block_terminated;     break;
     case  4: fragColor = debug_block_coords;         break;
-    case  5: fragColor = debug_block_exit_step;    break;
-    case  6: fragColor = debug_block_entry_distance; break;
-    case  7: fragColor = debug_block_exit_distance;  break;
-    case  8: fragColor = debug_block_span_distance;  break;
+    case  5: fragColor = debug_block_entry_step;     break;
+    case  6: fragColor = debug_block_exit_step;      break;
+    case  7: fragColor = debug_block_entry_distance; break;
+    case  8: fragColor = debug_block_exit_distance;  break;
+    case  9: fragColor = debug_block_span_distance;  break;
 }
 
   
