@@ -26,19 +26,12 @@ This project focuses on interactive volume rendering in WebGL2, together with ac
 
 <p align="center">
   <img src="./static/images/mip_skeleton.png" alt="Main MIP render" width="32%" />
+  <img src="./static/images/mip_skeleton_fetches_2.png" alt="Fetch count debug view two" width="32%" />
+  <img src="./static/images/mip_skeleton_fetches_1.png" alt="Fetch count debug view one" width="32%" />
+
   <img src="./static/images/mip_skeleton_distance.png" alt="Distance debug view" width="32%" />
   <img src="./static/images/mip_skeleton_position.png" alt="Position debug view" width="32%" />
-</p>
-
-<p align="center">
-  <img src="./static/images/mip_skeleton_gradient.png" alt="Gradient debug view" width="32%" />
-  <img src="./static/images/mip_skeleton_normal.png" alt="Normal debug view" width="32%" />
   <img src="./static/images/mip_skeleton_steepness.png" alt="Steepness debug view" width="32%" />
-</p>
-
-<p align="center">
-  <img src="./static/images/mip_skeleton_fetches_1.png" alt="Fetch count debug view one" width="48%" />
-  <img src="./static/images/mip_skeleton_fetches_2.png" alt="Fetch count debug view two" width="48%" />
 </p>
 
 ## Controls
