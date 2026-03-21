@@ -121,11 +121,11 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         #endif
 
         // UPDATE_CUBIC     
-        vec3 span_position = cell.exit_position - cell.entry_position;
+        vec3 cell_span_vector = cell.exit_position - cell.entry_position;
 
         cubic.values.x = cubic.values.w;
-        cubic.values.y = sampleVolume(cell.entry_position + span_position * (1.0 / 3.0));
-        cubic.values.z = sampleVolume(cell.entry_position + span_position * (2.0 / 3.0));
+        cubic.values.y = sampleVolume(cell.entry_position + cell_span_vector * (1.0 / 3.0));
+        cubic.values.z = sampleVolume(cell.entry_position + cell_span_vector * (2.0 / 3.0));
         cubic.values.w = sampleVolume(cell.exit_position);
 
         #if DEBUG_ENABLED == 1
