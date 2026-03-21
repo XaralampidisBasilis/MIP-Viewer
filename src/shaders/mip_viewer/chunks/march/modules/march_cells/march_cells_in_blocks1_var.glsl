@@ -27,7 +27,7 @@ mip.value = cubic.values.w;
 #endif
 
 // START_MARCH
-bool prevNonShadowed = true;
+// bool prev_occupied = true;
 
 for (int j = 0; j < MAX_BLOCKS; j++) 
 {
@@ -37,6 +37,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     block.coords = advanceBlockCoords(block.coords, block.exit_step);
 
     // compute shadowed
+    bool prev_shadowed = block.shadowed;
     block.shadowed = sample_shadow(block.coords);
 
     // compute entry from previous exit
@@ -62,8 +63,8 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 
     #endif
 
-    bool consecutiveNonShadowed = prevNonShadowed && !block.shadowed;
-    prevNonShadowed = !block.shadowed;
+    // bool consecutive_occupied = prev_occupied && !block.shadowed;
+    // prev_occupied = !block.shadowed;
 
     if (block.shadowed && !block.terminated)
     {
@@ -77,7 +78,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     cell.exit_step = ivec3(0);
 
     // START_CUBIC
-    if (!consecutiveNonShadowed)
+    if (prev_shadowed)
     {
         cubic.values.w = sampleVolume(block.entry_position);
 
@@ -140,10 +141,10 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         {
             // SOLVE_CUBIC
             cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
-            CubicMax cubicMax = cubicMaxFromCoeffs_v2(cubic.coeffs);
+            CubicMax cubic_max = cubicMaxFromCoeffs(cubic.coeffs);
             
-            cubic.argmax_time = cubicMax.t;
-            cubic.max_value = cubicMax.v;
+            cubic.argmax_time = cubic_max.t;
+            cubic.max_value = cubic_max.v;
             
             #if DEBUG_ENABLED == 1
 
@@ -152,8 +153,8 @@ for (int j = 0; j < MAX_BLOCKS; j++)
             #endif
 
             // UPDATE_MIP
-            mip.distance = mix(cell.entry_distance, cell.exit_distance, cubicMax.t);
-            mip.value = cubicMax.v;
+            mip.distance = mix(cell.entry_distance, cell.exit_distance, cubic_max.t);
+            mip.value = cubic_max.v;
 
             #if DEBUG_ENABLED == 1
 

@@ -40,31 +40,8 @@ CubicMax cubicMaxFromValues(vec4 vals)
     return CubicMax(v[i], t[i]);
 }
 
-CubicMax cubicMaxFromCoeffs(vec4 c)
-{
-    // quadratic coefficients
-    vec3 q = vec3(c.y, 2.0 * c.z, 3.0 * c.w);
-
-    // derivative roots
-    vec2 t_ext = clamp(quadratic_roots(q), 0.0, 1.0);
-
-    // evaluate extrema
-    vec2 v_ext = eval_poly(c, t_ext);
-
-    // evaluate endpoints directly
-    float v0 = c.x;
-    float v1 = c.x + c.y + c.z + c.w;
-
-    // pack for argmax
-    vec4 v = vec4(v0, v_ext.x, v_ext.y, v1);
-    vec4 t = vec4(0.0, t_ext.x, t_ext.y, 1.0);
-
-    int i = argmax(v);
-    return CubicMax(v[i], t[i]);
-}
-
 // Find the maximum value of a cubic on [0, 1] from power-basis coefficients
-CubicMax cubicMaxFromCoeffs_v2(vec4 c)
+CubicMax cubicMaxFromCoeffs(vec4 c)
 {
     // Start with endpoint t = 0
     float bestT = 0.0;
@@ -124,5 +101,30 @@ CubicMax cubicMaxFromCoeffs_v2(vec4 c)
 
     return CubicMax(bestV, bestT);
 }
+
+/*
+CubicMax cubicMaxFromCoeffs(vec4 c)
+{
+    // quadratic coefficients
+    vec3 q = vec3(c.y, 2.0 * c.z, 3.0 * c.w);
+
+    // derivative roots
+    vec2 t_ext = clamp(quadratic_roots(q), 0.0, 1.0);
+
+    // evaluate extrema
+    vec2 v_ext = eval_poly(c, t_ext);
+
+    // evaluate endpoints directly
+    float v0 = c.x;
+    float v1 = c.x + c.y + c.z + c.w;
+
+    // pack for argmax
+    vec4 v = vec4(v0, v_ext.x, v_ext.y, v1);
+    vec4 t = vec4(0.0, t_ext.x, t_ext.y, 1.0);
+
+    int i = argmax(v);
+    return CubicMax(v[i], t[i]);
+}
+*/
 
 #endif

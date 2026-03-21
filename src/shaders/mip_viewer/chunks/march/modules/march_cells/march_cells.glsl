@@ -11,7 +11,7 @@
     #elif SKIPPING_METHOD == 1
 
         #if VARIATION_ENABLED == 1
-            #include "./march_cells_in_blocks2_var"
+            #include "./march_blocks_in_blocks2"
         #else
             #include "./march_cells_in_cells2_var"
         #endif

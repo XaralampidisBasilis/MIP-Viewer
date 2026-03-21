@@ -142,7 +142,7 @@ for (int j = 0; j < MAX_CELLS; j++)
         {
             // SOLVE_CUBIC
             cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
-            CubicMax cubicMax = cubicMaxFromCoeffs_v2(cubic.coeffs);
+            CubicMax cubicMax = cubicMaxFromCoeffs(cubic.coeffs);
             
             cubic.argmax_time = cubicMax.t;
             cubic.max_value = cubicMax.v;

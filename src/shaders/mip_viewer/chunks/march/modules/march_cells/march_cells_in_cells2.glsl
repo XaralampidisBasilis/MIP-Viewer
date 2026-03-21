@@ -85,7 +85,7 @@ for (int i = 0; i < MAX_CELLS; i++)
         // SOLVE_CUBIC
 
         cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
-        CubicMax cubicMax = cubicMaxFromCoeffs_v2(cubic.coeffs);
+        CubicMax cubicMax = cubicMaxFromCoeffs(cubic.coeffs);
 
         cubic.max_value = cubicMax.v;
         cubic.argmax_time = cubicMax.t;
