@@ -1,5 +1,9 @@
+
+const float eps = 0.001;
+vec3 epsStep = u_ray.direction * eps;
+
 // START_CELL
-cell.coords = positionToCellCoords(ray.start_position);
+cell.coords = positionToCellCoords(ray.start_position + epsStep);
 cell.exit_distance = ray.start_distance;
 cell.exit_position = ray.start_position; 
 cell.exit_step = ivec3(0);
@@ -25,9 +29,6 @@ mip.value = cubic.values.w;
 
 // MARCH THROUGH CELLS ALONG THE RAY
 
-const float eps = 0.001;
-vec3 epsStep = u_ray.direction * eps;
-
 bool prevNonShadowed = true;
 
 for (int i = 0; i < MAX_CELLS; i++) 
@@ -38,8 +39,8 @@ for (int i = 0; i < MAX_CELLS; i++)
     cell.coords = advanceCellCoords(cell.coords, cell.exit_position + epsStep, cell.step_radius, cell.exit_step);
 
     // Read skip radius and shadow flag for the current cell
-    cell.step_radius = sample_rgba16ui_distance_fast(cell.coords, cell.shadowed);
-    // cell.step_radius = sample_rgb32ui_distance_fast(cell.coords, cell.shadowed);
+    // cell.step_radius = sample_rgba16ui_distance_fast(cell.coords, cell.shadowed);
+    cell.step_radius = sample_rgb32ui_distance_fast(cell.coords, cell.shadowed);
 
     // Current entry is the previous step's exit
     cell.entry_distance = cell.exit_distance;

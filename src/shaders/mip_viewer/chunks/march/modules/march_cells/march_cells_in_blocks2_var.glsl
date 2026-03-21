@@ -30,7 +30,7 @@ mip.value = cubic.values.w;
 // START_MARCH
 bool prevNonShadowed = true;
 
-for (int j = 0; j < MAX_BLOCKS; j++) 
+for (int j = 0; j < MAX_CELLS; j++) 
 {
     // UPDATE_BLOCK
 

@@ -29,9 +29,9 @@ export default class Configs extends EventEmitter
     {
         super()
 
-        this.blockSize = 2
+        this.blockSize = 1
 
-        this.downscaleEnabled = false
+        this.downscaleEnabled = true
         this.downscaleFactor = 0.8
         
         this.gradientsMethod = 'triquadraticBspline'
