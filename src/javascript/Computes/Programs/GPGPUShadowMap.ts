@@ -1296,7 +1296,7 @@ export function computeBidirectionalBlockShadowMap(
     if (verbose) logTensor('shadowMap', shadowMap)
     tf.dispose([forwardShadowMap, backwardShadowMap])
 
-    const blockShadowMap = minPool3d(shadowMap, blockSize, blockSize, 1, 'ceil')
+    const blockShadowMap = minPool3d(shadowMap, blockSize, blockSize, 'same')
     if (verbose) logTensor('blockShadowMap', blockShadowMap)
     tf.dispose(shadowMap)
 
