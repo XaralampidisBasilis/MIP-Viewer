@@ -4,6 +4,8 @@ Browser-based maximum intensity projection (MIP) viewer for medical NIFTI volume
 
 This project focuses on interactive volume rendering in WebGL2, together with acceleration experiments based on precomputed shadow and distance maps, block-based skipping, and detailed shader debug views.
 
+> ⚠️ **Note:** The demo does **not** run on mobile devices. Please open it on a desktop or laptop with GPU acceleration enabled. It takes around 1 min to load 
+
 <p align="center">
   <img src="./static/images/mip_skeleton.png" alt="Main maximum intensity projection render of the default CTA head and neck dataset" width="100%" />
 </p>
@@ -23,28 +25,35 @@ This project focuses on interactive volume rendering in WebGL2, together with ac
 ## Gallery
 
 <p align="center">
+  <img src="./static/images/mip_skeleton.png" alt="Main MIP render" width="32%" />
   <img src="./static/images/mip_skeleton_distance.png" alt="Distance debug view" width="32%" />
-  <img src="./static/images/mip_skeleton_gradient.png" alt="Gradient debug view" width="32%" />
-  <img src="./static/images/mip_skeleton_fetches_1.png" alt="Fetch count debug view" width="32%" />
+  <img src="./static/images/mip_skeleton_position.png" alt="Position debug view" width="32%" />
 </p>
 
+<p align="center">
+  <img src="./static/images/mip_skeleton_gradient.png" alt="Gradient debug view" width="32%" />
+  <img src="./static/images/mip_skeleton_normal.png" alt="Normal debug view" width="32%" />
+  <img src="./static/images/mip_skeleton_steepness.png" alt="Steepness debug view" width="32%" />
+</p>
 
-> ⚠️ **Note:** The demo does **not** run on mobile devices. Please open it on a desktop or laptop with GPU acceleration enabled. It takes around 1 min to load 
+<p align="center">
+  <img src="./static/images/mip_skeleton_fetches_1.png" alt="Fetch count debug view one" width="48%" />
+  <img src="./static/images/mip_skeleton_fetches_2.png" alt="Fetch count debug view two" width="48%" />
+</p>
 
----
+## Controls
 
-## 🛠️ Setup
+The viewer uses custom probe-style controls for exploring the volume in 3D.
 
-First, install [Node.js](https://nodejs.org/en/download/).
+## Running locally
 
-Then run the following commands:
+Install Node.js first, then run:
 
 ```bash
-# Install dependencies (only required once)
 npm install
-
-# Start a local development server at localhost:8080
 npm run dev
-
-# Build for production (output in dist/ directory)
 npm run build
+```
+
+- `npm run dev` starts the Vite development server.
+- `npm run build` outputs the production build to `docs/`, which fits a GitHub Pages workflow.
