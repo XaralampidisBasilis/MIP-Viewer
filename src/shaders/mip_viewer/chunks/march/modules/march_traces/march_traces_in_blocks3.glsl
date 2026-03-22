@@ -103,8 +103,8 @@ for (int i = 0; i < MAX_CELLS; i++)
 }
 
 mip.position = rayDistanceToPosition(mip.distance); 
-mip.gradient = computeGradient(mip.position, mip.hessian);
-mip.curvatures = computePrincipalCurvatures(mip.gradient, mip.hessian);
+mip.gradient = compute_gradient(mip.position, mip.hessian);
+mip.curvatures = compute_curvatures(mip.gradient, mip.hessian);
 mip.normal = normalize(mip.gradient);
 
 

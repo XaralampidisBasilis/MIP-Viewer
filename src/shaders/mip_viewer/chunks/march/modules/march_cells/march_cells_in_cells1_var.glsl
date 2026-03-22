@@ -29,8 +29,6 @@ mip.value = cubic.values.w;
 
 // START_MARCH
 
-bool prevNonShadowed = true;
-
 for (int i = 0; i < MAX_CELLS; i++) 
 {
     // UPDATE_CELL
@@ -82,13 +80,13 @@ for (int i = 0; i < MAX_CELLS; i++)
 
         // BERNSTEIN_TEST
         cubic.bernstein_coeffs = cubic.values * CUBIC_INV_BERNSTEIN;
-        bool update_mip = any(greaterThan(cubic.bernstein_coeffs, vec4(mip.value)));
+        mip.update = any(greaterThan(cubic.bernstein_coeffs, vec4(mip.value)));
 
-        if (update_mip)
+        if (mip.update)
         {
             // SOLVE CUBIC
             cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
-            CubicMax cubic_max = cubicMaxFromCoeffs(cubic.coeffs);
+            CubicMax cubic_max = cubicMaxOnUnitInterval(cubic.coeffs, cubic.values.x, cubic.values.w);
 
             cubic.max_value = cubic_max.v;
             cubic.argmax_time = cubic_max.t;

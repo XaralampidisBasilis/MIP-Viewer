@@ -4,6 +4,7 @@
 // struct to hold information about the maximum intensity projected trace
 struct Mip 
 {
+    bool  update;           
     vec3  position;           
     float distance;   
     float value;        
@@ -17,6 +18,7 @@ Mip mip; // Global mutable struct
 
 void set_mip()
 {
+    mip.update      = false;
     mip.position    = vec3(0.0);
     mip.distance    = 0.0;
     mip.value       = 0.0;

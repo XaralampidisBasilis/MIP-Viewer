@@ -14,4 +14,4 @@
 #include "./advanceCellCoords"
 #include "./advanceBlockCoords"
 #include "./advanceCellCoordsAtBlock"
-#include "./cubicMax"
+#include "./cubicMaxOnUnitInterval"

@@ -83,7 +83,7 @@ for (int i = 0; i < MAX_CELLS; i++)
         // SOLVE_CUBIC
 
         cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
-        CubicMax cubic_max = cubicMaxFromCoeffs(cubic.coeffs);
+        CubicMax cubic_max = cubicMaxOnUnitInterval(cubic.coeffs, cubic.values.x, cubic.values.w);
         
         cubic.max_value = cubic_max.v;
         cubic.argmax_time = cubic_max.t;
@@ -95,8 +95,9 @@ for (int i = 0; i < MAX_CELLS; i++)
         #endif
 
         // UPDATE_MIP
+        mip.update = mip.value < cubic.max_value;
 
-        if (mip.value < cubic.max_value) 
+        if (mip.update) 
         {
             mip.distance = mix(cell.entry_distance, cell.exit_distance, cubic_max.t);
             mip.value = cubic_max.v;
