@@ -1,8 +1,8 @@
-const float eps = 0.001;
-vec3 epsStep = u_ray.direction * eps;
+float eps_distance = u_ray.spacing * 0.001;
+vec3 eps_direction = u_ray.direction * eps_distance;
 
 // START_CELL
-cell.coords = positionToCellCoords(ray.start_position + epsStep);
+cell.coords = positionToCellCoords(ray.start_position + eps_direction);
 cell.exit_distance = ray.start_distance;
 cell.exit_position = ray.start_position; 
 cell.exit_step = ivec3(0);
@@ -41,13 +41,13 @@ for (int i = 0; i < MAX_CELLS; i++)
 
     // compute exit from cell ray intersection 
     cell.exit_distance = intersectCellExit(cell.coords, cell.exit_step);
-    cell.exit_position = rayDistanceToPosition(cell.exit_distance);
+    cell.exit_position = distanceToPosition(cell.exit_distance);
 
     // compute span distance
     cell.span_distance = cell.exit_distance - cell.entry_distance;
 
     // compute termination condition
-    cell.terminated = cell.exit_distance > ray.end_distance - eps;
+    cell.terminated = cell.exit_distance > ray.end_distance - eps_distance;
 
     // update stats
     #if DEBUG_ENABLED == 1
@@ -103,7 +103,7 @@ for (int i = 0; i < MAX_CELLS; i++)
 }
 
 // END_MIP
-mip.position = rayDistanceToPosition(mip.distance); 
+mip.position = distanceToPosition(mip.distance); 
 mip.gradient = computeGradient(mip.position, mip.hessian);
 mip.curvatures = computePrincipalCurvatures(mip.gradient, mip.hessian);
 mip.normal = normalize(mip.gradient);

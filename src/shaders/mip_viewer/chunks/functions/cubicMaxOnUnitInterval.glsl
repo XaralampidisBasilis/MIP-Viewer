@@ -36,8 +36,8 @@ CubicMax cubicMaxOnUnitInterval(vec4 c)
     }
 
     // Derivative: c.y + 2*c.z*t + 3*c.w*t^2
-    float a = 3.0 * c.w;
-    float b = 2.0 * c.z;
+    float a = c.w * 3.0;
+    float b = c.z * 2.0;
     float d = c.y;
 
     float disc = b * b - 4.0 * a * d;
@@ -96,8 +96,8 @@ CubicMax cubicMaxOnUnitInterval(vec4 c, float v0, float v1)
     }
 
     // Derivative: c.y + 2*c.z*t + 3*c.w*t^2
-    float a = 3.0 * c.w;
-    float b = 2.0 * c.z;
+    float a = c.w * 3.0;
+    float b = c.z * 2.0;
     float d = c.y;
 
     float disc = b * b - 4.0 * a * d;

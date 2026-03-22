@@ -1,12 +1,12 @@
-const float eps = 0.001;
-vec3 epsStep = u_ray.direction * eps;
+float eps_distance = u_ray.spacing * 0.001;
+vec3 eps_direction = u_ray.direction * eps_distance;
 
 // START_BLOCK
-block.coords = positionToBlockCoords(ray.start_position + epsStep);
+block.coords = positionToBlockCoords(ray.start_position + eps_direction);
 block.exit_distance = ray.start_distance;
 block.exit_position = ray.start_position; 
 block.exit_step = ivec3(0);
-block.shadowed = false;
+block.empty = false;
 
 // START_CUBIC
 cubic.values.w = sampleVolume(ray.start_position);
@@ -36,9 +36,9 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     // compute next coordinates
     block.coords = advanceBlockCoords(block.coords, block.exit_step);
 
-    // compute shadowed
-    bool prev_shadowed = block.shadowed;
-    block.shadowed = sampleShadow(block.coords);
+    // compute empty
+    bool prev_empty = block.empty;
+    block.empty = sampleShadow(block.coords);
 
     // compute entry from previous exit
     block.entry_distance = block.exit_distance;
@@ -47,13 +47,13 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 
     // compute exit from block ray intersection 
     block.exit_distance = intersectBlockExit(block.coords, block.exit_step);
-    block.exit_position = rayDistanceToPosition(block.exit_distance);
+    block.exit_position = distanceToPosition(block.exit_distance);
 
     // compute span distance
     block.span_distance = block.exit_distance - block.entry_distance;
 
     // compute termination condition
-    block.terminated = block.exit_distance > ray.end_distance - eps;
+    block.terminated = block.exit_distance > ray.end_distance - eps_distance;
 
     // update stats
     #if DEBUG_ENABLED == 1
@@ -63,19 +63,19 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 
     #endif
 
-    if (block.shadowed)
+    if (block.empty)
     {
         if (!block.terminated) continue; else break;    
     }
 
     // START_CELL_AT_BLOCK
-    cell.coords = advanceCellCoordsAtBlock(block.coords, block.entry_position + epsStep, block.entry_step);
+    cell.coords = advanceCellCoordsAtBlock(block.coords, block.entry_position + eps_direction, block.entry_step);
     cell.exit_distance = block.entry_distance;
     cell.exit_position = block.entry_position; 
     cell.exit_step = ivec3(0);
 
     // START_CUBIC
-    if (prev_shadowed)
+    if (prev_empty)
     {
         cubic.values.w = sampleVolume(block.entry_position);
 
@@ -101,15 +101,15 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 
         // compute exit from cell ray intersection 
         cell.exit_distance = intersectCellExit(cell.coords, cell.exit_step);
-        cell.exit_position = rayDistanceToPosition(cell.exit_distance);
+        cell.exit_position = distanceToPosition(cell.exit_distance);
 
         // compute span distance
         cell.span_distance = cell.exit_distance - cell.entry_distance;
 
         // compute termination condition
         cell.terminated = 
-            cell.exit_distance > block.exit_distance - eps || 
-            cell.exit_distance > ray.end_distance - eps;
+            cell.exit_distance > block.exit_distance - eps_distance || 
+            cell.exit_distance > ray.end_distance - eps_distance;
 
         // update stats
         #if DEBUG_ENABLED == 1
@@ -169,7 +169,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 }
 
 // END_MIP
-mip.position = rayDistanceToPosition(mip.distance); 
+mip.position = distanceToPosition(mip.distance); 
 mip.gradient = computeGradient(mip.position, mip.hessian);
 mip.curvatures = computePrincipalCurvatures(mip.gradient, mip.hessian);
 mip.normal = normalize(mip.gradient);

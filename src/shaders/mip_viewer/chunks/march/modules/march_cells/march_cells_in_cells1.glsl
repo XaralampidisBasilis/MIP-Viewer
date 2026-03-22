@@ -1,13 +1,13 @@
 
-const float eps = 0.001;
-vec3 epsStep = u_ray.direction * eps;
+float eps_distance = u_ray.spacing * 0.001;
+vec3 eps_direction = u_ray.direction * eps_distance;
 
 // START_CELL
-cell.coords = positionToCellCoords(ray.start_position + epsStep);
+cell.coords = positionToCellCoords(ray.start_position + eps_direction);
 cell.exit_distance = ray.start_distance;
 cell.exit_position = ray.start_position; 
 cell.exit_step = ivec3(0);
-cell.shadowed = false;
+cell.empty = false;
 
 // START_CUBIC
 cubic.values.w = sampleVolume(ray.start_position);
@@ -37,9 +37,9 @@ for (int i = 0; i < MAX_CELLS; i++)
     // compute current coordinates
     cell.coords = advanceCellCoords(cell.coords, cell.exit_step);
 
-    // compute shadowed
-    bool prev_shadowed = cell.shadowed;
-    cell.shadowed = sampleShadow(cell.coords);
+    // compute empty
+    bool prev_empty = cell.empty;
+    cell.empty = sampleShadow(cell.coords);
 
     // compute entry from previous exit
     cell.entry_distance = cell.exit_distance;
@@ -47,13 +47,13 @@ for (int i = 0; i < MAX_CELLS; i++)
 
     // compute exit from cell ray intersection 
     cell.exit_distance = intersectCellExit(cell.coords, cell.exit_step);
-    cell.exit_position = rayDistanceToPosition(cell.exit_distance);
+    cell.exit_position = distanceToPosition(cell.exit_distance);
 
     // compute span distance
     cell.span_distance = cell.exit_distance - cell.entry_distance;
 
     // compute termination condition
-    cell.terminated = cell.exit_distance > ray.end_distance - eps;
+    cell.terminated = cell.exit_distance > ray.end_distance - eps_distance;
 
     // update stats
     #if DEBUG_ENABLED == 1
@@ -63,20 +63,20 @@ for (int i = 0; i < MAX_CELLS; i++)
 
     #endif
 
-    if (!cell.shadowed) 
+    if (!cell.empty) 
     {
         // UPDATE_CUBIC     
 
         vec3 span_vector = cell.exit_position - cell.entry_position;
 
-        cubic.values.x = prev_shadowed ? sampleVolume(cell.entry_position) : cubic.values.w;
+        cubic.values.x = prev_empty ? sampleVolume(cell.entry_position) : cubic.values.w;
         cubic.values.y = sampleVolume(cell.entry_position + span_vector * (1.0 / 3.0));
         cubic.values.z = sampleVolume(cell.entry_position + span_vector * (2.0 / 3.0));
         cubic.values.w = sampleVolume(cell.exit_position);
 
         #if DEBUG_ENABLED == 1
 
-            stats.num_volume_fetches += prev_shadowed ? 4 : 3;
+            stats.num_volume_fetches += prev_empty ? 4 : 3;
 
         #endif
 
@@ -114,7 +114,7 @@ for (int i = 0; i < MAX_CELLS; i++)
 }
 
 // END_MIP
-mip.position = rayDistanceToPosition(mip.distance); 
+mip.position = distanceToPosition(mip.distance); 
 mip.gradient = computeGradient(mip.position, mip.hessian);
 mip.curvatures = computePrincipalCurvatures(mip.gradient, mip.hessian);
 mip.normal = normalize(mip.gradient);

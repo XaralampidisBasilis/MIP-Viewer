@@ -5,8 +5,8 @@
 // skip distance
 vec4 debug_block_step_radius = to_color(float(block.step_radius) / 31.0);
 
-// shadowed
-vec4 debug_block_shadowed = to_color(block.shadowed);
+// empty
+vec4 debug_block_empty = to_color(block.empty);
 
 // terminated
 vec4 debug_block_terminated = to_color(block.terminated);
@@ -33,7 +33,7 @@ vec4 debug_block_span_distance = to_color(block.span_distance / (sqrt(3.0) * flo
 switch (u_debug.option - 400)
 {
     case  1: fragColor = debug_block_step_radius;    break;
-    case  2: fragColor = debug_block_shadowed;       break;
+    case  2: fragColor = debug_block_empty;       break;
     case  3: fragColor = debug_block_terminated;     break;
     case  4: fragColor = debug_block_coords;         break;
     case  5: fragColor = debug_block_entry_step;     break;

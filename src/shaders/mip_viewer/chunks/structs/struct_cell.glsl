@@ -3,7 +3,7 @@
 
 struct Cell 
 {
-    bool  shadowed;
+    bool  empty;
     bool  terminated;
     ivec3 coords;
     int   step_radius;
@@ -20,7 +20,7 @@ Cell cell; // Global mutable struct
 
 void set_cell()
 {
-    cell.shadowed       = false;
+    cell.empty       = false;
     cell.terminated     = false;
     cell.coords         = ivec3(0);
     cell.step_radius    = 0;

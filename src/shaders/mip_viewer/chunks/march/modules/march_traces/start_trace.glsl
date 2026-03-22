@@ -6,7 +6,7 @@ trace.spacing = ray.spacing / 2.0;
 trace.distance = ray.start_distance + trace.spacing * ray.phase;
 
 // set position
-trace.position = rayDistanceToPosition(trace.distance); 
+trace.position = distanceToPosition(trace.distance); 
 
 // set value
 trace.value = sampleVolume(trace.position);

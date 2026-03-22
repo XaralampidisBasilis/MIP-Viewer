@@ -1,6 +1,6 @@
 // compute skip distance
-block.step_radius = sampleDistance5bit(block.coords, block.shadowed);
-// block.step_radius = sampleDistance8bit(block.coords, block.shadowed);
+block.step_radius = sampleDistance5bit(block.coords, block.empty);
+// block.step_radius = sampleDistance8bit(block.coords, block.empty);
 
 // compute entry from previous exit
 block.entry_distance = block.exit_distance;
@@ -8,7 +8,7 @@ block.entry_position = block.exit_position;
 
 // compute exit from cell ray intersection 
 block.exit_distance = intersectSkipBlockExit(block.coords, block.step_radius, block.exit_step) + ray.spacing * 0.001;
-block.exit_position = rayDistanceToPosition(block.exit_distance);
+block.exit_position = distanceToPosition(block.exit_distance);
 
 // compute span distance
 block.span_distance = block.exit_distance - block.entry_distance;

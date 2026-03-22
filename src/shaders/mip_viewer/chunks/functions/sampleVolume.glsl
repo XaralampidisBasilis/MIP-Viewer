@@ -3,10 +3,10 @@
 #ifndef SAMPLE_TRILINEAR_VOLUME
 #define SAMPLE_TRILINEAR_VOLUME
 
-float sampleVolume(vec3 coords)
+float sampleVolume(vec3 position)
 {
-    vec3 texture_coords = coords * u_volume.inv_dimensions;
-    return texture(u_textures.volume_map, texture_coords).r;
+    vec3 texturePos = position * u_volume.inv_dimensions;
+    return texture(u_textures.volume_map, texturePos).r;
 }
 
 #endif

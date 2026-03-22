@@ -26,7 +26,7 @@ ivec3 advanceCellCoords(ivec3 coords, int exitAxis)
 
 ivec3 advanceCellCoords(ivec3 coords, vec3 exitPosition, int stepRadius, int exitAxis)
 {
-    vec3 rayNudge = u_ray.direction * eps;
+    vec3 rayNudge = u_ray.direction * eps_distance;
     ivec3 outCoords = positionToCellCoords(exitPosition + rayNudge);
     outCoords[exitAxis] = coords[exitAxis] + stepRadius * u_ray.signs[exitAxis];
 

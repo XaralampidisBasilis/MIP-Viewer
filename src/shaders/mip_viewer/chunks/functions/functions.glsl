@@ -3,7 +3,7 @@
 #include "./sampleDistance"
 #include "./computeGradient"
 #include "./computePrincipalCurvatures"
-#include "./rayDistanceToPosition"
+#include "./distanceToPosition"
 #include "./positionToBlockCoords"
 #include "./positionToCellCoords"
 #include "./blockCoordsToPosition"

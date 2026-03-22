@@ -8,7 +8,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 {
     #include "../march_blocks/update_block"
 
-    if (block.shadowed && !block.terminated) continue;
+    if (block.empty && !block.terminated) continue;
     
     #include "./start_trace_in_block"
     #include "./update_mip"

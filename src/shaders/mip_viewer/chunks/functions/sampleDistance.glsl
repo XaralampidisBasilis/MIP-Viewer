@@ -1,16 +1,16 @@
 #ifndef SAMPLE_DISTANCE
 #define SAMPLE_DISTANCE
 
-void sampleDistance1bit(in ivec3 coords, out bool shadowed)
+void sampleDistance1bit(in ivec3 coords, out bool empty)
 {    
     int i = texelFetch(u_textures.shadow_map, coords, 0).r; // -2048..2047 half float precision     
     uint u = uint(i + 2048); // 0..4095
     uint d = (u >> u_ray.map) & 0x1u;
 
-    shadowed = (d == 1u);
+    empty = (d == 1u);
 }
 
-int sampleDistance5bit(in ivec3 coords, out bool shadowed)
+int sampleDistance5bit(in ivec3 coords, out bool empty)
 {
     uvec4 u = texelFetch(u_textures.distance_map, coords, 0);
 
@@ -19,11 +19,11 @@ int sampleDistance5bit(in ivec3 coords, out bool shadowed)
 
     uint d = (u[u_ray.idx] >> shift) & mask;
 
-    shadowed = (d != 0u);
+    empty = (d != 0u);
     return int(max(d, 1u));
 }
 
-int sampleDistance8bit(in ivec3 coords, out bool shadowed)
+int sampleDistance8bit(in ivec3 coords, out bool empty)
 {
     uvec3 u = texelFetch(u_textures.distance_map, coords, 0).rgb;
 
@@ -32,13 +32,13 @@ int sampleDistance8bit(in ivec3 coords, out bool shadowed)
 
     uint d = (u[u_ray.axis] >> shift) & mask;
 
-    shadowed = (d != 0u);
+    empty = (d != 0u);
     return int(max(d, 1u));
 }
 
 /* explicit versions to understand logic
 
-void sampleDistance1bit(in ivec3 coords, out bool shadowed)
+void sampleDistance1bit(in ivec3 coords, out bool empty)
 {    
     int i = texelFetch(u_textures.shadow_map, coords, 0).r; // -2048..2047 half float precision     
     uint u = uint(i + 2048); // 0..4095
@@ -58,10 +58,10 @@ void sampleDistance1bit(in ivec3 coords, out bool shadowed)
     else if (u_ray.map == 10u) d = (u >> 10) & 0x1u; // 'z', '-++'
     else if (u_ray.map == 11u) d = (u >> 11) & 0x1u; // 'z', '--+'
 
-    shadowed = (d == 1u);
+    empty = (d == 1u);
 }
 
-int sampleDistance5bit(in ivec3 coords, out bool shadowed)
+int sampleDistance5bit(in ivec3 coords, out bool empty)
 {    
     uvec4 u = texelFetch(u_textures.distance_map, coords, 0); 
 
@@ -84,11 +84,11 @@ int sampleDistance5bit(in ivec3 coords, out bool shadowed)
     else if (u_ray.map == 10u) d = z[2]; // 'z', '-++'
     else if (u_ray.map == 11u) d = z[3]; // 'z', '--+'
 
-    shadowed = (d != 0u);
+    empty = (d != 0u);
     return int(max(d, 1u));
 }
 
-int sampleDistance8bit(in ivec3 coords, out bool shadowed)
+int sampleDistance8bit(in ivec3 coords, out bool empty)
 {    
     uvec3 u = texelFetch(u_textures.distance_map, coords, 0).rgb; 
 
@@ -112,7 +112,7 @@ int sampleDistance8bit(in ivec3 coords, out bool shadowed)
     else if (u_ray.map == 10u) d = u2.z; // 'z', '-++'
     else if (u_ray.map == 11u) d = u3.z; // 'z', '--+'
 
-    shadowed = (d != 0u);
+    empty = (d != 0u);
     return int(max(d, 1u));
 }
 */

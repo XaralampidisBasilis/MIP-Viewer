@@ -1,14 +1,14 @@
 
 // START_CUBIC_CELL
 cell.exit_distance = ray.start_distance;
-cell.exit_position = rayDistanceToPosition(cell.exit_distance); 
+cell.exit_position = distanceToPosition(cell.exit_distance); 
 cell.coords = positionToCellCoords(cell.exit_position);
 
 // START_TRACE
 float trace_phase = ray.phase - 0.5;
 trace.spacing = ray.spacing / 2.0;
 trace.distance = trace.spacing * (ceil(ray.start_distance / trace.spacing) + trace_phase);
-trace.position = rayDistanceToPosition(trace.distance); 
+trace.position = distanceToPosition(trace.distance); 
 trace.value = sampleVolume(trace.position);
 
 #if DEBUG_ENABLED == 1
@@ -27,8 +27,8 @@ for (int i = 0; i < MAX_CELLS; i++)
 {
     // UPDATE_CELL
 
-    // compute shadowed
-    cell.shadowed = sampleShadow(cell.coords);
+    // compute empty
+    cell.empty = sampleShadow(cell.coords);
 
     // compute entry from previous exit
     cell.entry_distance = cell.exit_distance;
@@ -36,7 +36,7 @@ for (int i = 0; i < MAX_CELLS; i++)
 
     // compute exit from cell ray intersection 
     cell.exit_distance = intersectCellExit(cell.coords, cell.exit_step);
-    cell.exit_position = rayDistanceToPosition(cell.exit_distance);
+    cell.exit_position = distanceToPosition(cell.exit_distance);
 
     // compute span distance
     cell.span_distance = cell.exit_distance - cell.entry_distance;
@@ -52,10 +52,10 @@ for (int i = 0; i < MAX_CELLS; i++)
 
     #endif
 
-    bool consecutiveNonShadowed = prevNonShadowed && !cell.shadowed;
-    prevNonShadowed = !cell.shadowed;
+    bool consecutiveNonShadowed = prevNonShadowed && !cell.empty;
+    prevNonShadowed = !cell.empty;
 
-    if (!cell.shadowed) 
+    if (!cell.empty) 
     {
         trace.distance = trace.spacing * floor(cell.entry_distance / trace.spacing);
 
@@ -63,7 +63,7 @@ for (int i = 0; i < MAX_CELLS; i++)
         for (int i = 0; i < 4; i++) 
         {
             trace.distance += trace.spacing;
-            trace.position = rayDistanceToPosition(trace.distance); 
+            trace.position = distanceToPosition(trace.distance); 
             trace.terminated = trace.distance > ray.end_distance; 
 
             #if DEBUG_ENABLED == 1
@@ -102,7 +102,7 @@ for (int i = 0; i < MAX_CELLS; i++)
 
 }
 
-mip.position = rayDistanceToPosition(mip.distance); 
+mip.position = distanceToPosition(mip.distance); 
 mip.gradient = compute_gradient(mip.position, mip.hessian);
 mip.curvatures = compute_curvatures(mip.gradient, mip.hessian);
 mip.normal = normalize(mip.gradient);

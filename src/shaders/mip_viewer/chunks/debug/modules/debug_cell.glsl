@@ -1,8 +1,8 @@
 
 // COMPUTE DEBUG
 
-// shadowed
-vec4 debug_cell_shadowed = to_color(cell.shadowed);
+// empty
+vec4 debug_cell_empty = to_color(cell.empty);
 
 // terminated
 vec4 debug_cell_terminated = to_color(cell.terminated);
@@ -28,7 +28,7 @@ vec4 debug_cell_span_distance = to_color(cell.span_distance / sqrt(3.0));
 // PRINT DEBUG
 switch (u_debug.option - 200)
 { 
-    case 1: fragColor = debug_cell_shadowed;       break;
+    case 1: fragColor = debug_cell_empty;       break;
     case 2: fragColor = debug_cell_terminated;     break;
     case 3: fragColor = debug_cell_step_radius;    break;
     case 4: fragColor = debug_cell_coords;         break;
