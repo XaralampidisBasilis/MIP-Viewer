@@ -3,17 +3,17 @@
     #if SKIPPING_METHOD == 0
     
         #if VARIATION_ENABLED == 1
-            #include "./march_cells_in_blocks1_var"
+            #include "./march_cells_in_blocks1_var_min"
         #else
-            #include "./march_cells_in_cells1_var"
+            #include "./march_cells_in_blocks1_var"
         #endif
 
     #elif SKIPPING_METHOD == 1
 
         #if VARIATION_ENABLED == 1
-            #include "./march_cells_in_blocks2_var"
+            #include "./march_cells_in_blocks2_var_min"
         #else
-            #include "./march_cells_in_cells2_var"
+            #include "./march_cells_in_blocks2_var"
         #endif
 
     #endif    

@@ -32,7 +32,7 @@ for (int i = 0; i < MAX_CELLS; i++)
     // UPDATE_CELL
 
     // compute current coordinates from previous exit
-    cell.coords = advanceCellCoords(cell.coords, cell.exit_position + eps_direction, cell.step_radius, cell.exit_step);
+    cell.coords = advanceCellCoords(cell.coords, cell.exit_step, cell.step_radius, cell.exit_position + eps_direction);
 
     // compute skip distance
     bool prev_empty = cell.empty;

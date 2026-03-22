@@ -34,7 +34,7 @@ for (int j = 0; j < MAX_CELLS; j++)
     // UPDATE_BLOCK
 
     // Choose next block coords from either geometric exit or skip step
-    block.coords = advanceBlockCoords(block.coords, block.exit_position + eps_direction, block.step_radius, block.exit_step);
+    block.coords = advanceBlockCoords(block.coords, block.exit_step, block.step_radius, block.exit_position + eps_direction);
 
     // Read skip radius and shadow flag for the current block
     // block.step_radius = sampleDistance5bit(block.coords, block.empty);

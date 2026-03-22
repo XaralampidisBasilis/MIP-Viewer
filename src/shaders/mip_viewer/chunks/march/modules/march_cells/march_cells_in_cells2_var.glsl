@@ -35,7 +35,7 @@ for (int i = 0; i < MAX_CELLS; i++)
     // UPDATE_CELL
 
     // Choose next current coords from either geometric exit or skip step
-    cell.coords = advanceCellCoords(cell.coords, cell.exit_position + eps_direction, cell.step_radius, cell.exit_step);
+    cell.coords = advanceCellCoords(cell.coords, cell.exit_step, cell.step_radius, cell.exit_position + eps_direction);
 
     // Read skip radius and shadow flag for the current cell
     bool prev_empty = cell.empty;
