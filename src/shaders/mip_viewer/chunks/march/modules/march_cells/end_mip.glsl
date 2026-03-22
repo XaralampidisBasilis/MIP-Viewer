@@ -1,5 +1,19 @@
 
 // Compute position
+mip.terminated = mip.distance > ray.end_distance - eps_distance;
+
+if (mip.terminated)
+{
+    mip.distance = ray.end_distance;
+    mip.value = sampleVolume(ray.end_position);
+
+#if DEBUG_ENABLED == 1
+
+    stats.num_volume_fetches += 1;
+
+    #endif
+}
+ 
 mip.position = distanceToPosition(mip.distance); 
 
 // Compute gradients and hessian

@@ -102,6 +102,20 @@ for (int i = 0; i < MAX_CELLS; i++)
 
 }
 
+mip.terminated = mip.distance > ray.end_distance - eps_distance;
+
+if (mip.terminated)
+{
+    mip.distance = ray.end_distance;
+    mip.value = sampleVolume(ray.end_position);
+
+#if DEBUG_ENABLED == 1
+
+    stats.num_volume_fetches += 1;
+
+    #endif
+}
+ 
 mip.position = distanceToPosition(mip.distance); 
 mip.gradient = compute_gradient(mip.position, mip.hessian);
 mip.curvatures = compute_curvatures(mip.gradient, mip.hessian);

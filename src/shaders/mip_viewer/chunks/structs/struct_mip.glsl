@@ -5,6 +5,7 @@
 struct Mip 
 {
     bool  update;           
+    bool  terminated;           
     vec3  position;           
     float distance;   
     float value;        
@@ -19,6 +20,7 @@ Mip mip; // Global mutable struct
 void set_mip()
 {
     mip.update      = false;
+    mip.terminated  = false;
     mip.position    = vec3(0.0);
     mip.distance    = 0.0;
     mip.value       = 0.0;
