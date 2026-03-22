@@ -28,7 +28,7 @@ for (int i = 0; i < MAX_CELLS; i++)
     // UPDATE_CELL
 
     // compute shadowed
-    cell.shadowed = sample_shadow(cell.coords);
+    cell.shadowed = sampleShadow(cell.coords);
 
     // compute entry from previous exit
     cell.entry_distance = cell.exit_distance;
@@ -103,8 +103,8 @@ for (int i = 0; i < MAX_CELLS; i++)
 }
 
 mip.position = rayDistanceToPosition(mip.distance); 
-mip.gradient = compute_gradient(mip.position, mip.hessian);
-mip.curvatures = compute_curvatures(mip.gradient, mip.hessian);
+mip.gradient = computeGradient(mip.position, mip.hessian);
+mip.curvatures = computePrincipalCurvatures(mip.gradient, mip.hessian);
 mip.normal = normalize(mip.gradient);
 
 

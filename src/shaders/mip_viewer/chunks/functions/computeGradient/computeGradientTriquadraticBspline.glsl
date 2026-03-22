@@ -14,13 +14,13 @@ GPU Gems 2, Chapter 20. Fast Third-Order Texture Filtering
 #include "../sampleVolume"
 #endif
 #ifndef COMPUTE_SECOND_DERIVATIVES
-#include "./compute_second_derivatives"
+#include "./computeSecondDerivatives"
 #endif
 
 /*
     The gradients produced are C^1 continuous
 */
-vec3 compute_gradient(in vec3 p)
+vec3 computeGradient(in vec3 p)
 {
     // Convert to voxel-space and compute local coordinates
     vec3 x = p - 0.5;
@@ -96,7 +96,7 @@ vec3 compute_gradient(in vec3 p)
     return gradient;
 }
  
-vec3 compute_gradient(in vec3 p, out mat3 hessian)
+vec3 computeGradient(in vec3 p, out mat3 hessian)
 {
     // Convert to voxel-space and compute local coordinates
     vec3 x = p - 0.5;
@@ -164,7 +164,7 @@ vec3 compute_gradient(in vec3 p, out mat3 hessian)
     ) * 2.0;
 
     // Pure second derivatives
-    vec3 s_d2x_d2y_d2z = compute_second_derivatives(p);
+    vec3 s_d2x_d2y_d2z = computeSecondDerivatives(p);
 
     // Gradient
     vec3 gradient = vec3(s_dxyz_xdyz_dxdyz.xy, s_xydz_dxydz_xdydz.x);

@@ -7,6 +7,7 @@ block.coords = positionToBlockCoords(ray.start_position + epsStep);
 block.exit_distance = ray.start_distance;
 block.exit_position = ray.start_position; 
 block.exit_step = ivec3(0);
+block.shadowed = false;
 
 // START_CUBIC
 cubic.values.w = sampleVolume(ray.start_position);
@@ -38,8 +39,9 @@ for (int j = 0; j < MAX_CELLS; j++)
     block.coords = advanceBlockCoords(block.coords, block.exit_position + epsStep, block.step_radius, block.exit_step);
 
     // Read skip radius and shadow flag for the current block
-    // block.step_radius = sample_rgba16ui_distance_fast(block.coords, block.shadowed);
-    block.step_radius = sample_rgb32ui_distance_fast(block.coords, block.shadowed);
+    bool prev_shadowed = block.shadowed;
+    // block.step_radius = sampleDistance5bit(block.coords, block.shadowed);
+    block.step_radius = sampleDistance8bit(block.coords, block.shadowed);
 
     // Current entry is the previous step's exit
     block.entry_distance = block.exit_distance;
@@ -64,12 +66,9 @@ for (int j = 0; j < MAX_CELLS; j++)
 
     #endif
 
-    bool consecutiveNonShadowed = prevNonShadowed && !block.shadowed;
-    prevNonShadowed = !block.shadowed;
-
-    if (block.shadowed && !block.terminated) 
+    if (block.shadowed)
     {
-        continue;
+        if (!block.terminated) continue; else break;    
     }
 
     // START_CELL_TO_BLOCK
@@ -79,7 +78,7 @@ for (int j = 0; j < MAX_CELLS; j++)
     cell.exit_step = ivec3(0);
 
     // START_CUBIC
-    if (!consecutiveNonShadowed)
+    if (prev_shadowed)
     {
         cubic.values.w = sampleVolume(block.entry_position);
 
@@ -91,6 +90,7 @@ for (int j = 0; j < MAX_CELLS; j++)
     }
       
     // START_MARCH_IN_BLOCK
+    #pragma unroll
     for (int i = 0; i < MAX_CELLS_IN_BLOCK; i++)
     {
         // UPDATE_CELL
@@ -122,11 +122,11 @@ for (int j = 0; j < MAX_CELLS; j++)
         #endif
 
         // UPDATE_CUBIC     
-        vec3 span_position = cell.exit_position - cell.entry_position;
+        vec3 span_vector = cell.exit_position - cell.entry_position;
 
         cubic.values.x = cubic.values.w;
-        cubic.values.y = sampleVolume(cell.entry_position + span_position * (1.0 / 3.0));
-        cubic.values.z = sampleVolume(cell.entry_position + span_position * (2.0 / 3.0));
+        cubic.values.y = sampleVolume(cell.entry_position + span_vector * (1.0 / 3.0));
+        cubic.values.z = sampleVolume(cell.entry_position + span_vector * (2.0 / 3.0));
         cubic.values.w = sampleVolume(cell.exit_position);
 
         #if DEBUG_ENABLED == 1
@@ -137,15 +137,16 @@ for (int j = 0; j < MAX_CELLS; j++)
 
         // BERNSTEIN_TEST
         cubic.bernstein_coeffs = cubic.values * CUBIC_INV_BERNSTEIN;
+        bool update_mip = any(greaterThan(cubic.bernstein_coeffs, vec4(mip.value)));
 
-        if (any(greaterThan(cubic.bernstein_coeffs, vec4(mip.value))))
+        if (update_mip)
         {
             // SOLVE_CUBIC
             cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
-            CubicMax cubicMax = cubicMaxFromCoeffs(cubic.coeffs);
+            CubicMax cubic_max = cubicMaxFromCoeffs(cubic.coeffs);
             
-            cubic.argmax_time = cubicMax.t;
-            cubic.max_value = cubicMax.v;
+            cubic.argmax_time = cubic_max.t;
+            cubic.max_value = cubic_max.v;
             
             #if DEBUG_ENABLED == 1
 
@@ -154,8 +155,8 @@ for (int j = 0; j < MAX_CELLS; j++)
             #endif
 
             // UPDATE_MIP
-            mip.distance = mix(cell.entry_distance, cell.exit_distance, cubicMax.t);
-            mip.value = cubicMax.v;
+            mip.distance = mix(cell.entry_distance, cell.exit_distance, cubic_max.t);
+            mip.value = cubic_max.v;
 
             #if DEBUG_ENABLED == 1
 
@@ -172,8 +173,8 @@ for (int j = 0; j < MAX_CELLS; j++)
 
 // END_MIP
 mip.position = rayDistanceToPosition(mip.distance); 
-mip.gradient = compute_gradient(mip.position, mip.hessian);
-mip.curvatures = compute_curvatures(mip.gradient, mip.hessian);
+mip.gradient = computeGradient(mip.position, mip.hessian);
+mip.curvatures = computePrincipalCurvatures(mip.gradient, mip.hessian);
 mip.normal = normalize(mip.gradient);
 
 

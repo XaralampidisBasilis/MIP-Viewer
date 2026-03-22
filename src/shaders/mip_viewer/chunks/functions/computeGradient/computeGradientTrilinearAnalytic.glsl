@@ -5,7 +5,7 @@
 #include "../sampleVolume"
 #endif
 
-vec3 compute_gradient(in vec3 p)
+vec3 computeGradient(in vec3 p)
 {
     // Convert to voxel-space and compute local coordinates
     vec3 x = p - 0.5;     // cell space
@@ -64,7 +64,7 @@ vec3 compute_gradient(in vec3 p)
     return gradient;
 }
 
-vec3 compute_gradient(in vec3 p, out mat3 hessian)
+vec3 computeGradient(in vec3 p, out mat3 hessian)
 {
     // Convert to voxel-space and compute local coordinates
     vec3 x = p - 0.5; // cell offset

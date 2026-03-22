@@ -1,10 +1,10 @@
 // From the paper "Real-Time Ray-Casting and Advanced Shading of Discrete Isosurfaces"
 // in the 4.1. Differential Surface Properties/Extrinsic curvatures
 
-#ifndef COMPUTE_CURVATURES
-#define COMPUTE_CURVATURES
+#ifndef COMPUTE_PRINCIPAL_CURVATURES
+#define COMPUTE_PRINCIPAL_CURVATURES
 
-vec2 compute_curvatures(in vec3 gradient, in mat3 hessian)
+vec2 computePrincipalCurvatures(in vec3 gradient, in mat3 hessian)
 {
     vec3 n = normalize(gradient);
     vec3 t0 = normalize(cross(n, abs(n.z) < 0.999 ? vec3(0,0,1) : vec3(0,1,0)));
@@ -22,7 +22,7 @@ vec2 compute_curvatures(in vec3 gradient, in mat3 hessian)
     return kappa;
 }
 
-vec2 compute_curvatures(in vec3 gradient, in mat3 hessian, out vec3 eigenvectors[2])
+vec2 computePrincipalCurvatures(in vec3 gradient, in mat3 hessian, out vec3 eigenvectors[2])
 {
     vec3 n = normalize(gradient);
     vec3 t0 = normalize(cross(n, abs(n.z) < 0.999 ? vec3(0,0,1) : vec3(0,1,0)));

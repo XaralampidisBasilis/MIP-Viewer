@@ -29,15 +29,15 @@ export default class Configs extends EventEmitter
     {
         super()
 
-        this.blockSize = 1
+        this.blockSize = 2
 
         this.downscaleEnabled = true
-        this.downscaleFactor = 0.6
+        this.downscaleFactor = 0.8
         
         this.gradientsMethod = 'triquadraticBspline'
         this.marchingMethod = 'cells'
         this.skippingStrategy = 'blocks'
-        this.skippingMethod = 'distance'
+        this.skippingMethod = 'binary'
         this.colormap = 'viridis'
 
         this.skippingEnabled = true

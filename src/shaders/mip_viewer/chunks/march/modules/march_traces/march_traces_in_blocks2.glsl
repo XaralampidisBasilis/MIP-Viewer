@@ -27,8 +27,8 @@ for (int i = 0; i < MAX_CELLS; i++)
     // UPDATE_CELL
 
     // compute skip distance
-    cell.step_radius = sample_rgba16ui_distance_fast(cell.coords, cell.shadowed);
-    // cell.step_radius = sample_rgb32ui_distance_fast(cell.coords, cell.shadowed);
+    cell.step_radius = sampleDistance5bit(cell.coords, cell.shadowed);
+    // cell.step_radius = sampleDistance8bit(cell.coords, cell.shadowed);
 
     // compute entry from previous exit
     cell.entry_distance = cell.exit_distance;
@@ -103,8 +103,8 @@ for (int i = 0; i < MAX_CELLS; i++)
 }
 
 mip.position = rayDistanceToPosition(mip.distance); 
-mip.gradient = compute_gradient(mip.position, mip.hessian);
-mip.curvatures = compute_curvatures(mip.gradient, mip.hessian);
+mip.gradient = computeGradient(mip.position, mip.hessian);
+mip.curvatures = computePrincipalCurvatures(mip.gradient, mip.hessian);
 mip.normal = normalize(mip.gradient);
 
 

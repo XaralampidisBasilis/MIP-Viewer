@@ -37,8 +37,8 @@ for (int j = 0; j < MAX_CELLS; j++)
     block.coords = advanceBlockCoords(block.coords, block.exit_position + epsStep, block.step_radius, block.exit_step);
 
     // Read skip radius and shadow flag for the current block
-    // block.step_radius = sample_rgba16ui_distance_fast(block.coords, block.shadowed);
-    block.step_radius = sample_rgb32ui_distance_fast(block.coords, block.shadowed);
+    // block.step_radius = sampleDistance5bit(block.coords, block.shadowed);
+    block.step_radius = sampleDistance8bit(block.coords, block.shadowed);
 
     // Current entry is the previous step's exit
     block.entry_distance = block.exit_distance;
@@ -88,8 +88,8 @@ for (int j = 0; j < MAX_CELLS; j++)
 
 // END_MIP
 mip.position = rayDistanceToPosition(mip.distance); 
-mip.gradient = compute_gradient(mip.position, mip.hessian);
-mip.curvatures = compute_curvatures(mip.gradient, mip.hessian);
+mip.gradient = computeGradient(mip.position, mip.hessian);
+mip.curvatures = computePrincipalCurvatures(mip.gradient, mip.hessian);
 mip.normal = normalize(mip.gradient);
 
 

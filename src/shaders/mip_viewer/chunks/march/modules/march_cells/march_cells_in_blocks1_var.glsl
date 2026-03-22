@@ -6,6 +6,7 @@ block.coords = positionToBlockCoords(ray.start_position + epsStep);
 block.exit_distance = ray.start_distance;
 block.exit_position = ray.start_position; 
 block.exit_step = ivec3(0);
+block.shadowed = false;
 
 // START_CUBIC
 cubic.values.w = sampleVolume(ray.start_position);
@@ -27,7 +28,6 @@ mip.value = cubic.values.w;
 #endif
 
 // START_MARCH
-// bool prev_occupied = true;
 
 for (int j = 0; j < MAX_BLOCKS; j++) 
 {
@@ -38,7 +38,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 
     // compute shadowed
     bool prev_shadowed = block.shadowed;
-    block.shadowed = sample_shadow(block.coords);
+    block.shadowed = sampleShadow(block.coords);
 
     // compute entry from previous exit
     block.entry_distance = block.exit_distance;
@@ -63,12 +63,9 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 
     #endif
 
-    // bool consecutive_occupied = prev_occupied && !block.shadowed;
-    // prev_occupied = !block.shadowed;
-
-    if (block.shadowed && !block.terminated)
+    if (block.shadowed)
     {
-        continue;
+        if (!block.terminated) continue; else break;    
     }
 
     // START_CELL_AT_BLOCK
@@ -90,6 +87,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     }
       
     // START_MARCH_IN_BLOCK
+    #pragma unroll
     for (int i = 0; i < MAX_CELLS_IN_BLOCK; i++)
     {
         // UPDATE_CELL
@@ -121,11 +119,11 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         #endif
 
         // UPDATE_CUBIC     
-        vec3 cell_span_vector = cell.exit_position - cell.entry_position;
+        vec3 span_vector = cell.exit_position - cell.entry_position;
 
         cubic.values.x = cubic.values.w;
-        cubic.values.y = sampleVolume(cell.entry_position + cell_span_vector * (1.0 / 3.0));
-        cubic.values.z = sampleVolume(cell.entry_position + cell_span_vector * (2.0 / 3.0));
+        cubic.values.y = sampleVolume(cell.entry_position + span_vector * (1.0 / 3.0));
+        cubic.values.z = sampleVolume(cell.entry_position + span_vector * (2.0 / 3.0));
         cubic.values.w = sampleVolume(cell.exit_position);
 
         #if DEBUG_ENABLED == 1
@@ -136,8 +134,9 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 
         // BERNSTEIN_TEST
         cubic.bernstein_coeffs = cubic.values * CUBIC_INV_BERNSTEIN;
+        bool update_mip = any(greaterThan(cubic.bernstein_coeffs, vec4(mip.value)));
 
-        if (any(greaterThan(cubic.bernstein_coeffs, vec4(mip.value))))
+        if (update_mip)
         {
             // SOLVE_CUBIC
             cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
@@ -171,8 +170,8 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 
 // END_MIP
 mip.position = rayDistanceToPosition(mip.distance); 
-mip.gradient = compute_gradient(mip.position, mip.hessian);
-mip.curvatures = compute_curvatures(mip.gradient, mip.hessian);
+mip.gradient = computeGradient(mip.position, mip.hessian);
+mip.curvatures = computePrincipalCurvatures(mip.gradient, mip.hessian);
 mip.normal = normalize(mip.gradient);
 
 

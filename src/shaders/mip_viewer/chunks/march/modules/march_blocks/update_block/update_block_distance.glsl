@@ -1,6 +1,6 @@
 // compute skip distance
-block.step_radius = sample_rgba16ui_distance_fast(block.coords, block.shadowed);
-// block.step_radius = sample_rgb32ui_distance_fast(block.coords, block.shadowed);
+block.step_radius = sampleDistance5bit(block.coords, block.shadowed);
+// block.step_radius = sampleDistance8bit(block.coords, block.shadowed);
 
 // compute entry from previous exit
 block.entry_distance = block.exit_distance;

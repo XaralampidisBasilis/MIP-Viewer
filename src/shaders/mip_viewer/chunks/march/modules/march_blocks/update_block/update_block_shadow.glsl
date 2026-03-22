@@ -1,7 +1,7 @@
 
 // compute occupancy
 block.step_radius = 1;
-block.shadowed = sample_shadow(block.coords);
+block.shadowed = sampleShadow(block.coords);
 
 // compute entry from previous exit
 block.entry_distance = block.exit_distance;

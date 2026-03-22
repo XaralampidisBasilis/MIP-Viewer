@@ -5,7 +5,7 @@
 #include "../sampleVolume"
 #endif
 
-vec3 compute_second_derivatives(in vec3 p)
+vec3 computeSecondDerivatives(in vec3 p)
 {
     // Central differencing samples
     vec3 s_x0yz_xy0z_xyz0 = vec3(
