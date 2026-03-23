@@ -1,10 +1,10 @@
 
 
 // start block at ray start
-#include "../../march_blocks/modules/start_block"
+#include "../../march_blocks/modules/start_block_at_ray"
 
 // start cubic at the ray start
-#include "../modules/start_cubic"
+#include "../modules/start_cubic_at_ray"
 
 // start mip at the ray start
 #include "../modules/start_mip_from_cubic"

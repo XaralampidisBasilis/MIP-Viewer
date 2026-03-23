@@ -8,7 +8,6 @@ struct UniformsVolume
     vec3  spacing_normalized;           
     vec3  inv_dimensions;   
     int   block_size;
-    ivec3 blocked_dimensions;
 };
 
 uniform UniformsVolume u_volume;

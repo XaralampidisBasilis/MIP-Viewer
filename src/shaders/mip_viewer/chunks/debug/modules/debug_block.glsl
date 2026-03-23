@@ -12,7 +12,7 @@ vec4 debug_block_empty = to_color(block.empty);
 vec4 debug_block_terminated = to_color(block.terminated);
 
 // coords
-vec4 debug_block_coords = to_color(vec3(block.coords) / vec3(u_volume.blocked_dimensions - 1));
+vec4 debug_block_coords = to_color(vec3(block.coords) / vec3(textureSize(u_textures.distance_map, 0) - 1));
 
 // entry_step
 vec4 debug_block_entry_step = to_color(vec3(block.entry_step));
