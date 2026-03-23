@@ -37,8 +37,10 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     block.coords = advanceBlockCoords(block.coords, block.exit_step);
 
     // compute empty
-    bool prev_empty = block.empty;
-    sampleDistance1bit(block.coords, block.empty);
+    block.prev_empty = block.empty;
+    // block.empty = sampleShadow1bit(block.coords);
+    // block.empty = sampleShadow5bit(block.coords);
+    block.empty = sampleShadow8bit(block.coords);
 
     // compute entry from previous exit
     block.entry_distance = block.exit_distance;
@@ -75,7 +77,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     cell.exit_step = ivec3(0);
 
     // START_CUBIC
-    if (prev_empty)
+    if(block.prev_empty)
     {
         cubic.values.w = sampleVolume(block.entry_position);
 
@@ -170,19 +172,6 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 
 // END_MIP
 mip.terminated = mip.distance > ray.end_distance - eps_distance;
-
-if (mip.terminated)
-{
-    mip.distance = ray.end_distance;
-    mip.value = sampleVolume(ray.end_position);
-
-    #if DEBUG_ENABLED == 1
-
-        stats.num_volume_fetches += 1;
-
-    #endif
-}
- 
 mip.position = distanceToPosition(mip.distance); 
 mip.gradient = computeGradient(mip.position, mip.hessian);
 mip.curvatures = computePrincipalCurvatures(mip.gradient, mip.hessian);

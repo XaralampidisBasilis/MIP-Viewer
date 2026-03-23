@@ -1,4 +1,3 @@
-
 float eps_distance = u_ray.spacing * 0.001;
 vec3 eps_direction = u_ray.direction * eps_distance;
 
@@ -34,29 +33,28 @@ for (int i = 0; i < MAX_CELLS; i++)
 {
     // UPDATE_CELL
 
-    // Choose next current coords from either geometric exit or skip step
-    cell.coords = advanceCellCoords(cell.coords, cell.exit_step, cell.step_radius, cell.exit_position + eps_direction);
+    // compute next coordinates
+    cell.coords = advanceCellCoords(cell.coords, cell.exit_step);
 
-    // Read skip radius and shadow flag for the current cell
-    bool prev_empty = cell.empty;
-    // cell.step_radius = sampleDistance5bit(cell.coords, cell.empty);
-    cell.step_radius = sampleDistance8bit(cell.coords, cell.empty);
+    // compute empty
+    block.prev_empty = cell.empty;
+    sampleDistance1bit(cell.coords, cell.empty);
 
-    // Current entry is the previous step's exit
+    // compute entry from previous exit
     cell.entry_distance = cell.exit_distance;
     cell.entry_position = cell.exit_position;
 
-    // Find exit point of the current skip cell
-    cell.exit_distance = intersectCellExit(cell.coords, cell.step_radius, cell.exit_step);
+    // compute exit from cell ray intersection 
+    cell.exit_distance = intersectCellExit(cell.coords, cell.exit_step);
     cell.exit_position = distanceToPosition(cell.exit_distance);
 
-    // Distance covered inside this cell span
+    // compute span distance
     cell.span_distance = cell.exit_distance - cell.entry_distance;
 
-    // Stop once the ray exit goes beyond the ray end
+    // compute termination condition
     cell.terminated = cell.exit_distance > ray.end_distance - eps_distance;
 
-    // Update traversal stats
+    // update stats
     #if DEBUG_ENABLED == 1
 
         stats.num_distance_fetches += 1;
@@ -66,11 +64,9 @@ for (int i = 0; i < MAX_CELLS; i++)
 
     if (!cell.empty) 
     {
-        // SAMPLE CUBIC ALONG THE CURRENT NON-SHADOWED SPAN
-
+        // UPDATE_CUBIC     
         vec3 span_vector = cell.exit_position - cell.entry_position;
 
-        // Reuse previous exit sample as the next entry sample when possible
         cubic.values.x = prev_empty ? sampleVolume(cell.entry_position) : cubic.values.w;
         cubic.values.y = sampleVolume(cell.entry_position + span_vector * (1.0 / 3.0));
         cubic.values.z = sampleVolume(cell.entry_position + span_vector * (2.0 / 3.0));
@@ -82,26 +78,26 @@ for (int i = 0; i < MAX_CELLS; i++)
 
         #endif
 
-        // Convert sampled values to Bernstein coefficients for the max bound test
+        // BERNSTEIN_TEST
         cubic.bernstein_coeffs = cubic.values * CUBIC_INV_BERNSTEIN;
         mip.update = any(greaterThan(cubic.bernstein_coeffs, vec4(mip.value)));
 
         if (mip.update)
         {
-            // Compute exact cubic maximum only if the Bernstein bound can beat the MIP
+            // SOLVE CUBIC
             cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
             CubicMax cubic_max = cubicMaxOnUnitInterval(cubic.coeffs, cubic.values.x, cubic.values.w);
 
             cubic.max_value = cubic_max.v;
             cubic.argmax_time = cubic_max.t;
-
+            
             #if DEBUG_ENABLED == 1
 
                 stats.num_cubics += 1;
 
             #endif
 
-            // Update MIP with the cubic maximum in this span
+            // UPDATE_MIP
             mip.distance = mix(cell.entry_distance, cell.exit_distance, cubic_max.t);
             mip.value = cubic_max.v;
 
@@ -118,20 +114,13 @@ for (int i = 0; i < MAX_CELLS; i++)
 
 // END_MIP
 mip.terminated = mip.distance > ray.end_distance - eps_distance;
-
-if (mip.terminated)
-{
-    mip.distance = ray.end_distance;
-    mip.value = sampleVolume(ray.end_position);
-
-    #if DEBUG_ENABLED == 1
-
-        stats.num_volume_fetches += 1;
-
-    #endif
-}
- 
 mip.position = distanceToPosition(mip.distance); 
 mip.gradient = computeGradient(mip.position, mip.hessian);
 mip.curvatures = computePrincipalCurvatures(mip.gradient, mip.hessian);
 mip.normal = normalize(mip.gradient);
+
+
+
+
+
+

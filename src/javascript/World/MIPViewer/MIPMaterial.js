@@ -76,6 +76,7 @@ export default function()
         BERNSTEIN_ENABLED: 1,
         SKIPPING_ENABLED : 1,
 
+        PRODUCTION_ENABLED: 0,
         DEBUG_ENABLED     : 1,
         DISCARDING_ENABLED: 1,
         VARIATION_ENABLED : 0,

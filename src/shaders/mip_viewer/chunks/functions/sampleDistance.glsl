@@ -1,17 +1,18 @@
 #ifndef SAMPLE_DISTANCE
 #define SAMPLE_DISTANCE
 
-void sampleDistance1bit(in ivec3 coords, out bool empty)
+int sampleDistance1bit(in ivec3 coords, out bool empty)
 {    
     uint u = texelFetch(u_textures.distance_map, coords, 0).r; // 0..4095 
     uint d = (u >> u_ray.map) & 0x1u;
 
-    empty = (d == 1u);
+    empty = (d != 0u);
+    return 1;
 }
 
 int sampleDistance5bit(in ivec3 coords, out bool empty)
 {
-    uvec4 u = texelFetch(u_textures.distance_map, coords, 0);
+    uvec4 u = texelFetch(u_textures.distance_map, coords, 0).rgba;
 
     uint shift = u_ray.axis * 5u;
     uint mask  = (u_ray.axis == 2u) ? 0x3Fu : 0x1Fu;

@@ -35,7 +35,7 @@ for (int i = 0; i < MAX_CELLS; i++)
     cell.coords = advanceCellCoords(cell.coords, cell.exit_step, cell.step_radius, cell.exit_position + eps_direction);
 
     // compute skip distance
-    bool prev_empty = cell.empty;
+    block.prev_empty = cell.empty;
     // cell.step_radius = sampleDistance5bit(cell.coords, cell.empty);
     cell.step_radius = sampleDistance8bit(cell.coords, cell.empty);
 
@@ -115,22 +115,13 @@ for (int i = 0; i < MAX_CELLS; i++)
 
 // END_MIP
 mip.terminated = mip.distance > ray.end_distance - eps_distance;
-
-if (mip.terminated)
-{
-    mip.distance = ray.end_distance;
-    mip.value = sampleVolume(ray.end_position);
-
-    #if DEBUG_ENABLED == 1
-
-        stats.num_volume_fetches += 1;
-
-    #endif
-}
- 
 mip.position = distanceToPosition(mip.distance); 
 mip.gradient = computeGradient(mip.position, mip.hessian);
 mip.curvatures = computePrincipalCurvatures(mip.gradient, mip.hessian);
 mip.normal = normalize(mip.gradient);
+
+
+
+
 
 

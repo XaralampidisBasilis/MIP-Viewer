@@ -1,5 +1,6 @@
 #include "./sampleVolume"
 #include "./sampleDistance"
+#include "./sampleShadow"
 #include "./computeGradient"
 #include "./computePrincipalCurvatures"
 #include "./distanceToPosition"

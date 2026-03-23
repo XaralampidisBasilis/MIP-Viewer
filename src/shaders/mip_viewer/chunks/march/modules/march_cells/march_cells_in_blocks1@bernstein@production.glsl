@@ -1,9 +1,10 @@
 float eps_distance = u_ray.spacing * 0.001;
 vec3 eps_direction = u_ray.direction * eps_distance;
+float ray_end_distance = ray.end_distance - eps_distance;
 
 // START_BLOCK
 block.coords = positionToBlockCoords(ray.start_position + eps_direction);
-block.exit_distance = ray.start_distance;
+block.exit_position = ray.start_position; 
 block.exit_step = ivec3(0);
 block.empty = false;
 
@@ -23,11 +24,12 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     block.coords = advanceBlockCoords(block.coords, block.exit_step);
 
     // compute empty
-    bool prev_empty = block.empty;
-    sampleDistance1bit(block.coords, block.empty);
+    block.prev_empty = block.empty;
+    // block.empty = sampleShadow1bit(block.coords);
+    // block.empty = sampleShadow5bit(block.coords);
+    block.empty = sampleShadow8bit(block.coords);
 
     // compute entry from previous exit
-    block.entry_distance = block.exit_distance;
     block.entry_position = block.exit_position;
     block.entry_step = block.exit_step;
 
@@ -36,7 +38,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     block.exit_position = distanceToPosition(block.exit_distance);
 
     // compute termination condition
-    block.terminated = block.exit_distance > ray.end_distance - eps_distance;
+    block.terminated = block.exit_distance > ray_end_distance;
 
     if (block.empty)
     {
@@ -45,12 +47,11 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 
     // START_CELL_AT_BLOCK
     cell.coords = advanceCellCoordsAtBlock(block.coords, block.entry_step, block.entry_position + eps_direction);
-    cell.exit_distance = block.entry_distance;
     cell.exit_position = block.entry_position; 
     cell.exit_step = ivec3(0);
 
     // START_CUBIC
-    if (prev_empty)
+    if(block.prev_empty)
     {
         cubic.values.w = sampleVolume(block.entry_position);
     }
@@ -65,7 +66,6 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         cell.coords = advanceCellCoords(cell.coords, cell.exit_step);
 
         // compute entry from previous exit
-        cell.entry_distance = cell.exit_distance;
         cell.entry_position = cell.exit_position;
 
         // compute exit from cell ray intersection 
@@ -75,7 +75,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         // compute termination condition
         cell.terminated = 
             cell.exit_distance > block.exit_distance - eps_distance || 
-            cell.exit_distance > ray.end_distance - eps_distance;
+            cell.exit_distance > ray_end_distance;
 
         // UPDATE_CUBIC     
         vec3 span_vector = cell.exit_position - cell.entry_position;
@@ -86,17 +86,21 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         cubic.values.w = sampleVolume(cell.exit_position);
 
         // BERNSTEIN_TEST
-        cubic.bernstein_coeffs = cubic.values * CUBIC_INV_BERNSTEIN;
-        mip.update = any(greaterThan(cubic.bernstein_coeffs, vec4(mip.value)));
+        vec4 bernstein_coeffs = cubic.values * CUBIC_INV_BERNSTEIN;
+        bool mip_update = 
+            bernstein_coeffs.x > mip.value || 
+            bernstein_coeffs.y > mip.value || 
+            bernstein_coeffs.z > mip.value || 
+            bernstein_coeffs.w > mip.value;
 
-        if (mip.update)
+        if (mip_update)
         {
             // SOLVE_CUBIC
-            cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
-            CubicMax cubic_max = cubicMaxOnUnitInterval(cubic.coeffs, cubic.values.x, cubic.values.w);
-
+            vec4 power_coeffs = cubic.values * CUBIC_INV_VANDER;
+            CubicMax cubic_max = cubicMaxOnUnitInterval(power_coeffs, cubic.values.x, cubic.values.w);
+    
             // UPDATE_MIP
-            mip.value = cubic_max.v;
+            mip.value = max(mip.value, cubic_max.v);
         }
 
         if (cell.terminated) break; 
@@ -104,3 +108,6 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 
     if (block.terminated) break;
 }
+
+
+

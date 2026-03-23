@@ -1,14 +1,36 @@
 #ifndef SAMPLE_SHADOW
 #define SAMPLE_SHADOW
 
-// Samples the occupancy texture at the given integer coordinates.
-bool sampleShadow(in ivec3 coords)
+bool sampleShadow1bit(in ivec3 coords)
 {    
-    int i = texelFetch(u_textures.shadow_map, coords, 0).r; // -2048..2047 half float precision     
-    uint u = uint(i + 2048); // 0..4095
-    uint s = (u >> u_ray.map) & 0x1u;
+    uint u = texelFetch(u_textures.distance_map, coords, 0).r; // 0..4095 
+    uint d = (u >> u_ray.map) & 0x1u;
 
-    return (s == 1u);
+    return (d != 0u);
+}
+
+bool sampleShadow5bit(in ivec3 coords)
+{
+    uvec4 u = texelFetch(u_textures.distance_map, coords, 0).rgba;
+
+    uint shift = u_ray.axis * 5u;
+    uint mask  = (u_ray.axis == 2u) ? 0x3Fu : 0x1Fu;
+
+    uint d = (u[u_ray.idx] >> shift) & mask;
+
+    return (d != 0u);
+}
+
+bool sampleShadow8bit(in ivec3 coords)
+{
+    uvec3 u = texelFetch(u_textures.distance_map, coords, 0).rgb;
+
+    uint shift = u_ray.idx * 8u;
+    uint mask = 0xFFu;
+
+    uint d = (u[u_ray.axis] >> shift) & mask;
+
+    return (d != 0u);
 }
 
 #endif

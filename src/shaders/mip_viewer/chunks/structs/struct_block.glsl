@@ -5,6 +5,7 @@
 struct Block
 {
     int   step_radius;
+    bool  prev_empty;
     bool  empty;
     bool  terminated;
     ivec3 coords;  
@@ -22,7 +23,8 @@ Block block; // Global mutable struct
 void set_block()
 {
     block.step_radius    = 0;
-    block.empty       = false;
+    block.prev_empty     = false;
+    block.empty          = false;
     block.terminated     = false;
     block.coords         = ivec3(0);
     block.entry_distance = 0.0;

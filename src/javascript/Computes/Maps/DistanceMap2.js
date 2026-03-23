@@ -18,7 +18,7 @@ export default class DistanceMap2
         console.time('computeR16UITexture') 
         
         const volumeTensor = this.computes.volumeMap.tensor
-        const blockShape = volumeTensor.shape.map(x => Math.ceil((x + 1) / this.blockSize))
+        const blockShape = volumeTensor.shape.map(X => Math.ceil((X + 1) / this.blockSize))
         this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
 
         // this.textureData = GPGPU.computeIsotropicDistanceMap1bit(volumeTensor, this.errorTolerance, this.blockSize, true)
@@ -43,7 +43,7 @@ export default class DistanceMap2
         console.time('computeRGBA16UITexture') 
 
         const volumeTensor = this.computes.volumeMap.tensor
-        const blockShape = volumeTensor.shape.map(x => Math.ceil((x + 1) / this.blockSize))
+        const blockShape = volumeTensor.shape.map(X => Math.ceil((X + 1) / this.blockSize))
         this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
 
         // this.textureData = GPGPU.computeIsotropicDistanceMap5bit(volumeTensor, this.errorTolerance, this.blockSize, true)
@@ -68,7 +68,7 @@ export default class DistanceMap2
         console.time('computeRGB32UITexture') 
 
         const volumeTensor = this.computes.volumeMap.tensor
-        const blockShape = volumeTensor.shape.map(x => Math.ceil((x + 1) / this.blockSize))
+        const blockShape = volumeTensor.shape.map(X => Math.ceil((X + 1) / this.blockSize))
         this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
 
         // this.textureData = GPGPU.computeIsotropicDistanceMap8bit(volumeTensor, this.errorTolerance, this.blockSize, true)
