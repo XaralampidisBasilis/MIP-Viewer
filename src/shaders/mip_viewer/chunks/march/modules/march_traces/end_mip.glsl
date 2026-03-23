@@ -1,7 +1,7 @@
 
 
 // Compute position
-mip.terminated = mip.distance > ray.end_distance - eps_distance;
+mip.terminated = mip.distance > ray.end_distance;
 
 if (mip.terminated)
 {

@@ -102,7 +102,7 @@ for (int i = 0; i < MAX_CELLS; i++)
 
 }
 
-mip.terminated = mip.distance > ray.end_distance - eps_distance;
+mip.terminated = mip.distance > ray.end_distance;
 
 if (mip.terminated)
 {

@@ -1,9 +1,8 @@
 
-float eps_distance = u_ray.spacing * 0.001;
-vec3 eps_direction = u_ray.direction * eps_distance;
+
 
 // START_CELL
-cell.coords = positionToCellCoords(ray.start_position + eps_direction);
+cell.coords = positionToCellCoords(ray.start_position);
 cell.exit_distance = ray.start_distance;
 cell.exit_position = ray.start_position; 
 cell.exit_step = ivec3(0);
@@ -53,7 +52,7 @@ for (int i = 0; i < MAX_BOCKS; i++)
     cell.span_distance = cell.exit_distance - cell.entry_distance;
 
     // compute termination condition
-    cell.terminated = cell.exit_distance > ray.end_distance - eps_distance;
+    cell.terminated = cell.exit_distance > ray.end_distance;
 
     // update stats
     #if DEBUG_ENABLED == 1
@@ -86,7 +85,7 @@ for (int i = 0; i < MAX_BOCKS; i++)
         CubicMax cubic_max = cubicMaxOnUnitInterval(cubic.coeffs, cubic.values.x, cubic.values.w);
         
         cubic.max_value = cubic_max.v;
-        cubic.argmax_time = cubic_max.t;
+        cubic.argmax_t = cubic_max.t;
 
         #if DEBUG_ENABLED == 1
 
@@ -114,7 +113,7 @@ for (int i = 0; i < MAX_BOCKS; i++)
 }
 
 // END_MIP
-mip.terminated = mip.distance > ray.end_distance - eps_distance;
+mip.terminated = mip.distance > ray.end_distance;
 mip.position = distanceToPosition(mip.distance); 
 mip.gradient = computeGradient(mip.position, mip.hessian);
 mip.curvatures = computePrincipalCurvatures(mip.gradient, mip.hessian);

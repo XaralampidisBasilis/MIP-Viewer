@@ -83,7 +83,7 @@ export default class GUI
             }),
 
             // DANGEROUS for WebGL Context Loss
-            downscaleFactor : folder.add(objects, 'downscaleFactor').min(0).max(0.8).step(0.1)
+            downscaleFactor : folder.add(objects, 'downscaleFactor').min(0).max(1).step(0.05)
             .onFinishChange((value) => 
             { 
                 this.configs.set('downscaleFactor', value) 
@@ -152,8 +152,9 @@ export default class GUI
         const folder = this.folders.debug
         const objects = 
         { 
-            discardingEnabled: Boolean(defines.DISCARDING_ENABLED),
+            bernsteinEnabled: Boolean(defines.BERNSTEIN_ENABLED),
             debugEnabled     : Boolean(defines.DEBUG_ENABLED),
+            productionEnabled: Boolean(defines.PRODUCTION_ENABLED),
             variationEnabled : Boolean(defines.VARIATION_ENABLED),
             variationMethod  : Number(defines.VARIATION_METHOD),
         }
@@ -252,10 +253,17 @@ export default class GUI
                 material.needsUpdate = true 
             }),
 
-            discardingEnabled: folder.add(objects, 'discardingEnabled')
+            productionEnabled: folder.add(objects, 'productionEnabled')
             .onFinishChange((value) => 
             { 
-                defines.DISCARDING_ENABLED = Number(value)
+                defines.PRODUCTION_ENABLED = Number(value)
+                material.needsUpdate = true 
+            }),
+
+            bernsteinEnabled: folder.add(objects, 'bernsteinEnabled')
+            .onFinishChange((value) => 
+            { 
+                defines.BERNSTEIN_ENABLED = Number(value)
                 material.needsUpdate = true 
             }),
 

@@ -1,8 +1,8 @@
-float eps_distance = u_ray.spacing * 0.001;
-vec3 eps_direction = u_ray.direction * eps_distance;
+
+
 
 // START_BLOCK
-block.coords = positionToBlockCoords(ray.start_position + eps_direction);
+block.coords = positionToBlockCoords(ray.start_position);
 block.exit_distance = ray.start_distance;
 block.exit_position = ray.start_position; 
 block.exit_step = ivec3(0);
@@ -32,30 +32,30 @@ mip.value = cubic.values.w;
 for (int j = 0; j < MAX_BLOCKS; j++) 
 {
     // UPDATE_BLOCK
-    
-    // compute next coordinates
-    block.coords = advanceBlockCoords(block.coords, block.exit_step);
 
-    // compute empty
+    // Choose next block coords from either geometric exit or skip step
+    block.coords = advanceBlockCoords(block.coords, block.exit_step, block.step_radius, block.exit_position + ray.eps_direction);
+
+    // Read skip radius and shadow flag for the current block
     block.prev_empty = block.empty;
-    // block.empty = sampleShadow1bit(block.coords);
-    // block.empty = sampleShadow5bit(block.coords);
-    block.empty = sampleShadow8bit(block.coords);
+    // block.step_radius = sampleDistance1bit(block.coords, block.empty);
+    // block.step_radius = sampleDistance5bit(block.coords, block.empty);
+    block.step_radius = sampleDistance8bit(block.coords, block.empty);
 
-    // compute entry from previous exit
+    // Current entry is the previous step's exit
     block.entry_distance = block.exit_distance;
     block.entry_position = block.exit_position;
     block.entry_step = block.exit_step;
 
-    // compute exit from block ray intersection 
-    block.exit_distance = intersectBlockExit(block.coords, block.exit_step);
+    // Find exit point of the current skip block
+    block.exit_distance = intersectBlockExit(block.coords, block.step_radius, block.exit_step);
     block.exit_position = distanceToPosition(block.exit_distance);
 
-    // compute span distance
+    // Distance covered inside this block span
     block.span_distance = block.exit_distance - block.entry_distance;
 
-    // compute termination condition
-    block.terminated = block.exit_distance > ray.end_distance - eps_distance;
+    // Stop once the ray exit goes beyond the ray end
+    block.terminated = block.exit_distance > ray.end_distance;
 
     // update stats
     #if DEBUG_ENABLED == 1
@@ -70,8 +70,8 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         if (!block.terminated) continue; else break;    
     }
 
-    // START_CELL_AT_BLOCK
-    cell.coords = advanceCellCoordsAtBlock(block.coords, block.entry_step, block.entry_position + eps_direction);
+    // START_CELL_TO_BLOCK
+    cell.coords = advanceCellCoordsAtBlock(block.coords, block.entry_step, block.entry_position + ray.eps_direction);
     cell.exit_distance = block.entry_distance;
     cell.exit_position = block.entry_position; 
     cell.exit_step = ivec3(0);
@@ -110,8 +110,8 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 
         // compute termination condition
         cell.terminated = 
-            cell.exit_distance > block.exit_distance - eps_distance || 
-            cell.exit_distance > ray.end_distance - eps_distance;
+            cell.exit_distance > block.exit_distance - ray.eps_spacing || 
+            cell.exit_distance > ray.end_distance;
 
         // update stats
         #if DEBUG_ENABLED == 1
@@ -144,7 +144,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
             cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
             CubicMax cubic_max = cubicMaxOnUnitInterval(cubic.coeffs, cubic.values.x, cubic.values.w);
             
-            cubic.argmax_time = cubic_max.t;
+            cubic.argmax_t = cubic_max.t;
             cubic.max_value = cubic_max.v;
             
             #if DEBUG_ENABLED == 1
@@ -171,10 +171,12 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 }
 
 // END_MIP
-mip.terminated = mip.distance > ray.end_distance - eps_distance;
+mip.terminated = mip.distance > ray.end_distance;
 mip.position = distanceToPosition(mip.distance); 
 mip.gradient = computeGradient(mip.position, mip.hessian);
 mip.curvatures = computePrincipalCurvatures(mip.gradient, mip.hessian);
 mip.normal = normalize(mip.gradient);
+
+
 
 

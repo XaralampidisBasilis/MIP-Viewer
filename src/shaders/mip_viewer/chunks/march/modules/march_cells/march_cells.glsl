@@ -2,18 +2,18 @@
 
     #if SKIPPING_METHOD == 0
     
-        #if VARIATION_ENABLED == 1
-            #include "./march_cells_in_blocks1@bernstein@production"
+        #if PRODUCTION_ENABLED == 1
+            #include "./production/march_cells_in_blocks1@production=true"
         #else
-            #include "./march_cells_in_blocks1@bernstein"
+            #include "./misc/march_cells_in_blocks1@bernstein=false"
         #endif
 
     #elif SKIPPING_METHOD == 1
 
-        #if VARIATION_ENABLED == 1
-            #include "./march_cells_in_blocks2@bernstein@production"
+        #if PRODUCTION_ENABLED == 1
+            #include "./production/march_cells_in_blocks2@production=true"
         #else
-            #include "./march_cells_in_blocks2@bernstein"
+            #include "./misc/march_cells_in_blocks2@bernstein=false"
         #endif
 
     #endif    

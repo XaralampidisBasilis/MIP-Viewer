@@ -29,11 +29,11 @@ export default class Configs extends EventEmitter
     {
         super()
 
-        this.errorTolerance = 0.01
-        this.blockSize = 2
-
         this.downscaleEnabled = true
         this.downscaleFactor = 0.8
+
+        this.errorTolerance = 0.01
+        this.blockSize = 2
         
         this.gradientsMethod = 'triquadraticBspline'
         this.marchingMethod = 'cells'

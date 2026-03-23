@@ -9,7 +9,6 @@ flat in float v_box_max_distance;
 out vec4 fragColor;
 
 #include "./chunks/utils/utils"
-// #include "./chunks/constants/constants"
 #include "./chunks/uniforms/uniforms"
 #include "./chunks/structs/structs"
 #include "./chunks/functions/functions"

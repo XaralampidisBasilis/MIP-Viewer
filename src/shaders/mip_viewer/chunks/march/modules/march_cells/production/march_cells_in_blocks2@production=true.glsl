@@ -1,10 +1,9 @@
 
-float eps_distance = u_ray.spacing * 0.001;
-vec3 eps_direction = u_ray.direction * eps_distance;
-float ray_end_distance = ray.end_distance - eps_distance;
+
+float ray_end_distance = ray.end_distance;
 
 // START_BLOCK
-block.coords = positionToBlockCoords(ray.start_position + eps_direction);
+block.coords = positionToBlockCoords(ray.start_position);
 block.exit_position = ray.start_position; 
 block.exit_step = ivec3(0);
 block.empty = false;
@@ -22,7 +21,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     // UPDATE_BLOCK
 
     // Choose next block coords from either geometric exit or skip step
-    block.coords = advanceBlockCoords(block.coords, block.exit_step, block.step_radius, block.exit_position + eps_direction);
+    block.coords = advanceBlockCoords(block.coords, block.exit_step, block.step_radius, block.exit_position + ray.eps_direction);
 
     // Read skip radius and shadow flag for the current block
     block.prev_empty = block.empty;
@@ -47,7 +46,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     }
 
     // START_CELL_TO_BLOCK
-    cell.coords = advanceCellCoordsAtBlock(block.coords, block.entry_step, block.entry_position + eps_direction);
+    cell.coords = advanceCellCoordsAtBlock(block.coords, block.entry_step, block.entry_position + ray.eps_direction);
     cell.exit_position = block.entry_position; 
     cell.exit_step = ivec3(0);
 
@@ -75,7 +74,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 
         // compute termination condition
         cell.terminated = 
-            cell.exit_distance > block.exit_distance - eps_distance || 
+            cell.exit_distance > block.exit_distance - ray.eps_spacing || 
             cell.exit_distance > ray_end_distance;
 
         // UPDATE_CUBIC     

@@ -4,8 +4,8 @@
 // max_value
 vec4 debug_cubic_max_value = to_color(cubic.max_value);
 
-// argmax_time
-vec4 debug_cubic_argmax_time = to_color(cubic.argmax_time);
+// argmax_t
+vec4 debug_cubic_argmax_t = to_color(cubic.argmax_t);
 
 // degree
 int cubic_degree = 0;
@@ -60,7 +60,7 @@ vec4 debug_cubic_bernstein_spread = to_color(mmax(cubic.bernstein_coeffs) - mmin
 switch (u_debug.option - 800)
 { 
     case 1: fragColor = debug_cubic_max_value;         break;
-    case 2: fragColor = debug_cubic_argmax_time;      break;
+    case 2: fragColor = debug_cubic_argmax_t;      break;
     case 3: fragColor = debug_cubic_degree;            break;
     case 4: fragColor = debug_cubic_weights;           break;
     case 5: fragColor = debug_cubic_bernstein_weights; break;

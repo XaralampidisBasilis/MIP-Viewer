@@ -4,8 +4,6 @@ import Computes from '../Computes'
 import * as S0 from '../Programs/GPGPUShadowMap'
 import * as S1 from '../Programs/GPGPUShadowMapDifferences'
 
-import * as D1 from '../Programs/GPGPUShadowDistanceMap2'
-
 export default class ShadowMap
 {
     constructor()

@@ -20,7 +20,7 @@ trace.value = sampleVolume(trace.position);
 mip.value = trace.value ;
 mip.distance = ray.start_distance;
 
-float eps_direction = ray.spacing * 1e-3;
+float ray.eps_direction = ray.spacing * 1e-3;
 
 for (int i = 0; i < MAX_CELLS; i++) 
 {
@@ -35,7 +35,7 @@ for (int i = 0; i < MAX_CELLS; i++)
     cell.entry_position = cell.exit_position;
 
     // compute exit from cell ray intersection 
-    cell.exit_distance = intersectSkipCellExit(cell.coords, cell.step_radius, cell.exit_step) + eps_direction;
+    cell.exit_distance = intersectSkipCellExit(cell.coords, cell.step_radius, cell.exit_step) + ray.eps_direction;
     cell.exit_position = distanceToPosition(cell.exit_distance);
 
     // compute span distance
@@ -102,7 +102,7 @@ for (int i = 0; i < MAX_CELLS; i++)
 
 }
 
-mip.terminated = mip.distance > ray.end_distance - eps_distance;
+mip.terminated = mip.distance > ray.end_distance;
 
 if (mip.terminated)
 {
