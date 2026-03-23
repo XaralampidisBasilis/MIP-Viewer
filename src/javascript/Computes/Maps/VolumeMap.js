@@ -19,6 +19,7 @@ export default class VolumeMap
     setVolume()
     {
         this.volume = this.resources.items.volume
+        this.shape = this.volume.dimensions.toReversed()
         this.dimensions = new THREE.Vector3().fromArray(this.volume.dimensions)
         this.spacing = new THREE.Vector3().fromArray(this.volume.spacing)
         this.size = new THREE.Vector3().fromArray(this.volume.size)
@@ -58,6 +59,7 @@ export default class VolumeMap
         const resized = resizeTrilinear(this.tensor, newShape, false, true)
         this.tensor.dispose()
 
+        this.shape = newShape
         this.dimensions.fromArray(newShape.toReversed())
         this.spacing.fromArray(newSpacing.toReversed())
         this.tensor = resized

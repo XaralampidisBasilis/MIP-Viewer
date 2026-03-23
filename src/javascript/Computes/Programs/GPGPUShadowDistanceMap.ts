@@ -13,7 +13,6 @@ import {
     reverseSign,
     signFromOctant,
 } from '../../Utils/ShadowMapUtils'
-import { maxPool3d, minPool3d, avgPool3d } from './pool3d'
 
 class ShadowChebyshevDistancePass implements GPGPUProgram 
 {
@@ -578,6 +577,26 @@ function packToRGB32UI(maps: Tuple<Int32Array, 12>): Uint32Array
     return packed
 }
 
+export function computeIsotropicDistanceMap1bit(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array
+{
+    const maps = new Array(12) 
+
+    maps[ 0] = isotropicDistanceMapInt32(shadows, 'x', '+++', 1, verbose)
+    maps[ 1] = isotropicDistanceMapInt32(shadows, 'x', '+-+', 1, verbose)
+    maps[ 2] = isotropicDistanceMapInt32(shadows, 'x', '++-', 1, verbose)
+    maps[ 3] = isotropicDistanceMapInt32(shadows, 'x', '+--', 1, verbose)
+    maps[ 4] = isotropicDistanceMapInt32(shadows, 'y', '+++', 1, verbose)
+    maps[ 5] = isotropicDistanceMapInt32(shadows, 'y', '-++', 1, verbose)
+    maps[ 6] = isotropicDistanceMapInt32(shadows, 'y', '++-', 1, verbose)
+    maps[ 7] = isotropicDistanceMapInt32(shadows, 'y', '-+-', 1, verbose)
+    maps[ 8] = isotropicDistanceMapInt32(shadows, 'z', '+++', 1, verbose)
+    maps[ 9] = isotropicDistanceMapInt32(shadows, 'z', '+-+', 1, verbose)
+    maps[10] = isotropicDistanceMapInt32(shadows, 'z', '-++', 1, verbose)
+    maps[11] = isotropicDistanceMapInt32(shadows, 'z', '--+', 1, verbose)
+
+    return packToR16UI(maps as Tuple<Int32Array, 12>) 
+}
+
 export function computeIsotropicDistanceMap5bit(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array
 {
     const maps = new Array(12) 
@@ -618,6 +637,26 @@ export function computeIsotropicDistanceMap8bit(shadows: tf.Tensor3D, verbose: b
     return packToRGB32UI(maps as Tuple<Int32Array, 12>) 
 }
 
+export function computeExtendedAnisotropicUnidirectionalDistanceMap1bit(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array
+{
+    const maps = new Array(12) 
+
+    maps[ 0] = extendedAnisotropicUnidirectionalDistanceMapInt32(shadows, 'x', '+++', 1, verbose)
+    maps[ 1] = extendedAnisotropicUnidirectionalDistanceMapInt32(shadows, 'x', '+-+', 1, verbose)
+    maps[ 2] = extendedAnisotropicUnidirectionalDistanceMapInt32(shadows, 'x', '++-', 1, verbose)
+    maps[ 3] = extendedAnisotropicUnidirectionalDistanceMapInt32(shadows, 'x', '+--', 1, verbose)
+    maps[ 4] = extendedAnisotropicUnidirectionalDistanceMapInt32(shadows, 'y', '+++', 1, verbose)
+    maps[ 5] = extendedAnisotropicUnidirectionalDistanceMapInt32(shadows, 'y', '-++', 1, verbose)
+    maps[ 6] = extendedAnisotropicUnidirectionalDistanceMapInt32(shadows, 'y', '++-', 1, verbose)
+    maps[ 7] = extendedAnisotropicUnidirectionalDistanceMapInt32(shadows, 'y', '-+-', 1, verbose)
+    maps[ 8] = extendedAnisotropicUnidirectionalDistanceMapInt32(shadows, 'z', '+++', 1, verbose)
+    maps[ 9] = extendedAnisotropicUnidirectionalDistanceMapInt32(shadows, 'z', '+-+', 1, verbose)
+    maps[10] = extendedAnisotropicUnidirectionalDistanceMapInt32(shadows, 'z', '-++', 1, verbose)
+    maps[11] = extendedAnisotropicUnidirectionalDistanceMapInt32(shadows, 'z', '--+', 1, verbose)
+
+    return packToR16UI(maps as Tuple<Int32Array, 12>) 
+}
+
 export function computeExtendedAnisotropicUnidirectionalDistanceMap5bit(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array
 {
     const maps = new Array(12) 
@@ -656,6 +695,26 @@ export function computeExtendedAnisotropicUnidirectionalDistanceMap8bit(shadows:
     maps[11] = extendedAnisotropicUnidirectionalDistanceMapInt32(shadows, 'z', '--+', 255, verbose)
 
     return packToRGB32UI(maps as Tuple<Int32Array, 12>) 
+}
+
+export function computeExtendedAnisotropicBidirectionalDistanceMap1bit(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array
+{
+    const maps = new Array(12) 
+
+    maps[ 0] = extendedAnisotropicBidirectionalDistanceMapInt32(shadows, 'x', '+++', 1, verbose)
+    maps[ 1] = extendedAnisotropicBidirectionalDistanceMapInt32(shadows, 'x', '+-+', 1, verbose)
+    maps[ 2] = extendedAnisotropicBidirectionalDistanceMapInt32(shadows, 'x', '++-', 1, verbose)
+    maps[ 3] = extendedAnisotropicBidirectionalDistanceMapInt32(shadows, 'x', '+--', 1, verbose)
+    maps[ 4] = extendedAnisotropicBidirectionalDistanceMapInt32(shadows, 'y', '+++', 1, verbose)
+    maps[ 5] = extendedAnisotropicBidirectionalDistanceMapInt32(shadows, 'y', '-++', 1, verbose)
+    maps[ 6] = extendedAnisotropicBidirectionalDistanceMapInt32(shadows, 'y', '++-', 1, verbose)
+    maps[ 7] = extendedAnisotropicBidirectionalDistanceMapInt32(shadows, 'y', '-+-', 1, verbose)
+    maps[ 8] = extendedAnisotropicBidirectionalDistanceMapInt32(shadows, 'z', '+++', 1, verbose)
+    maps[ 9] = extendedAnisotropicBidirectionalDistanceMapInt32(shadows, 'z', '+-+', 1, verbose)
+    maps[10] = extendedAnisotropicBidirectionalDistanceMapInt32(shadows, 'z', '-++', 1, verbose)
+    maps[11] = extendedAnisotropicBidirectionalDistanceMapInt32(shadows, 'z', '--+', 1, verbose)
+
+    return packToR16UI(maps as Tuple<Int32Array, 12>) 
 }
 
 export function computeExtendedAnisotropicBidirectionalDistanceMap5bit(shadows: tf.Tensor3D, verbose: boolean = false) : Uint16Array

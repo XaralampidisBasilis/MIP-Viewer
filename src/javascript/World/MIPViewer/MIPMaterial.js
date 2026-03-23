@@ -34,7 +34,6 @@ export default function()
         u_textures: new THREE.Uniform
         ({
             volume_map : null,
-            shadow_map : null,
             distance_map  : null,
         }),
 
@@ -83,12 +82,10 @@ export default function()
         VARIATION_METHOD  : 1,
 
         MAX_CELLS           : 1000,
-        MAX_TRACES          : 1000 * 5,
+        MAX_TRACES          : 1000,
         MAX_BLOCKS          : 1000,
-        MAX_GROUPS          : 100,
-        MAX_CELLS_IN_BLOCK  : 10,
-        MAX_TRACES_IN_BLOCK : 50,
-        MAX_BLOCKS_IN_GROUP : 20,
+        MAX_CELLS_IN_BLOCK  : 100,
+        MAX_TRACES_IN_BLOCK : 100,
     }
 
     const material = new THREE.ShaderMaterial

@@ -39,7 +39,7 @@ for (int i = 0; i < MAX_CELLS; i++)
 
     // compute empty
     bool prev_empty = cell.empty;
-    cell.empty = sampleShadow(cell.coords);
+    sampleDistance1bit(cell.coords, cell.empty);
 
     // compute entry from previous exit
     cell.entry_distance = cell.exit_distance;

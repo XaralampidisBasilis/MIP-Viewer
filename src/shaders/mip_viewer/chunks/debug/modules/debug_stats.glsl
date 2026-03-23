@@ -16,9 +16,6 @@ vec4 debug_stats_num_cubics = to_color(turboBurn(float(stats.num_cubics) / float
 // num blocks
 vec4 debug_stats_num_blocks = to_color(turboBurn(float(stats.num_blocks) / float(MAX_BLOCKS)));
 
-// num groups
-vec4 debug_stats_num_groups = to_color(turboBurn(float(stats.num_groups) / float(MAX_GROUPS)));
-
 // num fetches
 vec4 debug_stats_num_fetches = to_color(turboBurn(float(stats.num_volume_fetches + stats.num_distance_fetches) / float(MAX_CELLS + MAX_BLOCKS)));
 
@@ -37,7 +34,6 @@ switch (u_debug.option - 900)
     case 3: fragColor = debug_stats_num_mips;              break;
     case 4: fragColor = debug_stats_num_cubics;            break;
     case 5: fragColor = debug_stats_num_blocks;            break;
-    case 6: fragColor = debug_stats_num_groups;            break;
     case 7: fragColor = debug_stats_num_fetches;           break;
     case 8: fragColor = debug_stats_num_volume_fetches;    break;
     case 9: fragColor = debug_stats_num_distance_fetches;  break;

@@ -3,8 +3,7 @@
 
 void sampleDistance1bit(in ivec3 coords, out bool empty)
 {    
-    int i = texelFetch(u_textures.shadow_map, coords, 0).r; // -2048..2047 half float precision     
-    uint u = uint(i + 2048); // 0..4095
+    uint u = texelFetch(u_textures.distance_map, coords, 0).r; // 0..4095 
     uint d = (u >> u_ray.map) & 0x1u;
 
     empty = (d == 1u);
@@ -40,9 +39,7 @@ int sampleDistance8bit(in ivec3 coords, out bool empty)
 
 void sampleDistance1bit(in ivec3 coords, out bool empty)
 {    
-    int i = texelFetch(u_textures.shadow_map, coords, 0).r; // -2048..2047 half float precision     
-    uint u = uint(i + 2048); // 0..4095
-
+    uint u = texelFetch(u_textures.distance_map, coords, 0).r; // 0..4095 
     uint d = 0u;
 
          if (u_ray.map ==  0u) d = (u >>  0) & 0x1u; // 'x', '+++'

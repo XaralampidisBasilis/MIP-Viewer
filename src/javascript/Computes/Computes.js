@@ -2,8 +2,8 @@ import * as tf from '@tensorflow/tfjs'
 import EventEmitter from '../Utils/EventEmitter'
 import Experience from '../Experience'
 import VolumeMap from './Maps/VolumeMap'
-import ShadowMap from './Maps/ShadowMap'
 import DistanceMap from './Maps/DistanceMap'
+import DistanceMap2 from './Maps/DistanceMap2'
 
 export default class Computes extends EventEmitter
 {
@@ -25,8 +25,7 @@ export default class Computes extends EventEmitter
         this.resources = this.experience.resources
         
         this.volumeMap = new VolumeMap()
-        this.shadowMap = new ShadowMap()
-        this.distanceMap = new DistanceMap()    
+        this.distanceMap = new DistanceMap2()    
     }
 
     async start()
@@ -36,19 +35,13 @@ export default class Computes extends EventEmitter
         this.volumeMap.computeTensor()
         await tf.nextFrame()
 
-        this.shadowMap.computeTensor()
+        this.distanceMap.computeR16UITexture()
+        // this.distanceMap.computeRGBA16UITexture()
+        // this.distanceMap.computeRGB32UITexture()
         await tf.nextFrame()
 
         this.volumeMap.computeTexture()
         this.volumeMap.tensor.dispose()
-        await tf.nextFrame()
-
-        // this.distanceMap.computeRGBA16UITexture()
-        this.distanceMap.computeRGB32UITexture()
-        await tf.nextFrame()
-
-        this.shadowMap.computeTexture()
-        this.shadowMap.tensor.dispose()
         await tf.nextFrame()
 
         console.timeEnd('start@Computes') 

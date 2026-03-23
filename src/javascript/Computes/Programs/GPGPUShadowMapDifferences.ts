@@ -800,7 +800,7 @@ function unidirectionalShadowMap(
     differences: tf.Tensor5D, 
     permute: Permute, 
     reverse: Reverse, 
-    tolerance: number = 0.01,
+    tolerance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
@@ -859,7 +859,7 @@ export function computeUnidirectionalShadowMap(
     volume: tf.Tensor3D, 
     dominantAxis: Axis, 
     octant: Octant, 
-    tolerance: number = 0.01,
+    tolerance: number,
     verbose: boolean = false
 ) : tf.Tensor3D
 {
@@ -880,7 +880,7 @@ export function computeBidirectionalShadowMap(
     volume: tf.Tensor3D, 
     dominantAxis: Axis, 
     octant: Octant, 
-    tolerance: number = 0.01,
+    tolerance: number,
     verbose: boolean = false
 ) : tf.Tensor3D
 {
@@ -910,7 +910,7 @@ export function computeBidirectionalShadowMapReverse(
     volume: tf.Tensor3D, 
     dominantAxis: Axis, 
     octant: Octant, 
-    tolerance: number = 0.01,
+    tolerance: number,
     verbose: boolean = false
 ) : tf.Tensor3D
 {
@@ -920,7 +920,7 @@ export function computeBidirectionalShadowMapReverse(
 
 export function computeExtendedAnisotropicUnidirectionalShadowMap(
     volume: tf.Tensor3D,
-    tolerance: number = 0.01,
+    tolerance: number,
     verbose: boolean = false
 ) : tf.Tensor3D
 {
@@ -966,7 +966,7 @@ export function computeExtendedAnisotropicUnidirectionalShadowMap(
 
 export function computeExtendedAnisotropicBidirectionalShadowMap(
     volume: tf.Tensor3D, 
-    tolerance: number = 0.01,
+    tolerance: number,
     verbose: boolean = false
 ) : tf.Tensor3D
 {
@@ -1012,8 +1012,8 @@ export function computeBidirectionalBlockShadowMap(
     volume: tf.Tensor3D, 
     dominantAxis: Axis, 
     octant: Octant, 
-    tolerance: number = 0.01,
-    blockSize: number = 2,
+    tolerance: number,
+    blockSize: number,
     verbose: boolean = false
 ) : tf.Tensor3D
 {
@@ -1033,9 +1033,11 @@ export function computeBidirectionalBlockShadowMap(
     tf.dispose(backwardDifferences)
 
     const shadowMap = bidirectionalShadowMap(forwardShadowMap, backwardShadowMap)
-    if (verbose) logTensor('bidirectionalShadowMap', shadowMap)
+    if (verbose) logTensor('shadowMap', shadowMap)
     tf.dispose([forwardShadowMap, backwardShadowMap])
 
+    if (blockSize == 1) return shadowMap
+    
     const blockShadowMap = minPool3d(shadowMap, blockSize, blockSize, 'same')
     if (verbose) logTensor('blockShadowMap', blockShadowMap)
     tf.dispose(shadowMap)
@@ -1045,8 +1047,8 @@ export function computeBidirectionalBlockShadowMap(
 
 export function computeExtendedAnisotropicBidirectionalBlockShadowMap(
     volume: tf.Tensor3D, 
-    tolerance: number = 0.01,
-    blockSize: number = 2,
+    tolerance: number,
+    blockSize: number,
     verbose: boolean = false
 ) : tf.Tensor3D
 {
@@ -1094,7 +1096,7 @@ export function computeUnidirectionalShadowMapReference(
     volume: tf.Tensor3D, 
     dominantAxis: Axis, 
     octant: Octant, 
-    tolerance: number = 0.01,
+    tolerance: number,
     verbose: boolean = false
 ) : tf.Tensor3D
 {
@@ -1123,7 +1125,7 @@ export function computeUnidirectionalShadowMapReference(
 
 export function computeExtendedAnisotropicUnidirectionalShadowMapReference(
     volume: tf.Tensor3D,
-    tolerance: number = 0.01,
+    tolerance: number,
     verbose: boolean = false
 ) : tf.Tensor3D
 {
@@ -1171,7 +1173,7 @@ export function computeExtendedAnisotropicUnidirectionalShadowMapReference(
 
 export function computeExtendedAnisotropicBidirectionalShadowMapSingular(
     volume: tf.Tensor3D, 
-    tolerance: number = 0.01,
+    tolerance: number,
     verbose: boolean = false
 ) : tf.Tensor3D
 {

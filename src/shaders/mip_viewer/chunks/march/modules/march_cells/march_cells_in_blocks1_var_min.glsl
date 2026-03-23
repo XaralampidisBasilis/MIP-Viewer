@@ -24,7 +24,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 
     // compute empty
     bool prev_empty = block.empty;
-    block.empty = sampleShadow(block.coords);
+    sampleDistance1bit(block.coords, block.empty);
 
     // compute entry from previous exit
     block.entry_distance = block.exit_distance;

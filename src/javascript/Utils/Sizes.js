@@ -28,9 +28,7 @@ export default class Sizes extends EventEmitter
     }
 
     computePixelRatio(width, height)
-    {
-        return 1;
-        
+    {        
         const devicePR = window.devicePixelRatio || 1
 
         // Pixel-budget-based DPR so: width*height*(dpr^2) ~= targetPixels

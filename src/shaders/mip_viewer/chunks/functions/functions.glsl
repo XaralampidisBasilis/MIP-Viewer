@@ -1,5 +1,4 @@
 #include "./sampleVolume"
-#include "./sampleShadow"
 #include "./sampleDistance"
 #include "./computeGradient"
 #include "./computePrincipalCurvatures"
