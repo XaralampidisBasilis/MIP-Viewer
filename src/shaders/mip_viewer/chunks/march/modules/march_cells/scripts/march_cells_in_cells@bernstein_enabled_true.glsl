@@ -71,28 +71,33 @@ for (int i = 0; i < MAX_CELLS; i++)
 
     #endif
 
-    // BERNSTEIN_TEST
+    // MAXIMIZE_BERNSTEIN
     cubic.bernstein_coeffs = cubic.values * CUBIC_INV_BERNSTEIN;
     mip.update = any(greaterThan(cubic.bernstein_coeffs, vec4(mip.value)));
 
     if (mip.update)
     {
-        // SOLVE_CUBIC
+        // MAXIMIZE_CUBIC
         cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
         CubicMax cubic_max = cubicMaxOnUnitInterval(cubic.coeffs, cubic.values.x, cubic.values.w);
-
-        cubic.max_value = cubic_max.v;
-        cubic.argmax_t = cubic_max.t;
         
+        cubic.argmax_t = cubic_max.t;
+        cubic.max_value = cubic_max.v;
+
         #if DEBUG_ENABLED == 1
 
             stats.num_cubics += 1;
 
         #endif
 
-        // UPDATE_MIP
-        mip.distance = mix(cell.entry_distance, cell.exit_distance, cubic_max.t);
-        mip.value = cubic_max.v;
+        mip.update = cubic.max_value > mip.value;
+    }
+
+    // UPDATE_MIP
+    if (mip.update)
+    {
+        mip.distance = mix(block.entry_distance, block.exit_distance, cubic.argmax_t);
+        mip.value = cubic.max_value;
 
         #if DEBUG_ENABLED == 1
 

@@ -1,12 +1,7 @@
 
 // Cull with Bernstein coefficients before the full cubic maximize step.
 cubic.bernstein_coeffs = cubic.values * CUBIC_INV_BERNSTEIN;
-
-mip.update = 
-    cubic.bernstein_coeffs.x > mip.value || 
-    cubic.bernstein_coeffs.y > mip.value || 
-    cubic.bernstein_coeffs.z > mip.value || 
-    cubic.bernstein_coeffs.w > mip.value;
+mip.update = any(greaterThan(cubic.bernstein_coeffs, vec4(mip.value)));
 
 if (mip.update)
 {

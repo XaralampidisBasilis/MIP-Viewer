@@ -17,7 +17,7 @@ export default class Configs extends EventEmitter
         'traces',
     ])
     static SkippingMethods = Object.freeze([
-        'binary',
+        'sequential',
         'distance',
     ])
 
