@@ -8,7 +8,8 @@ block.coords = advanceBlockCoords(block.coords, block.exit_step, block.step_radi
 block.prev_empty = block.empty;
 // block.step_radius = sampleDistance1bit(block.coords, block.empty);
 // block.step_radius = sampleDistance5bit(block.coords, block.empty);
-block.step_radius = sampleDistance8bit(block.coords, block.empty);
+// block.step_radius = sampleDistance8bit(block.coords, block.empty);
+block.step_radius = sampleDistance10bit(block.coords, block.empty);
 
 // Current entry is the previous step's exit
 block.entry_distance = block.exit_distance;

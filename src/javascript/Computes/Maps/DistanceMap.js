@@ -1,7 +1,5 @@
 import * as THREE from 'three'
-import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
-import { toHalfFloat } from '../../Utils/DataUtils'
 import * as GPGPU from '../Programs/GPGPUShadowDistanceMap'
 
 export default class DistanceMap 
@@ -10,16 +8,22 @@ export default class DistanceMap
     {
         this.computes = new Computes()
         this.configs = this.computes.configs
+
+        this.errorTolerance = this.configs.errorTolerance
+        this.blockSize = this.configs.blockSize
     }
  
     computeR16UITexture()
     {
         console.time('computeR16UITexture') 
+        
+        const volumeTensor = this.computes.volumeMap.tensor
+        const blockShape = volumeTensor.shape.map(X => Math.ceil((X + 1) / this.blockSize))
+        this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
 
-        // this.textureData = GPGPU.computeIsotropicDistanceMap1bit(this.computes.shadowMap.tensor, true)
-        this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap1bit(this.computes.shadowMap.tensor, true)
-        // this.textureData = GPGPU.computeExtendedAnisotropicBidirectionalDistanceMap1bit(this.computes.shadowMap.tensor, true)
-        this.dimensions = this.computes.shadowMap.dimensions
+        // this.textureData = GPGPU.computeIsotropicDistanceMap1bit(volumeTensor, this.errorTolerance, this.blockSize, true)
+        this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap1bit(volumeTensor, this.errorTolerance, this.blockSize, true)
+        // this.textureData = GPGPU.computeExtendedAnisotropicBidirectionalDistanceMap1bit(volumeTensor, this.errorTolerance, this.blockSize, true)
 
         this.texture = new THREE.Data3DTexture(this.textureData, ...this.dimensions)
         this.texture.format = THREE.RedIntegerFormat
@@ -28,7 +32,7 @@ export default class DistanceMap
         this.texture.minFilter = THREE.NearestFilter
         this.texture.magFilter = THREE.NearestFilter
         this.texture.generateMipmaps = false
-        this.texture.unpackAlignment = 2
+        this.texture.unpackAlignment = 1
         this.texture.needsUpdate = true
 
         console.timeEnd('computeR16UITexture') 
@@ -38,10 +42,13 @@ export default class DistanceMap
     {
         console.time('computeRGBA16UITexture') 
 
-        // this.textureData = GPGPU.computeIsotropicDistanceMap5bit(this.computes.shadowMap.tensor, true)
-        this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap5bit(this.computes.shadowMap.tensor, true)
-        // this.textureData = GPGPU.computeExtendedAnisotropicBidirectionalDistanceMap5bit(this.computes.shadowMap.tensor, true)
-        this.dimensions = this.computes.shadowMap.dimensions
+        const volumeTensor = this.computes.volumeMap.tensor
+        const blockShape = volumeTensor.shape.map(X => Math.ceil((X + 1) / this.blockSize))
+        this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
+
+        // this.textureData = GPGPU.computeIsotropicDistanceMap5bit(volumeTensor, this.errorTolerance, this.blockSize, true)
+        this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap5bit(volumeTensor, this.errorTolerance, this.blockSize, true)
+        // this.textureData = GPGPU.computeExtendedAnisotropicBidirectionalDistanceMap5bit(volumeTensor, this.errorTolerance, this.blockSize, true)
 
         this.texture = new THREE.Data3DTexture(this.textureData, ...this.dimensions)
         this.texture.format = THREE.RGBAIntegerFormat
@@ -50,7 +57,7 @@ export default class DistanceMap
         this.texture.minFilter = THREE.NearestFilter
         this.texture.magFilter = THREE.NearestFilter
         this.texture.generateMipmaps = false
-        this.texture.unpackAlignment = 8
+        this.texture.unpackAlignment = 1
         this.texture.needsUpdate = true
 
         console.timeEnd('computeRGBA16UITexture') 
@@ -60,10 +67,13 @@ export default class DistanceMap
     {
         console.time('computeRGB32UITexture') 
 
-        // this.textureData = GPGPU.computeIsotropicDistanceMap8bit(this.computes.shadowMap.tensor, true)
-        this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap8bit(this.computes.shadowMap.tensor, true)
-        // this.textureData = GPGPU.computeExtendedAnisotropicBidirectionalDistanceMap8bit(this.computes.shadowMap.tensor, true)
-        this.dimensions = this.computes.shadowMap.dimensions
+        const volumeTensor = this.computes.volumeMap.tensor
+        const blockShape = volumeTensor.shape.map(X => Math.ceil((X + 1) / this.blockSize))
+        this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
+
+        // this.textureData = GPGPU.computeIsotropicDistanceMap8bit(volumeTensor, this.errorTolerance, this.blockSize, true)
+        this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap8bit(volumeTensor, this.errorTolerance, this.blockSize, true)
+        // this.textureData = GPGPU.computeExtendedAnisotropicBidirectionalDistanceMap8bit(volumeTensor, this.errorTolerance, this.blockSize, true)
 
         // Workaround: this Three.js version does not map THREE.RGBIntegerFormat to WebGL's RGB_INTEGER
         // for Data3DTexture uploads, so use the raw WebGL enum name string instead.
@@ -78,6 +88,33 @@ export default class DistanceMap
         this.texture.needsUpdate = true
 
         console.timeEnd('computeRGB32UITexture') 
+    }   
+
+    computeRGBA32UITexture()
+    {
+        console.time('computeRGBA32UITexture') 
+
+        const volumeTensor = this.computes.volumeMap.tensor
+        const blockShape = volumeTensor.shape.map(X => Math.ceil((X + 1) / this.blockSize))
+        this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
+
+        // this.textureData = GPGPU.computeIsotropicDistanceMap10bit(volumeTensor, this.errorTolerance, this.blockSize, true)
+        this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap10bit(volumeTensor, this.errorTolerance, this.blockSize, true)
+        // this.textureData = GPGPU.computeExtendedAnisotropicBidirectionalDistanceMap10bit(volumeTensor, this.errorTolerance, this.blockSize, true)
+
+        // Workaround: this Three.js version does not map THREE.RGBIntegerFormat to WebGL's RGB_INTEGER
+        // for Data3DTexture uploads, so use the raw WebGL enum name string instead.
+        this.texture = new THREE.Data3DTexture(this.textureData, ...this.dimensions)
+        this.texture.format = 'RGBA_INTEGER' // THREE.RGBAIntegerFormat
+        this.texture.type = THREE.UnsignedIntType
+        this.texture.internalFormat = 'RGBA32UI'
+        this.texture.minFilter = THREE.NearestFilter
+        this.texture.magFilter = THREE.NearestFilter
+        this.texture.generateMipmaps = false
+        this.texture.unpackAlignment = 1
+        this.texture.needsUpdate = true
+
+        console.timeEnd('computeRGBA32UITexture') 
     }   
 
     dispose()

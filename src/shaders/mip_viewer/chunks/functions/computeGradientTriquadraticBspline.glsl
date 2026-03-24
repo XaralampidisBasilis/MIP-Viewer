@@ -11,7 +11,7 @@ GPU Gems 2, Chapter 20. Fast Third-Order Texture Filtering
 #define COMPUTE_GRADIENT_TRIQUADRATIC_BSPLINE
 
 #ifndef SAMPLE_TRILINEAR_VOLUME
-#include "../sampleVolume"
+#include "./sampleVolume"
 #endif
 #ifndef COMPUTE_SECOND_DERIVATIVES
 #include "./computeSecondDerivatives"

@@ -12,25 +12,26 @@ int sampleDistance1bit(in ivec3 coords, out bool empty)
 
 int sampleDistance5bit(in ivec3 coords, out bool empty)
 {
-    uvec4 u = texelFetch(u_textures.distance_map, coords, 0).rgba;
+    uvec4 u = texelFetch(u_textures.distance_map, coords, 0);
 
+    const uint MASKS[3] = uint[3](0x1Fu, 0x1Fu, 0x3Fu);
     uint shift = u_ray.axis * 5u;
-    uint mask  = (u_ray.axis == 2u) ? 0x3Fu : 0x1Fu;
 
-    uint d = (u[u_ray.idx] >> shift) & mask;
+    uint d = (u[u_ray.idx] >> shift) & MASKS[u_ray.axis];
 
     empty = (d != 0u);
     return int(max(d, 1u));
 }
 
-int sampleDistance8bit(in ivec3 coords, out bool empty)
+int sampleDistance10bit(in ivec3 coords, out bool empty)
 {
-    uvec3 u = texelFetch(u_textures.distance_map, coords, 0).rgb;
+    uvec4 u = texelFetch(u_textures.distance_map, coords, 0).rgba;
 
-    uint shift = u_ray.idx * 8u;
-    uint mask = 0xFFu;
+    const uint MASKS[3]  = uint[3](0x7FFu, 0x7FFu, 0x3FFu);
+    uint shift = u_ray.axis *11u;
 
-    uint d = (u[u_ray.axis] >> shift) & mask;
+    uint packed = u[u_ray.idx];
+    uint d = (packed >> shift) & MASKS[u_ray.axis];
 
     empty = (d != 0u);
     return int(max(d, 1u));

@@ -33,4 +33,17 @@ bool sampleShadow8bit(in ivec3 coords)
     return (d != 0u);
 }
 
+bool sampleShadow10bit(in ivec3 coords)
+{
+    uvec4 u = texelFetch(u_textures.distance_map, coords, 0).rgba;
+
+    const uint MASKS[3]  = uint[3](0x7FFu, 0x7FFu, 0x3FFu);
+    uint shift = u_ray.axis *11u;
+
+    uint packed = u[u_ray.idx];
+    uint d = (packed >> shift) & MASKS[u_ray.axis];
+
+    return (d != 0u);
+}
+
 #endif

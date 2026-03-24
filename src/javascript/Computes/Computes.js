@@ -3,7 +3,6 @@ import EventEmitter from '../Utils/EventEmitter'
 import Experience from '../Experience'
 import VolumeMap from './Maps/VolumeMap'
 import DistanceMap from './Maps/DistanceMap'
-import DistanceMap2 from './Maps/DistanceMap2'
 
 export default class Computes extends EventEmitter
 {
@@ -25,7 +24,7 @@ export default class Computes extends EventEmitter
         this.resources = this.experience.resources
         
         this.volumeMap = new VolumeMap()
-        this.distanceMap = new DistanceMap2()    
+        this.distanceMap = new DistanceMap()    
     }
 
     async start()
@@ -37,7 +36,8 @@ export default class Computes extends EventEmitter
 
         // this.distanceMap.computeR16UITexture()
         // this.distanceMap.computeRGBA16UITexture()
-        this.distanceMap.computeRGB32UITexture()
+        // this.distanceMap.computeRGB32UITexture()
+        this.distanceMap.computeRGBA32UITexture()
         await tf.nextFrame()
 
         this.volumeMap.computeTexture()

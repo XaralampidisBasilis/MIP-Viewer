@@ -8,7 +8,8 @@ block.coords = advanceBlockCoords(block.coords, block.exit_step);
 block.prev_empty = block.empty;
 // block.empty = sampleShadow1bit(block.coords);
 // block.empty = sampleShadow5bit(block.coords);
-block.empty = sampleShadow8bit(block.coords);
+// block.empty = sampleShadow8bit(block.coords);
+block.empty = sampleShadow10bit(block.coords);
 
 // compute entry from previous exit
 block.entry_distance = block.exit_distance;

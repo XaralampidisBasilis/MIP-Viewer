@@ -258,7 +258,6 @@ export default class GUI
                 material.needsUpdate = true 
             }),
 
-            maxGroups: folder.add(uniforms, 'max_groups').min(0).max(defines.MAX_GROUPS).step(1),
             maxBlocks: folder.add(uniforms, 'max_blocks').min(0).max(defines.MAX_BLOCKS).step(1),
             maxCells : folder.add(uniforms, 'max_cells').min(0).max(defines.MAX_CELLS).step(1),
             maxTraces : folder.add(uniforms, 'max_traces').min(0).max(defines.MAX_TRACES).step(1),
