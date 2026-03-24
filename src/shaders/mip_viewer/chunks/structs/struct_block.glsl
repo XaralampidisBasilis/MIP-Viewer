@@ -4,11 +4,11 @@
 // struct to hold the current occumap parameters
 struct Block
 {
-    int   step_radius;
-    bool  prev_empty;
     bool  empty;
+    bool  prev_empty;
     bool  terminated;
     ivec3 coords;  
+    int   step_radius;
     float entry_distance;
     float exit_distance;
     float span_distance;

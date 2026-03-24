@@ -1,8 +1,8 @@
 // UPDATE_CELL_IN_RAY
 
 // compute far distances
-cell.far_distances = advanceCellFarDistances(cell.far_distances, cell.exit_step);
 cell.coords = advanceCellCoords(cell.coords, cell.exit_step);
+cell.far_distances = advanceCellFarDistances(cell.far_distances, cell.exit_step);
 
 // compute entry from previous exit
 cell.entry_distance = cell.exit_distance;
