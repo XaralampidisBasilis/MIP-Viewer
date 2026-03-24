@@ -71,7 +71,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     }
 
     // START_CELL_TO_BLOCK
-    cell.coords = advanceCellCoordsAtBlock(block.coords, block.entry_step, block.entry_position + ray.eps_direction);
+    cell.coords = startCellCoordsInBlock(block.coords, block.entry_step, block.entry_position + ray.eps_direction);
     cell.exit_distance = block.entry_distance;
     cell.exit_position = block.entry_position; 
     cell.exit_step = ivec3(0);

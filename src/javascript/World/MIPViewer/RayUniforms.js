@@ -52,16 +52,16 @@ export function updateRayUniforms(uniforms, camera, mesh, dimensions)
         1 / _indexDirection.z,
     )
 
-    ray.step_distances.set(
-        Math.abs(1 / _indexDirection.x),
-        Math.abs(1 / _indexDirection.y),
-        Math.abs(1 / _indexDirection.z),
-    )
-
     ray.sign_direction.set(
         _indexDirection.x >= 0 ? 1 : -1,
         _indexDirection.y >= 0 ? 1 : -1,
         _indexDirection.z >= 0 ? 1 : -1,
+    )
+
+    ray.step_distances.set(
+        Math.abs(1 / _indexDirection.x),
+        Math.abs(1 / _indexDirection.y),
+        Math.abs(1 / _indexDirection.z),
     )
 
     const absX = Math.abs(_indexDirection.x)

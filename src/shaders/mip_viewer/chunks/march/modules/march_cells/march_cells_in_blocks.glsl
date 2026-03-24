@@ -1,10 +1,10 @@
 
 
 // start block at ray start
-#include "../march_blocks/modules/start_block_at_ray"
+#include "../march_blocks/modules/start_block_in_ray"
 
 // start cubic at the ray start
-#include "./modules/start_cubic_at_ray"
+#include "./modules/start_cubic_in_ray"
 
 // start mip at the ray start
 #include "./modules/start_mip_from_cubic"
@@ -21,10 +21,10 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     }
 
     // Start cell at the block entry
-    #include "./modules/start_cell_at_block"
+    #include "./modules/start_cell_in_block"
 
     // Start cubic at the block entry and reuse sample if previous was not empty
-    #include "./modules/start_cubic_at_block"
+    #include "./modules/start_cubic_in_block"
       
     // Start cell march inside the current non empty block until we escape
     #pragma unroll

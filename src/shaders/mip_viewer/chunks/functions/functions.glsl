@@ -14,6 +14,8 @@
 #include "./intersectCellFarDistances"
 #include "./advanceCellCoords"
 #include "./advanceBlockCoords"
-#include "./advanceCellCoordsAtBlock"
 #include "./advanceCellFarDistances"
 #include "./cubicMaxOnUnitInterval"
+#include "./startCellCoordsInBlock"
+#include "./startCellFarDistancesInBlock"
+

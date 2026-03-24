@@ -32,8 +32,8 @@ for (int i = 0; i < MAX_CELLS; i++)
 {
     // UPDATE_CELL
 
-    // cell.coords = advanceCellCoords(cell.coords, cell.exit_step);
     cell.far_distances = advanceCellFarDistances(cell.far_distances, cell.exit_step);
+    cell.coords = advanceCellCoords(cell.coords, cell.exit_step);
 
     cell.entry_distance = cell.exit_distance;
     cell.entry_position = cell.exit_position;
