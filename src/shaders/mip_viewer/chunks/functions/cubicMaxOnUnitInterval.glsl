@@ -2,8 +2,8 @@
 #define CUBIC_MAX_ON_UNIT_INTERVAL
 
 struct CubicMax {
-    float v;
-    float t;
+    float value;
+    float point;
 };
 
 // Find the maximum value of a cubic on [0, 1] from power-basis coefficients

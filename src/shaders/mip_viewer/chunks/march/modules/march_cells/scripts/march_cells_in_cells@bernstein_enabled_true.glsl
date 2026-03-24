@@ -80,12 +80,12 @@ for (int i = 0; i < MAX_CELLS; i++)
         cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
         CubicMax cubic_max = cubicMaxOnUnitInterval(cubic.coeffs, cubic.values.x, cubic.values.w);
         
-        cubic.argmax_t = cubic_max.t;
-        cubic.max_value = cubic_max.v;
+        cubic.argmax_point = cubic_max.point;
+        cubic.max_value = cubic_max.value;
 
         #if DEBUG_ENABLED == 1
 
-            stats.num_cubics += 1;
+            stats.num_maxima += 1;
 
         #endif
 
@@ -95,7 +95,7 @@ for (int i = 0; i < MAX_CELLS; i++)
     // UPDATE_MIP
     if (mip.update)
     {
-        mip.distance = mix(block.entry_distance, block.exit_distance, cubic.argmax_t);
+        mip.distance = mix(block.entry_distance, block.exit_distance, cubic.argmax_point);
         mip.value = cubic.max_value;
 
         #if DEBUG_ENABLED == 1

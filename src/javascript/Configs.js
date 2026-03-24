@@ -17,20 +17,27 @@ export default class Configs extends EventEmitter
         'traces',
     ])
     static SkippingMethods = Object.freeze([
-        'sequential',
+        'shadow',
         'distance',
+    ])
+    static DistanceBits = Object.freeze([
+        '1bit',
+        '5bits',
+        '8bits',
+        '10bits',
     ])
 
     constructor() 
     {
         super()
 
-        this.downscaleEnabled = false
+        this.downscaleEnabled = true
         this.downscaleFactor = 0.8
 
         this.errorTolerance = 0.01
         this.blockSize = 2
         
+        this.distanceBits = '5bits'
         this.gradientsMethod = 'triquadraticBspline'
         this.marchingMethod = 'cells'
         this.skippingMethod = 'distance'

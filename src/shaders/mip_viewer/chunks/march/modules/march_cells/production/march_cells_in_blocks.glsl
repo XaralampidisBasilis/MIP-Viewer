@@ -98,7 +98,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
             CubicMax cubic_max = cubicMaxOnUnitInterval(coeffs, cubic.values.x, cubic.values.w);
     
             // UPDATE_MIP
-            mip.value = max(mip.value, cubic_max.v);
+            mip.value = max(mip.value, cubic_max.value);
         }
 
         if (cell.terminated) break; 

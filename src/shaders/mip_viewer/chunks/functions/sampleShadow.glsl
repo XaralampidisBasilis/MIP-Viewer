@@ -46,4 +46,60 @@ bool sampleShadow10bit(in ivec3 coords)
     return (d != 0u);
 }
 
+bool sampleShadow(in ivec3 coords)
+{
+    #if DISTANCE_BITS == 0 
+    return sampleShadow1bit(coords);
+
+    #elif DISTANCE_BITS == 1 
+    return sampleShadow5bit(coords);
+
+    #elif DISTANCE_BITS == 2 
+    return sampleShadow8bit(coords);
+
+    #elif DISTANCE_BITS == 3 
+    return sampleShadow10bit(coords);
+
+    #endif
+}
+
+/*
+bool sampleShadow(in ivec3 coords)
+{
+    uvec4 u = texelFetch(u_textures.distance_map, coords, 0);
+
+    #if DISTANCE_BITS == 0 
+
+        uint packed = u.r;
+        uint shift = u_ray.map;
+        uint mask = 0x1u;
+
+    #elif DISTANCE_BITS == 1
+
+        const uint MASKS[3] = uint[3](0x1Fu, 0x1Fu, 0x3Fu);
+
+        uint packed = u[u_ray.idx];
+        uint shift = u_ray.axis * 5u;
+        uint mask = MASKS[u_ray.axis];
+
+    #elif DISTANCE_BITS == 2 
+
+        uint packed = u[u_ray.axis];
+        uint shift = u_ray.idx * 8u;
+        uint mask = 0xFFu;
+
+    #elif DISTANCE_BITS == 3 
+
+        const uint MASKS[3]  = uint[3](0x7FFu, 0x7FFu, 0x3FFu);
+
+        uint packed = u[u_ray.idx];
+        uint shift = u_ray.axis * 11u;
+        uint mask = MASKS[u_ray.axis];
+
+    #endif
+
+    return (d != 0u);
+}
+*/
+
 #endif

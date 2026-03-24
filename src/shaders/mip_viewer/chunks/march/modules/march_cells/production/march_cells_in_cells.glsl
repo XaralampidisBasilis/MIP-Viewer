@@ -54,7 +54,7 @@ for (int i = 0; i < MAX_CELLS; i++)
         CubicMax cubic_max = cubicMaxOnUnitInterval(coeffs, cubic.values.x, cubic.values.w);
 
         // UPDATE_MIP_IN_CUBIC
-        mip.value = max(mip.value, cubic_max.v);
+        mip.value = max(mip.value, cubic_max.value);
     }
         
     if (cell.terminated) break;

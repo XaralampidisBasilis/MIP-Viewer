@@ -17,22 +17,24 @@ const mat4 CUBIC_INV_BERNSTEIN = mat4(
 
 struct Cubic 
 {
+    bool   maximize;
     vec4   values;
     vec4   coeffs;    
     vec4   bernstein_coeffs; 
     float  max_value;
-    float  argmax_t;
+    float  argmax_point;
 };
 
 Cubic cubic; // Global mutable struct
 
 void set_cubic()
 {
+    cubic.maximize = false;
     cubic.values = vec4(0);
     cubic.coeffs = vec4(0);
     cubic.bernstein_coeffs = vec4(0);
     cubic.max_value = 0.0;
-    cubic.argmax_t = 0.0;
+    cubic.argmax_point = 0.0;
 }
 
 #endif 

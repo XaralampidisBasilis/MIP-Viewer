@@ -67,6 +67,7 @@ export default function()
 
     const defines = 
     {           
+        DISTANCE_BITS    : 0,
         BLOCK_SIZE       : 1,
         MARCHING_METHOD  : 1,
         SKIPPING_METHOD  : 2,
