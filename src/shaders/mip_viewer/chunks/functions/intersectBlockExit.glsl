@@ -12,7 +12,6 @@ float intersectBlockExit(ivec3 coords, out ivec3 exitStep)
 
     vec3 bMin = blockCoordsToMinPosition(cMin);
     vec3 bMax = blockCoordsToMinPosition(cMax);
-
     vec3 bExit = vec3(
         u_ray.sign_direction.x > 0 ? bMax.x : bMin.x,
         u_ray.sign_direction.y > 0 ? bMax.y : bMin.y,
@@ -38,7 +37,6 @@ float intersectBlockExit(ivec3 coords, int radius, out ivec3 exitStep)
 
     vec3 bMin = blockCoordsToMinPosition(cMin);
     vec3 bMax = blockCoordsToMinPosition(cMax);
-    
     vec3 bExit = vec3(
         u_ray.sign_direction.x > 0 ? bMax.x : bMin.x,
         u_ray.sign_direction.y > 0 ? bMax.y : bMin.y,
