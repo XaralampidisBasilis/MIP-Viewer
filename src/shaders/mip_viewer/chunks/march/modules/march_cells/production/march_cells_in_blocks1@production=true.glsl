@@ -73,7 +73,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
 
         // compute termination condition
         cell.terminated = 
-            cell.exit_distance > block.exit_distance - ray.eps_spacing || 
+            cell.exit_distance > block.exit_distance - ray.eps_distance || 
             cell.exit_distance > ray_end_distance;
 
         // UPDATE_CUBIC     

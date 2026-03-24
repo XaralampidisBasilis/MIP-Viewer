@@ -3,7 +3,7 @@
 trace.prev_distance = trace.distance;
 
 // Increment distance
-trace.distance += trace.spacing;
+trace.distance += trace.step_distance;
 
 // Compute position
 trace.position = distanceToPosition(trace.distance); 

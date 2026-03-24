@@ -6,8 +6,8 @@ cell.coords = positionToCellCoords(cell.exit_position);
 
 // START_TRACE
 float trace_phase = ray.phase - 0.5;
-trace.spacing = ray.spacing / 2.0;
-trace.distance = trace.spacing * (ceil(ray.start_distance / trace.spacing) + trace_phase);
+trace.step_distance = ray.step_distance / 2.0;
+trace.distance = trace.step_distance * (ceil(ray.start_distance / trace.step_distance) + trace_phase);
 trace.position = distanceToPosition(trace.distance); 
 trace.value = sampleVolume(trace.position);
 
@@ -57,12 +57,12 @@ for (int i = 0; i < MAX_CELLS; i++)
 
     if (!cell.empty) 
     {
-        trace.distance = trace.spacing * floor(cell.entry_distance / trace.spacing);
+        trace.distance = trace.step_distance * floor(cell.entry_distance / trace.step_distance);
 
         #pragma unroll
         for (int i = 0; i < 4; i++) 
         {
-            trace.distance += trace.spacing;
+            trace.distance += trace.step_distance;
             trace.position = distanceToPosition(trace.distance); 
             trace.terminated = trace.distance > ray.end_distance; 
 

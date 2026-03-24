@@ -1,7 +1,7 @@
 
 // start distance with phase from block
-// trace.distance = trace.spacing * (ceil(block.entry_distance / trace.spacing) + ray.phase);
-trace.distance = block.entry_distance + trace.spacing * ray.phase;
+// trace.distance = trace.step_distance * (ceil(block.entry_distance / trace.step_distance) + ray.phase);
+trace.distance = block.entry_distance + trace.step_distance * ray.phase;
 
 // clamp distance
 trace.distance = clamp(trace.distance, ray.start_distance, ray.end_distance);

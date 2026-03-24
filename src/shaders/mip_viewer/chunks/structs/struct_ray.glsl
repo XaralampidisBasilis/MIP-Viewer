@@ -10,9 +10,9 @@ struct Ray
     float phase;     
     vec3  origin;
     vec3  direction;       // direction vector for each step along the ray
-    float spacing;         // fixed step distance for each ray 
-    float eps_spacing;
-    vec3 eps_direction;
+    float step_distance;         // fixed step distance for each ray 
+    float eps_distance;
+    vec3  eps_direction;
     float start_distance;  // starting distance along the current ray from origin for ray march  
     vec3  start_position;  // starting position of the current ray in 3d model coordinates for ray march
     float end_distance;    // ending distance along the current ray from origin for ray march
@@ -29,9 +29,9 @@ void set_ray()
     ray.reversed       = u_ray.reverse;
     ray.origin         = v_ray_origin;
     ray.direction      = u_ray.direction;
-    ray.spacing        = u_ray.spacing;
+    ray.step_distance  = u_ray.step_distance;
     ray.eps_direction  = u_ray.direction * eps;
-    ray.eps_spacing    = u_ray.spacing * eps;
+    ray.eps_distance    = u_ray.step_distance * eps;
     ray.start_position = vec3(0.0);
     ray.end_position   = vec3(0.0);
     ray.start_distance = 0.0;

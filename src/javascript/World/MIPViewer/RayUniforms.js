@@ -52,6 +52,12 @@ export function updateRayUniforms(uniforms, camera, mesh, dimensions)
         1 / _indexDirection.z,
     )
 
+    ray.step_distances.set(
+        Math.abs(1 / _indexDirection.x),
+        Math.abs(1 / _indexDirection.y),
+        Math.abs(1 / _indexDirection.z),
+    )
+
     ray.signs.set(
         _indexDirection.x >= 0 ? 1 : -1,
         _indexDirection.y >= 0 ? 1 : -1,
@@ -64,8 +70,8 @@ export function updateRayUniforms(uniforms, camera, mesh, dimensions)
 
     const dominantAxis = argmax3(absX, absY, absZ)
     const dominantSign = ray.signs.getComponent(dominantAxis)
-
-    ray.spacing = 1 / (absX + absY + absZ)
+    
+    ray.step_distance = 1 / (absX + absY + absZ)
     ray.axis = dominantAxis     
     ray.idx = rayQuadrantIndex(ray.signs, dominantAxis)
     ray.map = ray.idx + 4 * dominantAxis

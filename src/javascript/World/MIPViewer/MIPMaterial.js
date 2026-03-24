@@ -23,8 +23,9 @@ export default function()
         ({
             direction    : new THREE.Vector3(),
             inv_direction: new THREE.Vector3(),
+            step_distances: new THREE.Vector3(),
             signs        : new THREE.Vector3(),
-            spacing      : 1,
+            step_distance      : 1,
             axis         : 0,
             idx          : 0,
             map          : 0,

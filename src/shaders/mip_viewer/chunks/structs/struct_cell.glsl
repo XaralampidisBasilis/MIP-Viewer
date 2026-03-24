@@ -7,11 +7,10 @@ struct Cell
     ivec3 coords;
     float entry_distance;
     float exit_distance;
+    vec3  far_distances;
     float span_distance;
     vec3  entry_position;
     vec3  exit_position;
-    vec3  min_position;
-    vec3  max_position;
     ivec3 entry_step;
     ivec3 exit_step;
 };
@@ -24,11 +23,10 @@ void set_cell()
     cell.coords         = ivec3(0);
     cell.entry_distance = 0.0;
     cell.exit_distance  = 0.0;
+    cell.far_distances = vec3(0.0);
     cell.span_distance  = 0.0;
     cell.entry_position = vec3(0.0);
     cell.exit_position  = vec3(0.0);
-    cell.min_position   = vec3(0.0);
-    cell.max_position   = vec3(0.0);
     cell.exit_step      = ivec3(0);
     cell.entry_step     = ivec3(0);
 }

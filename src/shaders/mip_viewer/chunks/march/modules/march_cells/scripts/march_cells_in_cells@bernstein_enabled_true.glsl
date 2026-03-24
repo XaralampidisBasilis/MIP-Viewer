@@ -52,7 +52,6 @@ for (int i = 0; i < MAX_CELLS; i++)
     // update stats
     #if DEBUG_ENABLED == 1
 
-        stats.num_distance_fetches += 1;
         stats.num_cells += 1;
 
     #endif

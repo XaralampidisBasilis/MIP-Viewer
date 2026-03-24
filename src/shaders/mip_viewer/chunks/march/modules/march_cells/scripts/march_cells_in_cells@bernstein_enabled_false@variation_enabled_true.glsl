@@ -1,10 +1,20 @@
 
-
 // START_CELL
 cell.coords = positionToCellCoords(ray.start_position);
 cell.exit_distance = ray.start_distance;
-cell.exit_position = ray.start_position; 
+cell.exit_position = ray.start_position;
 cell.exit_step = ivec3(0);
+
+vec3 cell_min_position = cellCoordsToPosition(cell.coords);
+vec3 cell_max_position = cell_min_position + vec3(1.0);
+
+vec3 cell_far_position = vec3(
+    u_ray.signs.x > 0 ? cell_max_position.x : cell_min_position.x,
+    u_ray.signs.y > 0 ? cell_max_position.y : cell_min_position.y,
+    u_ray.signs.z > 0 ? cell_max_position.z : cell_min_position.z
+);
+
+cell.far_distances = (cell_far_position - v_ray_origin) * u_ray.inv_direction;
 
 // START_CUBIC
 cubic.values.w = sampleVolume(ray.start_position);
@@ -27,35 +37,32 @@ mip.value = cubic.values.w;
 #endif
 
 // START_MARCH
-for (int i = 0; i < MAX_CELLS; i++) 
+for (int i = 0; i < MAX_CELLS; i++)
 {
     // UPDATE_CELL
 
-    // compute next coordinates
-    cell.coords = advanceCellCoords(cell.coords, cell.exit_step);
+    // cell.coords = advanceCellCoords(cell.coords, cell.exit_step);
+    cell.far_distances = advanceCellFarDistances(cell.far_distances, cell.exit_step);
 
-    // compute entry from previous exit
     cell.entry_distance = cell.exit_distance;
     cell.entry_position = cell.exit_position;
 
-    // compute exit from cell ray intersection 
-    cell.exit_distance = intersectCellExit(cell.coords, cell.exit_step);
+    cell.exit_distance = intersectCellFarDistances(cell.far_distances, cell.exit_step);
     cell.exit_position = distanceToPosition(cell.exit_distance);
 
-    // compute span distance
     cell.span_distance = cell.exit_distance - cell.entry_distance;
 
-    // compute termination condition
     cell.terminated = cell.exit_distance > ray.end_distance;
 
     // update stats
     #if DEBUG_ENABLED == 1
 
+        stats.num_distance_fetches += 1;
         stats.num_cells += 1;
 
     #endif
 
-    // UPDATE_CUBIC     
+    // UPDATE_CUBIC
     vec3 span_vector = cell.exit_position - cell.entry_position;
 
     cubic.values.x = cubic.values.w;
@@ -85,7 +92,7 @@ for (int i = 0; i < MAX_CELLS; i++)
     // UPDATE_MIP
     mip.update = mip.value < cubic.max_value;
 
-    if (mip.update) 
+    if (mip.update)
     {
         mip.distance = mix(cell.entry_distance, cell.exit_distance, cubic_max.t);
         mip.value = cubic_max.v;
@@ -102,12 +109,7 @@ for (int i = 0; i < MAX_CELLS; i++)
 
 // END_MIP
 mip.terminated = mip.distance > ray.end_distance;
-mip.position = distanceToPosition(mip.distance); 
+mip.position = distanceToPosition(mip.distance);
 mip.gradient = computeGradient(mip.position, mip.hessian);
 mip.curvatures = computePrincipalCurvatures(mip.gradient, mip.hessian);
 mip.normal = normalize(mip.gradient);
-
-
-
-
-
