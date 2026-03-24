@@ -1,7 +1,7 @@
 #if SKIPPING_ENABLED == 1
-#include "./march_cells_in_blocks"
+#include "./scripts/march_cells_in_blocks"
 #else
-#include "./march_cells_in_cells"
+#include "./scripts/march_cells_in_cells"
 #endif
 
 

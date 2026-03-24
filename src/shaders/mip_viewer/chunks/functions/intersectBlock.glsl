@@ -41,4 +41,5 @@ BlockHit intersectBlock(ivec3 coords)
     return BlockHit(tEntry, tExit, entryStep, exitStep);
 }
 
+
 #endif

@@ -182,9 +182,7 @@ export default class GUI
                 block_exit_distance : 408,
                 block_span_distance : 409,
                 
-                cell_empty         : 201,
                 cell_terminated    : 202,
-                cell_step_radius   : 203,
                 cell_coords        : 204,
                 cell_exit_step     : 205,
                 cell_entry_distance: 206,
