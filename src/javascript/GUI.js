@@ -67,7 +67,6 @@ export default class GUI
         { 
             blockSize           : this.configs.blockSize,
             downscaleFactor     : this.configs.downscaleFactor,
-            gradientsMethod     : this.configs.gradientsMethod,
             marchingMethod      : this.configs.marchingMethod,
             skippingStrategy    : this.configs.skippingStrategy,    
             skippingMethod      : this.configs.skippingMethod,    
@@ -99,12 +98,6 @@ export default class GUI
             .onFinishChange((option) => 
             { 
                 this.configs.set('skippingMethod', option) 
-            }),
-
-            gradientsMethod: folder.add(objects, 'gradientsMethod').options(Configs.GradientsMethods)
-            .onFinishChange((option) => 
-            { 
-                this.configs.set('gradientsMethod', option) 
             }),
 
             skippingEnabled : folder.add(objects, 'skippingEnabled')

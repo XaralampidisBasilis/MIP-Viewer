@@ -1,7 +1,7 @@
 #include "./sampleVolume"
 #include "./sampleDistance"
 #include "./sampleShadow"
-#include "./computeGradient"
+#include "./computeGradientTriquadraticBspline"
 #include "./computePrincipalCurvatures"
 #include "./distanceToPosition"
 #include "./positionToBlockCoords"

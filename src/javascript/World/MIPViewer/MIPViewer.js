@@ -108,7 +108,6 @@ export default class MIPViewer extends EventEmitter
         const defines = this.material.defines
         defines.MARCHING_METHOD = Configs.MarchingMethods.findIndex((x) => x === configs.marchingMethod)
         defines.SKIPPING_METHOD = Configs.SkippingMethods.findIndex((x) => x === configs.skippingMethod)
-        defines.GRADIENTS_METHOD = Configs.GradientsMethods.findIndex((x) => x === configs.gradientsMethod)  
         this.material.needsUpdate = true
     }
 
@@ -158,7 +157,6 @@ export default class MIPViewer extends EventEmitter
         if      (event.key === 'blockSize'          ) this.onChangeBlockSize(event)
         else if (event.key === 'downscaleFactor'    ) this.onChangeDownscaleFactor(event)
         else if (event.key === 'skippingMethod'     ) this.onChangeSkippingMethod(event)
-        else if (event.key === 'gradientsMethod'    ) this.onChangeGradientsMethod(event)
         else if (event.key === 'marchingMethod'     ) this.onChangeMarchingMethod(event)
         else if (event.key === 'skippingEnabled'    ) this.onChangeSkippingEnabled(event)
         else if (event.key === 'colormap'           ) this.onChangeColormap(event)
@@ -193,12 +191,6 @@ export default class MIPViewer extends EventEmitter
     {
         this.material.uniforms.u_textures.value.distance_map = this.computes.distanceMap.texture
         this.material.defines.SKIPPING_METHOD = Configs.SkippingMethods.findIndex((x) => x === this.configs.skippingMethod)
-        this.material.needsUpdate = true
-    }
-
-    onChangeGradientsMethod(event)
-    {
-        this.material.defines.GRADIENTS_METHOD = Configs.GradientsMethods.findIndex((x) => x === this.configs.gradientsMethod)
         this.material.needsUpdate = true
     }
 

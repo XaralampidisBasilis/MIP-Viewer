@@ -70,7 +70,6 @@ export default function()
         BLOCK_SIZE       : 1,
         MARCHING_METHOD  : 1,
         SKIPPING_METHOD  : 2,
-        GRADIENTS_METHOD : 3,
 
         BERNSTEIN_ENABLED : 1,
         SKIPPING_ENABLED  : 1,
