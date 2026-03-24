@@ -1,6 +1,6 @@
 
 
-// START_CUBIC
+// START_CUBIC_IN_BLOCK
 if(block.prev_empty)
 {
     cubic.values.w = sampleVolume(block.entry_position);

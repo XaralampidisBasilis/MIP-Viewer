@@ -1,5 +1,5 @@
 
-// START_MIP
+// START_MIP_IN_CUBIC
 mip.distance = ray.start_distance;
 mip.value = cubic.values.w;
 

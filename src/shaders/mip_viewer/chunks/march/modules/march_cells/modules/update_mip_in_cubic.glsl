@@ -1,6 +1,6 @@
 
 
-// UPDATE_MIP
+// UPDATE_MIP_IN_CUBIC
 if (mip.update) 
 {
     mip.distance = mix(cell.entry_distance, cell.exit_distance, cubic.argmax_t);

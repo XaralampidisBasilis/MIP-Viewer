@@ -7,7 +7,7 @@
 #include "./modules/start_cubic_in_ray"
 
 // start mip at the ray start
-#include "./modules/start_mip_from_cubic"
+#include "./modules/start_mip_in_cubic"
 
 // START_MARCH
 for (int j = 0; j < MAX_BLOCKS; j++) 
@@ -40,7 +40,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         #include "./modules/maximize_cubic_in_cell"
 
         // Update mip based on the max cubic value
-        #include "./modules/update_mip_from_cubic"
+        #include "./modules/update_mip_in_cubic"
 
         if (cell.terminated) break; 
     }

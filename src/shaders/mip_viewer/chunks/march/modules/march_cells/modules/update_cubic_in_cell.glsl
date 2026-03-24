@@ -1,5 +1,5 @@
 
-// UPDATE_CUBIC     
+// UPDATE_CUBIC_IN_CELL
 vec3 span_vector = cell.exit_position - cell.entry_position;
 
 cubic.values.x = cubic.values.w;
