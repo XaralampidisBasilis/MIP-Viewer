@@ -1,3 +1,4 @@
+
 // START_CELL_IN_RAY
 cell.coords = positionToCellCoords(ray.start_position);
 cell.far_distances = cellCoordsToFarDistances(cell.coords);
