@@ -1,5 +1,5 @@
 
-//MAXIMIZE_CUBIC
+// MAXIMIZE_CUBIC
 cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
 CubicMax cubic_max = cubicMaxOnUnitInterval(cubic.coeffs, cubic.values.x, cubic.values.w);
 

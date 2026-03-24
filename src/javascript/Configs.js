@@ -16,10 +16,6 @@ export default class Configs extends EventEmitter
         'cells',
         'traces',
     ])
-    static SkippingStrategies = Object.freeze([
-        'blocks',
-        'groups',
-    ])
     static SkippingMethods = Object.freeze([
         'binary',
         'distance',
@@ -33,18 +29,15 @@ export default class Configs extends EventEmitter
         this.downscaleFactor = 0.8
 
         this.errorTolerance = 0.01
-        this.blockSize = 2
+        this.blockSize = 1
         
         this.gradientsMethod = 'triquadraticBspline'
         this.marchingMethod = 'cells'
-        this.skippingStrategy = 'blocks'
         this.skippingMethod = 'distance'
         this.colormap = 'viridis'
 
         this.skippingEnabled = true
         this.debugEnabled = true
-        this.statsEnabled = true
-        this.discardingEnabled = true
     }
 
     set(key, value) 
@@ -80,11 +73,6 @@ export default class Configs extends EventEmitter
         if (key === 'marchingMethod' && !Configs.MarchingMethods.includes(value)) 
         {
             console.warn(`Invalid MarchingMethod: "${value}"`)
-            return
-        }
-        if (key === 'skippingStrategy' && !Configs.SkippingStrategies.includes(value)) 
-        {
-            console.warn(`Invalid SkippingStrategy: "${value}"`)
             return
         }
         if (key === 'skippingMethod' && !Configs.SkippingMethods.includes(value)) 

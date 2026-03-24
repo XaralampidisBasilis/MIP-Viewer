@@ -99,7 +99,6 @@ export default class MIPViewer extends EventEmitter
         const defines = this.material.defines
         defines.SKIPPING_ENABLED = Number(configs.skippingEnabled)
         defines.DEBUG_ENABLED = Number(configs.debugEnabled)
-        defines.DISCARDING_ENABLED = Number(configs.discardingEnabled)
         this.material.needsUpdate = true
     }
 
@@ -108,7 +107,6 @@ export default class MIPViewer extends EventEmitter
         const configs = this.configs
         const defines = this.material.defines
         defines.MARCHING_METHOD = Configs.MarchingMethods.findIndex((x) => x === configs.marchingMethod)
-        defines.SKIPPING_STRATEGY = Configs.SkippingStrategies.findIndex((x) => x === configs.skippingStrategy)
         defines.SKIPPING_METHOD = Configs.SkippingMethods.findIndex((x) => x === configs.skippingMethod)
         defines.GRADIENTS_METHOD = Configs.GradientsMethods.findIndex((x) => x === configs.gradientsMethod)  
         this.material.needsUpdate = true
@@ -117,13 +115,15 @@ export default class MIPViewer extends EventEmitter
     setDefinesIterators()
     {        
         const defines = this.material.defines
+
+        defines.BLOCK_SIZE = this.configs.blockSize
         
         defines.MAX_BLOCKS = this.computes.distanceMap.dimensions.toArray().reduce((y, x) => y + x, -2)
         defines.MAX_CELLS = this.computes.volumeMap.dimensions.toArray().reduce((y, x) => y + x, -2)
-        defines.MAX_CELLS_IN_BLOCK = Math.ceil(this.configs.blockSize * 3 - 2)
+        defines.MAX_CELLS_IN_BLOCK = Math.ceil(defines.BLOCK_SIZE * 3 - 2)
         
-        defines.MAX_TRACES = Math.ceil(this.computes.volumeMap.dimensions.length() * 4)
-        defines.MAX_TRACES_IN_BLOCK = Math.ceil(this.configs.blockSize * Math.sqrt(3) * 4)
+        defines.MAX_TRACES = defines.MAX_CELLS * 4
+        defines.MAX_TRACES_IN_BLOCK = defines.MAX_CELLS_IN_BLOCK * 4
         
         this.material.needsUpdate = true
 
@@ -144,7 +144,6 @@ export default class MIPViewer extends EventEmitter
         uniforms.u_volume.value.spacing.copy(this.computes.volumeMap.spacing)
         uniforms.u_volume.value.spacing_normalized.copy(this.computes.volumeMap.spacing).normalize()
         uniforms.u_volume.value.block_size = this.configs.blockSize
-        uniforms.u_volume.value.blocked_dimensions.copy(this.computes.distanceMap.dimensions)
         uniforms.u_volume.value.inv_dimensions.fromArray(uniforms.u_volume.value.dimensions.toArray().map(x => 1/x))
     }
 
@@ -158,7 +157,6 @@ export default class MIPViewer extends EventEmitter
     {
         if      (event.key === 'blockSize'          ) this.onChangeBlockSize(event)
         else if (event.key === 'downscaleFactor'    ) this.onChangeDownscaleFactor(event)
-        else if (event.key === 'skippingStrategy'   ) this.onChangeSkippingStrategy(event)
         else if (event.key === 'skippingMethod'     ) this.onChangeSkippingMethod(event)
         else if (event.key === 'gradientsMethod'    ) this.onChangeGradientsMethod(event)
         else if (event.key === 'marchingMethod'     ) this.onChangeMarchingMethod(event)
@@ -189,12 +187,6 @@ export default class MIPViewer extends EventEmitter
 
         this.material.dispose()
         this.setMaterial()
-    }
-
-    onChangeSkippingStrategy(event)
-    {
-        this.material.defines.SKIPPING_STRATEGY = Configs.SkippingStrategies.findIndex((x) => x === this.configs.skippingStrategy)
-        this.material.needsUpdate = true
     }
 
     onChangeSkippingMethod(event)

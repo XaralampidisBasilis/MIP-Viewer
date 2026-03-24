@@ -95,12 +95,6 @@ export default class GUI
                 this.configs.set('marchingMethod', option) 
             }),
 
-            skippingStrategy: folder.add(objects, 'skippingStrategy').options(Configs.SkippingStrategies)
-            .onFinishChange((option) => 
-            { 
-                this.configs.set('skippingStrategy', option) 
-            }),
-
             skippingMethod: folder.add(objects, 'skippingMethod').options(Configs.SkippingMethods)
             .onFinishChange((option) => 
             { 
@@ -156,7 +150,6 @@ export default class GUI
             debugEnabled     : Boolean(defines.DEBUG_ENABLED),
             productionEnabled: Boolean(defines.PRODUCTION_ENABLED),
             variationEnabled : Boolean(defines.VARIATION_ENABLED),
-            variationMethod  : Number(defines.VARIATION_METHOD),
         }
 
         this.controllers.debug = 
@@ -271,13 +264,6 @@ export default class GUI
             .onFinishChange((value) => 
             { 
                 defines.VARIATION_ENABLED = Number(value)
-                material.needsUpdate = true 
-            }),
-            
-            variationMethod: folder.add(objects, 'variationMethod').options([1, 2, 3, 4, 5])
-            .onFinishChange((value) => 
-            { 
-                defines.VARIATION_METHOD = Number(value)
                 material.needsUpdate = true 
             }),
 

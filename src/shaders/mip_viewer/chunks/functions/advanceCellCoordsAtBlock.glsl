@@ -4,7 +4,7 @@
 ivec3 advanceCellCoordsAtBlock(ivec3 blockCoords, ivec3 entryStep, vec3 entryPosition)
 {
     ivec3 entryCoords = positionToCellCoords(entryPosition);
-    ivec3 stepCoords = blockCoords * u_volume.block_size;
+    ivec3 stepCoords = blockCoords * BLOCK_SIZE;
 
     return entryCoords + (stepCoords - entryCoords) * entryStep;
 }

@@ -66,21 +66,16 @@ export default function()
 
     const defines = 
     {           
-    
-        MARCHING_METHOD     : 1,
-        SKIPPING_STRATEGY   : 2,
-        SKIPPING_METHOD     : 2,
-        GRADIENTS_METHOD    : 3,
-        INTERSECTION_TEST   : 0,
+        BLOCK_SIZE       : 1,
+        MARCHING_METHOD  : 1,
+        SKIPPING_METHOD  : 2,
+        GRADIENTS_METHOD : 3,
 
-        BERNSTEIN_ENABLED: 1,
-        SKIPPING_ENABLED : 1,
-
+        BERNSTEIN_ENABLED : 1,
+        SKIPPING_ENABLED  : 1,
         PRODUCTION_ENABLED: 0,
         DEBUG_ENABLED     : 1,
-        DISCARDING_ENABLED: 1,
         VARIATION_ENABLED : 0,
-        VARIATION_METHOD  : 1,
 
         MAX_CELLS           : 1000,
         MAX_TRACES          : 1000,

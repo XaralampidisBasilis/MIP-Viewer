@@ -16,7 +16,9 @@ cell.exit_position = distanceToPosition(cell.exit_distance);
 cell.span_distance = cell.exit_distance - cell.entry_distance;
 
 // compute termination condition
-cell.terminated = cell.exit_distance > ray.end_distance;
+cell.terminated = 
+    cell.exit_distance > block.exit_distance - ray.eps_spacing || 
+    cell.exit_distance > ray.end_distance;
 
 // update stats
 #if DEBUG_ENABLED == 1
