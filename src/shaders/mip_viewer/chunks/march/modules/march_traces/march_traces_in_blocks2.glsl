@@ -97,7 +97,7 @@ for (int i = 0; i < MAX_CELLS; i++)
 
     // compute next coordinates
     ivec3 exit_coords = positionToCellCoords(cell.exit_position);
-    ivec3 skip_coords = cell.coords + cell.step_radius * u_ray.signs;
+    ivec3 skip_coords = cell.coords + cell.step_radius * u_ray.sign_direction;
     cell.coords = mmix(exit_coords, skip_coords, cell.exit_step);
 
 }

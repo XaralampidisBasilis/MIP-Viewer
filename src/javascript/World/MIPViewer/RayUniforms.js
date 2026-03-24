@@ -58,7 +58,7 @@ export function updateRayUniforms(uniforms, camera, mesh, dimensions)
         Math.abs(1 / _indexDirection.z),
     )
 
-    ray.signs.set(
+    ray.sign_direction.set(
         _indexDirection.x >= 0 ? 1 : -1,
         _indexDirection.y >= 0 ? 1 : -1,
         _indexDirection.z >= 0 ? 1 : -1,
@@ -69,17 +69,17 @@ export function updateRayUniforms(uniforms, camera, mesh, dimensions)
     const absZ = Math.abs(_indexDirection.z)
 
     const dominantAxis = argmax3(absX, absY, absZ)
-    const dominantSign = ray.signs.getComponent(dominantAxis)
+    const dominantSign = ray.sign_direction.getComponent(dominantAxis)
     
     ray.step_distance = 1 / (absX + absY + absZ)
     ray.axis = dominantAxis     
-    ray.idx = rayQuadrantIndex(ray.signs, dominantAxis)
+    ray.idx = rayQuadrantIndex(ray.sign_direction, dominantAxis)
     ray.map = ray.idx + 4 * dominantAxis
     ray.reverse = dominantSign < 0
     
     if (ray.reverse)
     {
-        ray.signs.negate()
+        ray.sign_direction.negate()
         ray.direction.negate()
         ray.inv_direction.negate()
     }

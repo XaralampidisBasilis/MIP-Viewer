@@ -3,7 +3,7 @@
 
 ivec3 advanceCellCoords(ivec3 coords, ivec3 exitStep)
 {
-    return coords + exitStep * u_ray.signs;
+    return coords + exitStep * u_ray.sign_direction;
 }
 
 #endif

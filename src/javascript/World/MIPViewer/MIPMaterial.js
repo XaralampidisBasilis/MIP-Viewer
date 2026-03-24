@@ -21,15 +21,15 @@ export default function()
 
         u_ray: new THREE.Uniform
         ({
-            direction    : new THREE.Vector3(),
-            inv_direction: new THREE.Vector3(),
+            direction     : new THREE.Vector3(),
+            inv_direction : new THREE.Vector3(),
+            sign_direction: new THREE.Vector3(),
             step_distances: new THREE.Vector3(),
-            signs        : new THREE.Vector3(),
-            step_distance      : 1,
-            axis         : 0,
-            idx          : 0,
-            map          : 0,
-            reverse      : 0,
+            step_distance : 1,
+            axis          : 0,
+            idx           : 0,
+            map           : 0,
+            reverse       : 0,
         }),
 
         u_textures: new THREE.Uniform

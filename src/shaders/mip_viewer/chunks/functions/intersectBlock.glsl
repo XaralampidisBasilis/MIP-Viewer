@@ -1,6 +1,10 @@
 #ifndef INTERSECT_BLOCK
 #define INTERSECT_BLOCK
 
+#ifndef BLOCK_COORDS_TO_MIN_POSITION
+#include "./blockCoordsToMinPosition"
+#endif
+
 struct BlockHit
 {
     float entryDistance;
@@ -14,8 +18,8 @@ BlockHit intersectBlock(ivec3 coords)
     ivec3 cMin = coords;
     ivec3 cMax = coords + 1;
 
-    vec3 bMin = blockCoordsToPosition(cMin);
-    vec3 bMax = blockCoordsToPosition(cMax);
+    vec3 bMin = blockCoordsToMinPosition(cMin);
+    vec3 bMax = blockCoordsToMinPosition(cMax);
 
     vec3 t0 = (bMin - v_ray_origin) * u_ray.inv_direction;
     vec3 t1 = (bMax - v_ray_origin) * u_ray.inv_direction;

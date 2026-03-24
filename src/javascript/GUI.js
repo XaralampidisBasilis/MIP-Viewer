@@ -160,7 +160,7 @@ export default class GUI
                  
                 ray_discarded     : 101,
                 ray_direction     : 102,
-                ray_signs         : 103,
+                ray_sign_direction         : 103,
                 ray_step_distance       : 104,
                 ray_start_distance: 105,
                 ray_end_distance  : 106,

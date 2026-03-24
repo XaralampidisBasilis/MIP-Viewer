@@ -1,20 +1,11 @@
 
 // START_CELL
-cell.coords = positionToCellCoords(ray.start_position);
 cell.exit_distance = ray.start_distance;
 cell.exit_position = ray.start_position;
 cell.exit_step = ivec3(0);
 
-vec3 cell_min_position = cellCoordsToPosition(cell.coords);
-vec3 cell_max_position = cell_min_position + vec3(1.0);
-
-vec3 cell_far_position = vec3(
-    u_ray.signs.x > 0 ? cell_max_position.x : cell_min_position.x,
-    u_ray.signs.y > 0 ? cell_max_position.y : cell_min_position.y,
-    u_ray.signs.z > 0 ? cell_max_position.z : cell_min_position.z
-);
-
-cell.far_distances = (cell_far_position - v_ray_origin) * u_ray.inv_direction;
+cell.coords = positionToCellCoords(ray.start_position);
+cell.far_distances = cellCoordsToFarDistances(cell.coords);
 
 // START_CUBIC
 cubic.values.w = sampleVolume(ray.start_position);

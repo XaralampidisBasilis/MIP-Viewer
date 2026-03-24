@@ -98,7 +98,7 @@ for (int i = 0; i < MAX_CELLS; i++)
 
     if (cell.terminated) break;
 
-    cell.coords += cell.exit_step * u_ray.signs;
+    cell.coords += cell.exit_step * u_ray.sign_direction;
 
 }
 
