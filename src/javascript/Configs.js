@@ -8,10 +8,6 @@ export default class Configs extends EventEmitter
 {
     static Colormaps = Object.freeze([ 'parula', 'turbo', 'hsv', 'hot', 'cool', 'spring', 'summer', 'autumn', 'winter', 'gray', 'bone', 'copper', 'pink', 'jet', 'pasteljet', 'viridis', 'plasma', 'inferno', 'magma', 'cividis' ])
 
-    static GradientsMethods = Object.freeze([
-        'analytic',
-        'triquadraticBspline',
-    ])
     static MarchingMethods = Object.freeze([
         'cells',
         'traces',
@@ -20,7 +16,7 @@ export default class Configs extends EventEmitter
         'shadow',
         'distance',
     ])
-    static DistanceBits = Object.freeze([
+    static DistanceVariations = Object.freeze([
         '1bit',
         '5bits',
         '8bits',
@@ -37,8 +33,7 @@ export default class Configs extends EventEmitter
         this.errorTolerance = 0.01
         this.blockSize = 2
         
-        this.distanceBits = '5bits'
-        this.gradientsMethod = 'triquadraticBspline'
+        this.distanceVariation = '8bits'
         this.marchingMethod = 'cells'
         this.skippingMethod = 'distance'
         this.colormap = 'viridis'
@@ -70,11 +65,6 @@ export default class Configs extends EventEmitter
         if (key === 'colormap' && !Configs.Colormaps.includes(value)) 
         {
             console.warn(`Invalid Colormap: "${value}"`)
-            return
-        }
-        if (key === 'gradientsMethod' && !Configs.GradientsMethods.includes(value)) 
-        {
-            console.warn(`Invalid GradientsMethod: "${value}"`)
             return
         }
         if (key === 'marchingMethod' && !Configs.MarchingMethods.includes(value)) 

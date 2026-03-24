@@ -72,9 +72,9 @@ export function updateRayUniforms(uniforms, camera, mesh, dimensions)
     const dominantSign = ray.sign_direction.getComponent(dominantAxis)
     
     ray.step_distance = 1 / (absX + absY + absZ)
-    ray.axis = dominantAxis     
-    ray.idx = rayQuadrantIndex(ray.sign_direction, dominantAxis)
-    ray.map = ray.idx + 4 * dominantAxis
+    ray.dominant_axis = dominantAxis     
+    ray.quadrant_index = rayQuadrantIndex(ray.sign_direction, dominantAxis)
+    ray.group_index = ray.quadrant_index + 4 * dominantAxis
     ray.reverse = dominantSign < 0
     
     if (ray.reverse)

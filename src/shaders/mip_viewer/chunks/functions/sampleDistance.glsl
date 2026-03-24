@@ -3,11 +3,11 @@
 
 int sampleDistance1bit(in ivec3 coords, out bool empty)
 {    
-    uvec4 u = texelFetch(u_textures.distance_map, coords, 0); // 0..4095 
-
+    uvec4 u = texelFetch(u_textures.distance_map, coords, 0); 
     uint packed = u.r;
+
     uint mask = 0x1u;
-    uint shift = u_ray.map;
+    uint shift = u_ray.group_index;
 
     uint d = (packed >> shift) & mask;
     empty = (d != 0u);
@@ -18,12 +18,11 @@ int sampleDistance1bit(in ivec3 coords, out bool empty)
 int sampleDistance5bit(in ivec3 coords, out bool empty)
 {
     uvec4 u = texelFetch(u_textures.distance_map, coords, 0);
+    uint packed = u[u_ray.quadrant_index];
 
     const uint MASKS[3] = uint[3](0x1Fu, 0x1Fu, 0x3Fu);
-
-    uint packed = u[u_ray.idx];
-    uint mask = MASKS[u_ray.axis];
-    uint shift = u_ray.axis * 5u;
+    uint mask = MASKS[u_ray.dominant_axis];
+    uint shift = u_ray.dominant_axis * 5u;
 
     uint d = (packed >> shift) & mask;
     empty = (d != 0u);
@@ -34,9 +33,9 @@ int sampleDistance5bit(in ivec3 coords, out bool empty)
 int sampleDistance8bit(in ivec3 coords, out bool empty)
 {
     uvec4 u = texelFetch(u_textures.distance_map, coords, 0);
+    uint packed = u[u_ray.dominant_axis];
 
-    uint packed = u[u_ray.axis];
-    uint shift = u_ray.idx * 8u;
+    uint shift = u_ray.quadrant_index * 8u;
     uint mask = 0xFFu;
 
     uint d = (packed >> shift) & mask;
@@ -48,11 +47,11 @@ int sampleDistance8bit(in ivec3 coords, out bool empty)
 int sampleDistance10bit(in ivec3 coords, out bool empty)
 {
     uvec4 u = texelFetch(u_textures.distance_map, coords, 0);
-    uint packed = u[u_ray.idx];
+    uint packed = u[u_ray.quadrant_index];
 
     const uint MASKS[3]  = uint[3](0x7FFu, 0x7FFu, 0x3FFu);
-    uint shift = u_ray.axis *11u;
-    uint mask =  MASKS[u_ray.axis];
+    uint shift = u_ray.dominant_axis *11u;
+    uint mask =  MASKS[u_ray.dominant_axis];
 
     uint d = (packed >> shift) & mask;
     empty = (d != 0u);
@@ -62,54 +61,94 @@ int sampleDistance10bit(in ivec3 coords, out bool empty)
 
 int sampleDistance(in ivec3 coords, out bool empty)
 {
-    #if DISTANCE_BITS == 0 
-    return sampleDistance1bit(coords, empty);
+    uvec4 u = texelFetch(u_textures.distance_map, coords, 0);
 
-    #elif DISTANCE_BITS == 1 
-    return sampleDistance5bit(coords, empty);
+    #if DISTANCE_VARIATION == 0
 
-    #elif DISTANCE_BITS == 2 
-    return sampleDistance8bit(coords, empty);
+        uint packed = u.r;
+        uint shift = u_ray.group_index;
+        uint mask = 0x1u;
 
-    #elif DISTANCE_BITS == 3 
-    return sampleDistance10bit(coords, empty);
+    #elif DISTANCE_VARIATION == 1
+
+        const uint MASKS[3] = uint[3](0x1Fu, 0x1Fu, 0x3Fu);
+
+        uint packed = u[u_ray.quadrant_index];
+        uint shift = u_ray.dominant_axis * 5u;
+        uint mask = MASKS[u_ray.dominant_axis];
+
+    #elif DISTANCE_VARIATION == 2
+
+        uint packed = u[u_ray.dominant_axis];
+        uint shift = u_ray.quadrant_index * 8u;
+        uint mask = 0xFFu;
+
+    #elif DISTANCE_VARIATION == 3
+
+        const uint MASKS[3]  = uint[3](0x7FFu, 0x7FFu, 0x3FFu);
+
+        uint packed = u[u_ray.quadrant_index];
+        uint shift = u_ray.dominant_axis * 11u;
+        uint mask = MASKS[u_ray.dominant_axis];
 
     #endif
+
+    uint d = (packed >> shift) & mask;
+    empty = (d != 0u);
+
+    return int(max(d, 1u));
 }
 
 /* explicit versions to understand logic
 
 int sampleDistance(in ivec3 coords, out bool empty)
 {
+    #if DISTANCE_VARIATION == 0 
+    return sampleDistance1bit(coords, empty);
+
+    #elif DISTANCE_VARIATION == 1 
+    return sampleDistance5bit(coords, empty);
+
+    #elif DISTANCE_VARIATION == 2 
+    return sampleDistance8bit(coords, empty);
+
+    #elif DISTANCE_VARIATION == 3 
+    return sampleDistance10bit(coords, empty);
+
+    #endif
+}
+
+int sampleDistance(in ivec3 coords, out bool empty)
+{
     uvec4 u = texelFetch(u_textures.distance_map, coords, 0);
 
-    #if DISTANCE_BITS == 0
+    #if DISTANCE_VARIATION == 0
 
         uint packed = u.r;
-        uint shift = u_ray.map;
+        uint shift = u_ray.group_index;
         uint mask = 0x1u;
 
-    #elif DISTANCE_BITS == 1
+    #elif DISTANCE_VARIATION == 1
 
         const uint MASKS[3] = uint[3](0x1Fu, 0x1Fu, 0x3Fu);
 
-        uint packed = u[u_ray.idx];
-        uint shift = u_ray.axis * 5u;
-        uint mask = MASKS[u_ray.axis];
+        uint packed = u[u_ray.quadrant_index];
+        uint shift = u_ray.dominant_axis * 5u;
+        uint mask = MASKS[u_ray.dominant_axis];
 
-    #elif DISTANCE_BITS == 2
+    #elif DISTANCE_VARIATION == 2
 
-        uint packed = u[u_ray.axis];
-        uint shift = u_ray.idx * 8u;
+        uint packed = u[u_ray.dominant_axis];
+        uint shift = u_ray.quadrant_index * 8u;
         uint mask = 0xFFu;
 
-    #elif DISTANCE_BITS == 3
+    #elif DISTANCE_VARIATION == 3
 
         const uint MASKS[3]  = uint[3](0x7FFu, 0x7FFu, 0x3FFu);
 
-        uint packed = u[u_ray.idx];
-        uint shift = u_ray.axis * 11u;
-        uint mask = MASKS[u_ray.axis];
+        uint packed = u[u_ray.quadrant_index];
+        uint shift = u_ray.dominant_axis * 11u;
+        uint mask = MASKS[u_ray.dominant_axis];
 
     #endif
 
@@ -124,18 +163,18 @@ void sampleDistance1bit(in ivec3 coords, out bool empty)
     uint u = texelFetch(u_textures.distance_map, coords, 0).r; // 0..4095 
     uint d = 0u;
 
-         if (u_ray.map ==  0u) d = (u >>  0) & 0x1u; // 'x', '+++'
-    else if (u_ray.map ==  1u) d = (u >>  1) & 0x1u; // 'x', '+-+'
-    else if (u_ray.map ==  2u) d = (u >>  2) & 0x1u; // 'x', '++-'
-    else if (u_ray.map ==  3u) d = (u >>  3) & 0x1u; // 'x', '+--'
-    else if (u_ray.map ==  4u) d = (u >>  4) & 0x1u; // 'y', '+++'
-    else if (u_ray.map ==  5u) d = (u >>  5) & 0x1u; // 'y', '-++'
-    else if (u_ray.map ==  6u) d = (u >>  6) & 0x1u; // 'y', '++-'
-    else if (u_ray.map ==  7u) d = (u >>  7) & 0x1u; // 'y', '-+-'
-    else if (u_ray.map ==  8u) d = (u >>  8) & 0x1u; // 'z', '+++'
-    else if (u_ray.map ==  9u) d = (u >>  9) & 0x1u; // 'z', '+-+'
-    else if (u_ray.map == 10u) d = (u >> 10) & 0x1u; // 'z', '-++'
-    else if (u_ray.map == 11u) d = (u >> 11) & 0x1u; // 'z', '--+'
+         if (u_ray.group_index ==  0u) d = (u >>  0) & 0x1u; // 'x', '+++'
+    else if (u_ray.group_index ==  1u) d = (u >>  1) & 0x1u; // 'x', '+-+'
+    else if (u_ray.group_index ==  2u) d = (u >>  2) & 0x1u; // 'x', '++-'
+    else if (u_ray.group_index ==  3u) d = (u >>  3) & 0x1u; // 'x', '+--'
+    else if (u_ray.group_index ==  4u) d = (u >>  4) & 0x1u; // 'y', '+++'
+    else if (u_ray.group_index ==  5u) d = (u >>  5) & 0x1u; // 'y', '-++'
+    else if (u_ray.group_index ==  6u) d = (u >>  6) & 0x1u; // 'y', '++-'
+    else if (u_ray.group_index ==  7u) d = (u >>  7) & 0x1u; // 'y', '-+-'
+    else if (u_ray.group_index ==  8u) d = (u >>  8) & 0x1u; // 'z', '+++'
+    else if (u_ray.group_index ==  9u) d = (u >>  9) & 0x1u; // 'z', '+-+'
+    else if (u_ray.group_index == 10u) d = (u >> 10) & 0x1u; // 'z', '-++'
+    else if (u_ray.group_index == 11u) d = (u >> 11) & 0x1u; // 'z', '--+'
 
     empty = (d == 1u);
 }
@@ -150,18 +189,18 @@ int sampleDistance5bit(in ivec3 coords, out bool empty)
 
     uint d = 0u;
 
-         if (u_ray.map ==  0u) d = x[0]; // 'x', '+++'
-    else if (u_ray.map ==  1u) d = x[1]; // 'x', '+-+'
-    else if (u_ray.map ==  2u) d = x[2]; // 'x', '++-'
-    else if (u_ray.map ==  3u) d = x[3]; // 'x', '+--'
-    else if (u_ray.map ==  4u) d = y[0]; // 'y', '+++'
-    else if (u_ray.map ==  5u) d = y[1]; // 'y', '-++'
-    else if (u_ray.map ==  6u) d = y[2]; // 'y', '++-'
-    else if (u_ray.map ==  7u) d = y[3]; // 'y', '-+-'
-    else if (u_ray.map ==  8u) d = z[0]; // 'z', '+++'
-    else if (u_ray.map ==  9u) d = z[1]; // 'z', '+-+'
-    else if (u_ray.map == 10u) d = z[2]; // 'z', '-++'
-    else if (u_ray.map == 11u) d = z[3]; // 'z', '--+'
+         if (u_ray.group_index ==  0u) d = x[0]; // 'x', '+++'
+    else if (u_ray.group_index ==  1u) d = x[1]; // 'x', '+-+'
+    else if (u_ray.group_index ==  2u) d = x[2]; // 'x', '++-'
+    else if (u_ray.group_index ==  3u) d = x[3]; // 'x', '+--'
+    else if (u_ray.group_index ==  4u) d = y[0]; // 'y', '+++'
+    else if (u_ray.group_index ==  5u) d = y[1]; // 'y', '-++'
+    else if (u_ray.group_index ==  6u) d = y[2]; // 'y', '++-'
+    else if (u_ray.group_index ==  7u) d = y[3]; // 'y', '-+-'
+    else if (u_ray.group_index ==  8u) d = z[0]; // 'z', '+++'
+    else if (u_ray.group_index ==  9u) d = z[1]; // 'z', '+-+'
+    else if (u_ray.group_index == 10u) d = z[2]; // 'z', '-++'
+    else if (u_ray.group_index == 11u) d = z[3]; // 'z', '--+'
 
     empty = (d != 0u);
     return int(max(d, 1u));
@@ -178,18 +217,18 @@ int sampleDistance8bit(in ivec3 coords, out bool empty)
 
     uint d = 0u;
 
-         if (u_ray.map ==  0u) d = u0.z; // 'x', '+++'
-    else if (u_ray.map ==  1u) d = u1.z; // 'x', '+-+'
-    else if (u_ray.map ==  2u) d = u2.z; // 'x', '++-'
-    else if (u_ray.map ==  3u) d = u3.z; // 'x', '+--'
-    else if (u_ray.map ==  4u) d = u0.y; // 'y', '+++'
-    else if (u_ray.map ==  5u) d = u1.y; // 'y', '-++'
-    else if (u_ray.map ==  6u) d = u2.y; // 'y', '++-'
-    else if (u_ray.map ==  7u) d = u3.y; // 'y', '-+-'
-    else if (u_ray.map ==  8u) d = u0.z; // 'z', '+++'
-    else if (u_ray.map ==  9u) d = u1.z; // 'z', '+-+'
-    else if (u_ray.map == 10u) d = u2.z; // 'z', '-++'
-    else if (u_ray.map == 11u) d = u3.z; // 'z', '--+'
+         if (u_ray.group_index ==  0u) d = u0.z; // 'x', '+++'
+    else if (u_ray.group_index ==  1u) d = u1.z; // 'x', '+-+'
+    else if (u_ray.group_index ==  2u) d = u2.z; // 'x', '++-'
+    else if (u_ray.group_index ==  3u) d = u3.z; // 'x', '+--'
+    else if (u_ray.group_index ==  4u) d = u0.y; // 'y', '+++'
+    else if (u_ray.group_index ==  5u) d = u1.y; // 'y', '-++'
+    else if (u_ray.group_index ==  6u) d = u2.y; // 'y', '++-'
+    else if (u_ray.group_index ==  7u) d = u3.y; // 'y', '-+-'
+    else if (u_ray.group_index ==  8u) d = u0.z; // 'z', '+++'
+    else if (u_ray.group_index ==  9u) d = u1.z; // 'z', '+-+'
+    else if (u_ray.group_index == 10u) d = u2.z; // 'z', '-++'
+    else if (u_ray.group_index == 11u) d = u3.z; // 'z', '--+'
 
     empty = (d != 0u);
     return int(max(d, 1u));

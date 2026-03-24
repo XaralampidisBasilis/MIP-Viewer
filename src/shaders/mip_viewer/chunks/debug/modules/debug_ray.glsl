@@ -27,68 +27,18 @@ vec4 debug_ray_start_position = to_color(map(box.min_position, box.max_position,
 // end position
 vec4 debug_ray_end_position = to_color(map(box.min_position, box.max_position, ray.end_position));
 
-// map
-vec4 debug_ray_map = to_color(vec3[12](
-    1.0 * COLOR.RED,   0.7 * COLOR.RED,    0.4 * COLOR.RED,   0.2 * COLOR.RED,   
-    1.0 * COLOR.GREEN, 0.7 * COLOR.GREEN,  0.4 * COLOR.GREEN, 0.2 * COLOR.GREEN, 
-    1.0 * COLOR.BLUE,  0.7 * COLOR.BLUE,   0.4 * COLOR.BLUE,  0.2 * COLOR.BLUE
-)[u_ray.map]);
+// dominant axis
+vec4 debug_ray_dominant_axis = to_color(vec3[3](COLOR.RED, COLOR.GREEN, COLOR.BLUE)[u_ray.dominant_axis]);
 
-// segment
+// quadrant index
+vec4 debug_ray_quadrant_index = to_color(vec3[4](1.00 * COLOR.WHITE, 0.75 * COLOR.WHITE, 0.50 * COLOR.WHITE, 0.25 * COLOR.WHITE)[u_ray.quadrant_index]);
 
-vec4 debug_ray_segment;
-
-if (u_ray.axis == 0u)
-{   
-    if (u_ray.sign_direction[0] > 0)
-    {
-        if (u_ray.sign_direction[1] > 0 && u_ray.sign_direction[2] > 0) debug_ray_segment = vec4(1.00 * COLOR.RED, 1.0);
-        if (u_ray.sign_direction[1] > 0 && u_ray.sign_direction[2] < 0) debug_ray_segment = vec4(0.75 * COLOR.RED, 1.0);
-        if (u_ray.sign_direction[1] < 0 && u_ray.sign_direction[2] > 0) debug_ray_segment = vec4(0.50 * COLOR.RED, 1.0);
-        if (u_ray.sign_direction[1] < 0 && u_ray.sign_direction[2] < 0) debug_ray_segment = vec4(0.25 * COLOR.RED, 1.0);
-    }
-    else
-    {
-        if (u_ray.sign_direction[1] > 0 && u_ray.sign_direction[2] > 0) debug_ray_segment = vec4(1.00 * COLOR.CYAN, 1.0);
-        if (u_ray.sign_direction[1] > 0 && u_ray.sign_direction[2] < 0) debug_ray_segment = vec4(0.75 * COLOR.CYAN, 1.0);
-        if (u_ray.sign_direction[1] < 0 && u_ray.sign_direction[2] > 0) debug_ray_segment = vec4(0.50 * COLOR.CYAN, 1.0);
-        if (u_ray.sign_direction[1] < 0 && u_ray.sign_direction[2] < 0) debug_ray_segment = vec4(0.25 * COLOR.CYAN, 1.0);
-    }
-}
-if (u_ray.axis == 1u)
-{   
-    if (u_ray.sign_direction[1] > 0)
-    {
-        if (u_ray.sign_direction[0] > 0 && u_ray.sign_direction[2] > 0) debug_ray_segment = vec4(1.00 * COLOR.GREEN, 1.0);
-        if (u_ray.sign_direction[0] > 0 && u_ray.sign_direction[2] < 0) debug_ray_segment = vec4(0.75 * COLOR.GREEN, 1.0);
-        if (u_ray.sign_direction[0] < 0 && u_ray.sign_direction[2] > 0) debug_ray_segment = vec4(0.50 * COLOR.GREEN, 1.0);
-        if (u_ray.sign_direction[0] < 0 && u_ray.sign_direction[2] < 0) debug_ray_segment = vec4(0.25 * COLOR.GREEN, 1.0);
-    }
-    else
-    {
-        if (u_ray.sign_direction[0] > 0 && u_ray.sign_direction[2] > 0) debug_ray_segment = vec4(1.00 * COLOR.MAGENTA, 1.0);
-        if (u_ray.sign_direction[0] > 0 && u_ray.sign_direction[2] < 0) debug_ray_segment = vec4(0.75 * COLOR.MAGENTA, 1.0);
-        if (u_ray.sign_direction[0] < 0 && u_ray.sign_direction[2] > 0) debug_ray_segment = vec4(0.50 * COLOR.MAGENTA, 1.0);
-        if (u_ray.sign_direction[0] < 0 && u_ray.sign_direction[2] < 0) debug_ray_segment = vec4(0.25 * COLOR.MAGENTA, 1.0);
-    }
-}
-if (u_ray.axis == 2u)
-{   
-    if (u_ray.sign_direction[2] > 0)
-    {
-        if (u_ray.sign_direction[0] > 0 && u_ray.sign_direction[1] > 0) debug_ray_segment = vec4(1.00 * COLOR.BLUE, 1.0);
-        if (u_ray.sign_direction[0] > 0 && u_ray.sign_direction[1] < 0) debug_ray_segment = vec4(0.75 * COLOR.BLUE, 1.0);
-        if (u_ray.sign_direction[0] < 0 && u_ray.sign_direction[1] > 0) debug_ray_segment = vec4(0.50 * COLOR.BLUE, 1.0);
-        if (u_ray.sign_direction[0] < 0 && u_ray.sign_direction[1] < 0) debug_ray_segment = vec4(0.25 * COLOR.BLUE, 1.0);
-    }
-    else
-    {
-        if (u_ray.sign_direction[0] > 0 && u_ray.sign_direction[1] > 0) debug_ray_segment = vec4(1.00 * COLOR.YELLOW, 1.0);
-        if (u_ray.sign_direction[0] > 0 && u_ray.sign_direction[1] < 0) debug_ray_segment = vec4(0.75 * COLOR.YELLOW, 1.0);
-        if (u_ray.sign_direction[0] < 0 && u_ray.sign_direction[1] > 0) debug_ray_segment = vec4(0.50 * COLOR.YELLOW, 1.0);
-        if (u_ray.sign_direction[0] < 0 && u_ray.sign_direction[1] < 0) debug_ray_segment = vec4(0.25 * COLOR.YELLOW, 1.0);
-    }
-}
+// group index
+vec4 debug_ray_group_index = to_color(vec3[12](
+    1.00 * COLOR.RED,   0.75 * COLOR.RED,    0.50 * COLOR.RED,   0.25 * COLOR.RED,   
+    1.00 * COLOR.GREEN, 0.75 * COLOR.GREEN,  0.50 * COLOR.GREEN, 0.25 * COLOR.GREEN, 
+    1.00 * COLOR.BLUE,  0.75 * COLOR.BLUE,   0.50 * COLOR.BLUE,  0.25 * COLOR.BLUE
+)[u_ray.group_index]);
 
 // inverted
 vec4 debug_ray_reversed = to_color(ray.reversed);
@@ -102,15 +52,16 @@ switch (u_debug.option - 100)
 {
     case  1: fragColor = debug_ray_discarded;       break;
     case  2: fragColor = debug_ray_direction;       break;
-    case  3: fragColor = debug_ray_sign_direction;           break;
-    case  4: fragColor = debug_ray_step_distance;         break;
+    case  3: fragColor = debug_ray_sign_direction;  break;
+    case  4: fragColor = debug_ray_step_distance;   break;
     case  5: fragColor = debug_ray_start_distance;  break;
     case  6: fragColor = debug_ray_end_distance;    break;
     case  7: fragColor = debug_ray_span_distance;   break;
     case  8: fragColor = debug_ray_start_position;  break;
     case  9: fragColor = debug_ray_end_position;    break;
-    case 10: fragColor = debug_ray_map;             break;
-    case 11: fragColor = debug_ray_segment;         break;
-    case 12: fragColor = debug_ray_reversed;        break;
-    case 13: fragColor = debug_ray_phase;           break;
+    case 10: fragColor = debug_ray_dominant_axis;   break;
+    case 11: fragColor = debug_ray_quadrant_index;  break;
+    case 12: fragColor = debug_ray_group_index;     break;
+    case 13: fragColor = debug_ray_reversed;        break;
+    case 14: fragColor = debug_ray_phase;           break;
 }

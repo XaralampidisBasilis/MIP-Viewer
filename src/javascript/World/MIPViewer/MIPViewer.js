@@ -106,7 +106,7 @@ export default class MIPViewer extends EventEmitter
     {
         const configs = this.configs
         const defines = this.material.defines
-        defines.DISTANCE_BITS = Configs.DistanceBits.findIndex((x) => x === configs.distanceBits)
+        defines.DISTANCE_VARIATION = Configs.DistanceVariations.findIndex((x) => x === configs.distanceVariation)
         defines.MARCHING_METHOD = Configs.MarchingMethods.findIndex((x) => x === configs.marchingMethod)
         defines.SKIPPING_METHOD = Configs.SkippingMethods.findIndex((x) => x === configs.skippingMethod)
         this.material.needsUpdate = true

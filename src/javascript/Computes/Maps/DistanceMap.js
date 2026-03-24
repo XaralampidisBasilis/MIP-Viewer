@@ -9,17 +9,17 @@ export default class DistanceMap
         this.computes = new Computes()
         this.configs = this.computes.configs
 
-        this.distanceBits = this.configs.distanceBits
+        this.distanceVariation = this.configs.distanceVariation
         this.errorTolerance = this.configs.errorTolerance
         this.blockSize = this.configs.blockSize
     }
 
     computeTexture()
     {
-        if (this.distanceBits ===   '1bit') this.computeR16UITexture()
-        if (this.distanceBits ===  '5bits') this.computeRGBA16UITexture()
-        if (this.distanceBits ===  '8bits') this.computeRGB32UITexture()
-        if (this.distanceBits === '10bits') this.computeRGBA32UITexture()
+        if (this.distanceVariation ===   '1bit') this.computeR16UITexture()
+        if (this.distanceVariation ===  '5bits') this.computeRGBA16UITexture()
+        if (this.distanceVariation ===  '8bits') this.computeRGB32UITexture()
+        if (this.distanceVariation === '10bits') this.computeRGBA32UITexture()
     }
  
     computeR16UITexture()
