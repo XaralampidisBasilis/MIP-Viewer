@@ -166,10 +166,10 @@ export default class GUI
                 ray_reversed      : 113,
                 ray_phase         : 114,
 
-                block_step_radius   : 401,
                 block_empty         : 402,
                 block_terminated    : 403,
                 block_coords        : 404,
+                block_step_radius   : 401,
                 block_entry_step    : 405,
                 block_exit_step     : 406,
                 block_entry_distance: 407,
@@ -182,6 +182,7 @@ export default class GUI
                 cell_entry_distance: 206,
                 cell_exit_distance : 207,
                 cell_span_distance : 208,
+                cell_far_distances : 209,
 
                 trace_intersected: 301,
                 trace_terminated : 302,

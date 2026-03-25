@@ -27,7 +27,7 @@ vec4 debug_block_entry_distance = to_color(map(box.min_distance, box.max_distanc
 vec4 debug_block_exit_distance = to_color(map(box.min_distance, box.max_distance, block.exit_distance));
 
 // span distance
-vec4 debug_block_span_distance = to_color(block.span_distance / (float(block.step_radius * BLOCK_SIZE) * sqrt(3.0))); 
+vec4 debug_block_span_distance = to_color(block.span_distance / (sqrt(3.0) * float(block.step_radius * BLOCK_SIZE))); 
 
 // PRINT DEBUG
 switch (u_debug.option - 400)

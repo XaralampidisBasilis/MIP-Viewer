@@ -12,6 +12,67 @@ float evalCubic(vec4 c, float t)
     return ((c.w * t + c.z) * t + c.y) * t + c.x;
 }
 
+float signNonZero(float x)
+{
+    return (x >= 0.0) ? 1.0 : -1.0;
+}
+
+// Solve the quadratic derivative and select the stationary point
+// with negative second derivative, which is the local maximum. 
+// Uses a stable quadratic solve for p'(t) from Vieta.
+
+CubicMax cubicMaxOnUnitInterval(vec4 c, float v0, float v1)
+{
+    const float eps = 1e-6;
+
+    float bestV = v0;
+    float bestT = 0.0;
+
+    if (v1 > bestV)
+    {
+        bestV = v1;
+        bestT = 1.0;
+    }
+
+    float d = c.y;
+    float b = 2.0 * c.z;
+    float a = 3.0 * c.w;
+
+    float disc = b * b - 4.0 * a * d;
+    if (disc < 0.0)
+    {
+        return CubicMax(bestV, bestT);
+    }
+
+    float s = sqrt(disc);
+    float q  = -0.5 * (b + signNonZero(b) * s);
+
+    // First root stays stable in the linear limit a -> 0: t1 = d/q -> -d/b
+    float t0 = d / q;
+    float t1 = q / a;
+       
+    // p''(t) = 2*a*t + b
+    float dd0 = 2.0 * a * t0 + b;
+
+    // Pick the stationary point that is a local maximum
+    float t = (dd0 < 0.0) ? t0 : t1;
+
+    if (t > 0.0 && t < 1.0)
+    {
+        float v = evalCubic(c, t);
+        if (v > bestV)
+        {
+            bestV = v;
+            bestT = t;
+        }
+    }
+
+    return CubicMax(bestV, bestT);
+}
+
+#endif
+
+/*
 
 // Treat p'(t) as linear when the quadratic term is negligible.
 // Otherwise solve the quadratic derivative and select the stationary point
@@ -54,7 +115,7 @@ CubicMax cubicMaxOnUnitInterval(vec4 c, float v0, float v1)
     }
 
     float disc = b * b - 4.0 * a * d;
-    if (disc <= 0.0)
+    if (disc < 0.0)
     {
         return CubicMax(bestV, bestT);
     }
@@ -83,8 +144,6 @@ CubicMax cubicMaxOnUnitInterval(vec4 c, float v0, float v1)
 
     return CubicMax(bestV, bestT);
 }
-
-/*
 
 // Handle the linear-derivative degeneracy explicitly;
 // otherwise solve the quadratic derivative directly and test both stationary points.
@@ -296,8 +355,3 @@ CubicMax cubicMaxOnUnitInterval(vec4 c, float v0, float v1)
     return CubicMax(bestV, bestT);
 }
 */
-
-#endif
-
-
-#endif

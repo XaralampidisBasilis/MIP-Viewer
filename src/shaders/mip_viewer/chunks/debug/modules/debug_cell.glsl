@@ -19,6 +19,9 @@ vec4 debug_cell_exit_distance = to_color(map(box.min_distance, box.max_distance,
 // span distance
 vec4 debug_cell_span_distance = to_color(cell.span_distance / sqrt(3.0)); 
 
+// far distances
+vec4 debug_cell_far_distances = to_color(map(box.min_distance, box.max_distance, cell.far_distances));
+
 // PRINT DEBUG
 switch (u_debug.option - 200)
 { 
@@ -28,4 +31,5 @@ switch (u_debug.option - 200)
     case 6: fragColor = debug_cell_entry_distance; break;
     case 7: fragColor = debug_cell_exit_distance;  break;
     case 8: fragColor = debug_cell_span_distance;  break;
+    case 9: fragColor = debug_cell_far_distances;  break;
 }
