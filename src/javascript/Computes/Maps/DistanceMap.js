@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import * as GPGPU from '../Programs/GPGPUShadowDistanceMap'
 

@@ -18,9 +18,9 @@ export default class Configs extends EventEmitter
     ])
     static DistanceVariations = Object.freeze([
         '1bit',
-        '5bits',
-        '8bits',
-        '10bits',
+        '5bit',
+        '8bit',
+        '10bit',
     ])
 
     constructor() 
@@ -28,12 +28,12 @@ export default class Configs extends EventEmitter
         super()
 
         this.downscaleEnabled = true
-        this.downscaleFactor = 0.8
+        this.downscaleFactor = 0.7
 
         this.errorTolerance = 0.01
-        this.blockSize = 2
+        this.blockSize = 1
         
-        this.distanceVariation = '8bits'
+        this.distanceVariation = '8bit'
         this.marchingMethod = 'cells'
         this.skippingMethod = 'distance'
         this.colormap = 'viridis'
