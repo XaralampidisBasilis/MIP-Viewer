@@ -10,7 +10,7 @@
 #include "./modules/start_mip_in_cubic"
 
 // START_MARCH
-for (int j = 0; j < u_debug.max_blocks; j++) 
+for (int j = 0; j < MAX_BLOCKS; j++) 
 {
     // Update block and get if its empty and what is the step distance we can take
     #include "../march_blocks/modules/update_block"

@@ -6,122 +6,78 @@ struct CubicMax {
     float point;
 };
 
-// Find the maximum value of a cubic on [0, 1] from power-basis coefficients
-CubicMax cubicMaxOnUnitInterval(vec4 c)
+// Evaluate cubic with Horner form
+float evalCubic(vec4 c, float t)
 {
-    // Start with endpoint t = 0
-    float bestT = 0.0;
-    float bestV = c.x;
-
-    // Test endpoint t = 1
-    float v1 = c.x + c.y + c.z + c.w;
-    if (v1 > bestV)
-    {
-        bestV = v1;
-        bestT = 1.0;
-    }
-
-    // Derivative: c.y + 2*c.z*t + 3*c.w*t^2
-    float a = c.w * 3.0;
-    float b = c.z * 2.0;
-    float d = c.y;
-
-    float disc = b * b - 4.0 * a * d;
-    if (disc >= 0.0)
-    {
-        float s = sqrt(disc);
-        float q = -0.5 * (b + ssign(b) * s);
-
-        // t1 also becomes the linear root when a == 0
-        if (q != 0.0)
-        {
-            float t1 = d / q;
-            if (t1 > 0.0 && t1 < 1.0)
-            {
-                // Evaluate cubic at t1 using Horner form
-                float v = ((c.w * t1 + c.z) * t1 + c.y) * t1 + c.x;
-                if (v > bestV)
-                {
-                    bestV = v;
-                    bestT = t1;
-                }
-            }
-        }
-
-        // Only valid for the true quadratic case
-        if (a != 0.0)
-        {
-            float t0 = q / a;
-            if (t0 > 0.0 && t0 < 1.0)
-            {
-                // Evaluate cubic at t0 using Horner 
-                float v = ((c.w * t0 + c.z) * t0 + c.y) * t0 + c.x;
-                if (v > bestV)
-                {
-                    bestV = v;
-                    bestT = t0;
-                }
-            }
-        }
-    }
-
-    return CubicMax(bestV, bestT);
+    return ((c.w * t + c.z) * t + c.y) * t + c.x;
 }
+
+
+// Treat p'(t) as linear when the quadratic term is negligible.
+// Otherwise solve the quadratic derivative and select the stationary point
+// with negative second derivative, which is the local maximum
 
 CubicMax cubicMaxOnUnitInterval(vec4 c, float v0, float v1)
 {
-    // Start with endpoint t = 0
-    float bestT = 0.0;
-    float bestV = v0;
+    const float eps = 1e-6;
 
-    // Test endpoint t = 1
+    float bestV = v0;
+    float bestT = 0.0;
+
     if (v1 > bestV)
     {
         bestV = v1;
         bestT = 1.0;
     }
 
-    // Derivative: c.y + 2*c.z*t + 3*c.w*t^2
-    float a = c.w * 3.0;
-    float b = c.z * 2.0;
     float d = c.y;
+    float b = 2.0 * c.z;
+    float a = 3.0 * c.w;
 
-    float disc = b * b - 4.0 * a * d;
-    if (disc >= 0.0)
+    if (abs(a) < eps)
     {
-        float s = sqrt(disc);
-        float q = -0.5 * (b + ssign(b) * s);
-
-        // t1 also becomes the linear root when a == 0
-        if (q != 0.0)
+        if (abs(b) >= eps)
         {
-            float t1 = d / q;
-            if (t1 > 0.0 && t1 < 1.0)
+            float t = -d / b;
+            if (t > 0.0 && t < 1.0)
             {
-                // Evaluate cubic at t1 using Horner form
-                float v = ((c.w * t1 + c.z) * t1 + c.y) * t1 + c.x;
+                float v = evalCubic(c, t);
                 if (v > bestV)
                 {
                     bestV = v;
-                    bestT = t1;
+                    bestT = t;
                 }
             }
         }
 
-        // Only valid for the true quadratic case
-        if (a != 0.0)
+        return CubicMax(bestV, bestT);
+    }
+
+    float disc = b * b - 4.0 * a * d;
+    if (disc <= 0.0)
+    {
+        return CubicMax(bestV, bestT);
+    }
+
+    float s = sqrt(disc);
+    float inv2a = 0.5 / a;
+
+    float t0 = (-b - s) * inv2a;
+    float t1 = (-b + s) * inv2a;
+
+    // p''(t) = 2*a*t + b
+    float dd0 = 2.0 * a * t0 + b;
+
+    // Pick the stationary point that is a local maximum
+    float t = (dd0 < 0.0) ? t0 : t1;
+
+    if (t > 0.0 && t < 1.0)
+    {
+        float v = evalCubic(c, t);
+        if (v > bestV)
         {
-            float t0 = q / a;
-            if (t0 > 0.0 && t0 < 1.0)
-            {
-                // Evaluate cubic at t0 using Horner 
-                float v = ((c.w * t0 + c.z) * t0 + c.y) * t0 + c.x;
-                if (v > bestV)
-                {
-                    bestV = v;
-                    bestT = t0;
-                }
-            }
+            bestV = v;
+            bestT = t;
         }
     }
 
@@ -129,28 +85,219 @@ CubicMax cubicMaxOnUnitInterval(vec4 c, float v0, float v1)
 }
 
 /*
-CubicMax cubicMaxOnUnitInterval(vec4 c)
+
+// Handle the linear-derivative degeneracy explicitly;
+// otherwise solve the quadratic derivative directly and test both stationary points.
+
+CubicMax cubicMaxOnUnitInterval(vec4 c, float v0, float v1)
 {
-    // quadratic coefficients
-    vec3 q = vec3(c.y, 2.0 * c.z, 3.0 * c.w);
+    const float eps = 1e-6;
 
-    // derivative roots
-    vec2 t_ext = clamp(quadratic_roots(q), 0.0, 1.0);
+    float bestV = v0;
+    float bestT = 0.0;
 
-    // evaluate extrema
-    vec2 v_ext = eval_poly(c, t_ext);
+    if (v1 > bestV)
+    {
+        bestV = v1;
+        bestT = 1.0;
+    }
 
-    // evaluate endpoints directly
-    float v0 = c.x;
-    float v1 = c.x + c.y + c.z + c.w;
+    // p'(t) = d + b*t + a*t^2
+    float d = c.y;
+    float b = 2.0 * c.z;
+    float a = 3.0 * c.w;
 
-    // pack for argmax
-    vec4 v = vec4(v0, v_ext.x, v_ext.y, v1);
-    vec4 t = vec4(0.0, t_ext.x, t_ext.y, 1.0);
+    // Linear derivative case
+    if (abs(a) < eps)
+    {
+        if (abs(b) >= eps)
+        {
+            float t = -d / b;
+            if (t > 0.0 && t < 1.0)
+            {
+                float v = evalCubic(c, t);
+                if (v > bestV)
+                {
+                    bestV = v;
+                    bestT = t;
+                }
+            }
+        }
 
-    int i = argmax(v);
-    return CubicMax(v[i], t[i]);
+        return CubicMax(bestV, bestT);
+    }
+
+    // True quadratic derivative case
+    float disc = b * b - 4.0 * a * d;
+    if (disc < 0.0)
+    {
+        return CubicMax(bestV, bestT);
+    }
+        
+    float s = sqrt(disc);
+    float inv2a = 0.5 / a;
+
+    float t0 = (-b - s) * inv2a;
+    if (t0 > 0.0 && t0 < 1.0)
+    {
+        float v = evalCubic(c, t0);
+        if (v > bestV)
+        {
+            bestV = v;
+            bestT = t0;
+        }
+    }
+
+    float t1 = (-b + s) * inv2a;
+    if (t1 > 0.0 && t1 < 1.0)
+    {
+        float v = evalCubic(c, t1);
+        if (v > bestV)
+        {
+            bestV = v;
+            bestT = t1;
+        }
+    }
+
+    return CubicMax(bestV, bestT);
+}
+
+// Treat p'(t) as linear when the quadratic term is negligible.
+// Otherwise solve the quadratic derivative and select the stationary point
+// with negative second derivative, which is the local maximum
+
+CubicMax cubicMaxOnUnitInterval(vec4 c, float v0, float v1)
+{
+    const float eps = 1e-6;
+
+    float bestV = v0;
+    float bestT = 0.0;
+
+    if (v1 > bestV)
+    {
+        bestV = v1;
+        bestT = 1.0;
+    }
+
+    float d = c.y;
+    float b = 2.0 * c.z;
+    float a = 3.0 * c.w;
+
+    if (abs(a) < eps)
+    {
+        if (abs(b) >= eps)
+        {
+            float t = -d / b;
+            if (t > 0.0 && t < 1.0)
+            {
+                float v = evalCubic(c, t);
+                if (v > bestV)
+                {
+                    bestV = v;
+                    bestT = t;
+                }
+            }
+        }
+
+        return CubicMax(bestV, bestT);
+    }
+
+    float disc = b * b - 4.0 * a * d;
+    if (disc <= 0.0)
+    {
+        return CubicMax(bestV, bestT);
+    }
+
+    float s = sqrt(disc);
+    float inv2a = 0.5 / a;
+
+    float t0 = (-b - s) * inv2a;
+    float t1 = (-b + s) * inv2a;
+
+    // p''(t) = 2*a*t + b
+    float dd0 = 2.0 * a * t0 + b;
+
+    // Pick the stationary point that is a local maximum
+    float t = (dd0 < 0.0) ? t0 : t1;
+
+    if (t > 0.0 && t < 1.0)
+    {
+        float v = evalCubic(c, t);
+        if (v > bestV)
+        {
+            bestV = v;
+            bestT = t;
+        }
+    }
+
+    return CubicMax(bestV, bestT);
+}
+
+// Find the cubic maximum on [0,1]. Uses a stable quadratic solve for p'(t),
+// with the second root from Vieta; t1 = d/q also degenerates to the linear
+// root -d/b as a -> 0.
+
+CubicMax cubicMaxOnUnitInterval(vec4 c, float v0, float v1)
+{
+    const float eps = 1e-6;
+
+    float bestT = 0.0;
+    float bestV = v0;
+
+    if (v1 > bestV)
+    {
+        bestV = v1;
+        bestT = 1.0;
+    }
+
+    // p'(t) = d + b*t + a*t^2
+    float a = 3.0 * c.w;
+    float b = 2.0 * c.z;
+    float d = c.y;
+
+    float disc = b * b - 4.0 * a * d;
+    if (disc >= 0.0)
+    {
+        float s = sqrt(disc);
+        float sb = (b >= 0.0) ? 1.0 : -1.0;
+        float q  = -0.5 * (b + sb * s);
+
+        // This root stays meaningful in the linear limit a -> 0: t1 = d/q -> -d/b
+        if (abs(q) > eps)
+        {
+            float t1 = d / q;
+            if (t1 > 0.0 && t1 < 1.0)
+            {
+                float v = evalCubic(c, t1);
+                if (v > bestV)
+                {
+                    bestV = v;
+                    bestT = t1;
+                }
+            }
+        }
+
+        // Only valid as a true quadratic root
+        if (abs(a) > eps)
+        {
+            float t0 = q / a;
+            if (t0 > 0.0 && t0 < 1.0)
+            {
+                float v = evalCubic(c, t0);
+                if (v > bestV)
+                {
+                    bestV = v;
+                    bestT = t0;
+                }
+            }
+        }
+    }
+
+    return CubicMax(bestV, bestT);
 }
 */
+
+#endif
+
 
 #endif
