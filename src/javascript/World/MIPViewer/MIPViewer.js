@@ -106,9 +106,9 @@ export default class MIPViewer extends EventEmitter
     {
         const configs = this.configs
         const defines = this.material.defines
-        defines.DISTANCE_VARIATION = Configs.DistanceVariations.findIndex((x) => x === configs.distanceVariation)
         defines.MARCHING_METHOD = Configs.MarchingMethods.findIndex((x) => x === configs.marchingMethod)
         defines.SKIPPING_METHOD = Configs.SkippingMethods.findIndex((x) => x === configs.skippingMethod)
+        defines.DISTANCE_VARIATION = Configs.DistanceVariations.findIndex((x) => x === configs.distanceVariation)
         this.material.needsUpdate = true
     }
 
@@ -117,14 +117,14 @@ export default class MIPViewer extends EventEmitter
         const defines = this.material.defines
 
         defines.BLOCK_SIZE = this.configs.blockSize
-        
         defines.MAX_BLOCKS = this.computes.distanceMap.dimensions.toArray().reduce((y, x) => y + x, -2)
+        
         defines.MAX_CELLS = this.computes.volumeMap.dimensions.toArray().reduce((y, x) => y + x, -2)
-        defines.MAX_CELLS_IN_BLOCK = Math.ceil(defines.BLOCK_SIZE * 3 - 2)
+        defines.MAX_CELLS_IN_BLOCK = defines.BLOCK_SIZE * 3 - 2
         
-        defines.MAX_TRACES = defines.MAX_CELLS * 4
-        defines.MAX_TRACES_IN_BLOCK = defines.MAX_CELLS_IN_BLOCK * 4
-        
+        defines.MAX_TRACES = Math.max(...this.computes.volumeMap.dimensions) * 4
+        defines.MAX_TRACES_IN_BLOCK = defines.BLOCK_SIZE * 4
+
         this.material.needsUpdate = true
 
         console.log(defines)
