@@ -11,8 +11,8 @@
 // MARCH_BLOCKS
 for (int j = 0; j < MAX_BLOCKS; j++) 
 {
-    // UPDATE_BLOCK
-    #include "./modules/update_block"
+    // UPDATE_BLOCK_IN_RAY
+    #include "./modules/update_block_in_ray"
 
     if (block.empty)
     {

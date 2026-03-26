@@ -31,7 +31,7 @@ for (int i = 0; i < MAX_CELLS; i++)
     // compute termination condition
     cell.terminated = cell.exit_distance > ray.end_distance;
 
-    // UPDATE_CUBIC     
+    // UPDATE_CUBIC_IN_CELL     
     vec3 span_vector = cell.exit_position - cell.entry_position;
 
     cubic.values.x = cubic.values.w;

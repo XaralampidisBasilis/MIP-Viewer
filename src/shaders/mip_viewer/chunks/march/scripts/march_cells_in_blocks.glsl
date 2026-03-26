@@ -14,7 +14,7 @@ mip.value = cubic.values.w;
 // START_MARCH
 for (int j = 0; j < MAX_BLOCKS; j++) 
 {
-    // UPDATE_BLOCK
+    // UPDATE_BLOCK_IN_RAY
     
     // Choose next block coords from either geometric exit or skip step
     block.coords = advanceBlockCoords(block.coords, block.exit_step, block.step_radius, block.exit_position + ray.eps_direction);
