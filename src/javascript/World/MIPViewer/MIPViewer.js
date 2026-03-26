@@ -3,7 +3,7 @@ import Experience from '../../Experience'
 import EventEmitter from '../../Utils/EventEmitter'
 import Configs from '../../Configs'
 import ISOMaterial from './MIPMaterial'
-import { updateRayUniforms as updateRayUniformState } from './RayUniforms'
+import { updateRayUniforms } from './RayUniforms'
 
 export default class MIPViewer extends EventEmitter
 {
@@ -85,7 +85,7 @@ export default class MIPViewer extends EventEmitter
 
     updateRayUniforms()
     {
-        updateRayUniformState(
+        updateRayUniforms(
             this.material.uniforms,
             this.camera.instance,
             this.mesh,
@@ -123,7 +123,7 @@ export default class MIPViewer extends EventEmitter
         defines.MAX_CELLS = this.computes.volumeMap.dimensions.toArray().reduce((y, x) => y + x, -2)
         defines.MAX_CELLS_IN_BLOCK = defines.BLOCK_SIZE * 3 - 2
 
-        defines.TRACE_SUBSTEPS = 4
+        defines.TRACE_SUBSTEPS = 2
         defines.MAX_TRACES = defines.MAX_CELLS * defines.TRACE_SUBSTEPS
         defines.MAX_TRACES_IN_BLOCK = defines.MAX_CELLS_IN_BLOCK * defines.TRACE_SUBSTEPS
 
