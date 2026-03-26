@@ -115,15 +115,17 @@ export default class MIPViewer extends EventEmitter
     setDefinesIterators()
     {        
         const defines = this.material.defines
+        const blockSize = new THREE.Vector3().setScalar(this.configs.blockSize)
 
         defines.BLOCK_SIZE = this.configs.blockSize
         defines.MAX_BLOCKS = this.computes.distanceMap.dimensions.toArray().reduce((y, x) => y + x, -2)
         
         defines.MAX_CELLS = this.computes.volumeMap.dimensions.toArray().reduce((y, x) => y + x, -2)
         defines.MAX_CELLS_IN_BLOCK = defines.BLOCK_SIZE * 3 - 2
-        
-        defines.MAX_TRACES = Math.max(...this.computes.volumeMap.dimensions) * 4
-        defines.MAX_TRACES_IN_BLOCK = defines.BLOCK_SIZE * 4
+
+        defines.TRACE_SUBSTEPS = 4
+        defines.MAX_TRACES = defines.MAX_CELLS * defines.TRACE_SUBSTEPS
+        defines.MAX_TRACES_IN_BLOCK = defines.MAX_CELLS_IN_BLOCK * defines.TRACE_SUBSTEPS
 
         this.material.needsUpdate = true
 

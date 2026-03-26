@@ -67,16 +67,18 @@ export default function()
 
     const defines = 
     {           
-        DISTANCE_VARIATION    : 0,
-        BLOCK_SIZE       : 1,
-        MARCHING_METHOD  : 1,
-        SKIPPING_METHOD  : 2,
+        DISTANCE_VARIATION: 0,
+        MARCHING_METHOD   : 1,
+        SKIPPING_METHOD   : 2,
 
         BERNSTEIN_ENABLED : 1,
         SKIPPING_ENABLED  : 1,
         PRODUCTION_ENABLED: 0,
         DEBUG_ENABLED     : 1,
         VARIATION_ENABLED : 0,
+
+        BLOCK_SIZE  : 1,
+        TRACE_SUBSTEPS: 1,
 
         MAX_CELLS           : 1000,
         MAX_TRACES          : 1000,
