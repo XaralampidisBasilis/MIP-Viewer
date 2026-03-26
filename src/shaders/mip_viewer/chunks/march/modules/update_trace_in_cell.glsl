@@ -1,6 +1,8 @@
 
+float ti = float(i) / float(MAX_TRACES_IN_CELL - 1);
+
 // Increment distance
-trace.distance = mix(cell.entry_distance, cell.exit_distance, float(i));
+trace.distance = mix(cell.entry_distance, cell.exit_distance, ti);
 
 // Compute position
 trace.position = distanceToPosition(trace.distance); 

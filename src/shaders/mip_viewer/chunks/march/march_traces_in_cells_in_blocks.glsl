@@ -42,9 +42,6 @@ for (int k = 0; k < MAX_BLOCKS; k++)
 
             // UPDATE_MIP_IN_TRACE
             #include "./modules/update_mip_in_trace"
-
-            // BREAK_MARCH_TRACES_IN_CELL
-            if (trace.terminated) break;
         }
 
         // BREAK_MARCH_CELLS_IN_BLOCK
