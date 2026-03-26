@@ -1,9 +1,9 @@
 
 // START_TRACE_IN_RAY
-trace.step_distance = ray.step_distance / float(TRACE_SUBSTEPS);
+trace.step_distance = ray.step_distance / float(MAX_TRACES_IN_CELL);
 
 // set distance with phase
-trace.distance = snapToTraceDistance(ray.start_distance, trace.step_distance, ray.phase);
+trace.distance = snapTraceDistanceCeil(ray.start_distance, trace.step_distance, ray.phase);
 trace.position = distanceToPosition(trace.distance); 
 
 trace.value = sampleVolume(trace.position);

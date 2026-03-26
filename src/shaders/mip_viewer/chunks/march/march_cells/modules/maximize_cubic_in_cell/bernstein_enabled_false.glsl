@@ -6,8 +6,6 @@ CubicMax cubic_max = cubicMaxOnUnitInterval(cubic.coeffs, cubic.values.x, cubic.
 cubic.max_value = cubic_max.value;
 cubic.argmax_point = cubic_max.point;
 
-mip.update = cubic.max_value > mip.value;
-
 #if DEBUG_ENABLED == 1
 
     stats.num_maxima += 1;

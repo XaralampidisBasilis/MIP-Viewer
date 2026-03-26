@@ -18,5 +18,5 @@
 #include "./cubicMaxOnUnitInterval"
 #include "./startCellCoordsInBlock"
 #include "./startCellFarDistancesInBlock"
-#include "./snapToTraceDistance"
+#include "./snapTraceDistance"
 

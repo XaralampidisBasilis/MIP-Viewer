@@ -1,11 +1,11 @@
 
-// set spacing
-trace.step_distance = ray.step_distance / float(TRACE_SUBSTEPS);
+// START_TRACE_IN_RAY
 
-// set distance with phase
-trace.distance = snapToTraceDistance(ray.start_distance, trace.step_distance, ray.phase);
+// set spacing
+trace.step_distance = ray.step_distance / float(MAX_TRACES_IN_CELL);
 
 // set position
+trace.distance = snapTraceDistanceCeil(ray.start_distance, trace.step_distance, ray.phase);
 trace.position = distanceToPosition(trace.distance); 
 
 // set value

@@ -22,9 +22,6 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     // START_TRACE_IN_BLOCK
     #include "./modules/start_trace_in_block"
 
-    // UPDATE_MIP_IN_TRACE
-    #include "./modules/update_mip_in_trace"
-      
     // MARCH_TRACES_IN_BLOCK
     #pragma unroll
     for (int i = 0; i < MAX_TRACES_IN_BLOCK; i++)

@@ -78,7 +78,7 @@ export default function()
         VARIATION_ENABLED : 0,
 
         BLOCK_SIZE  : 1,
-        TRACE_SUBSTEPS: 1,
+        MAX_TRACES_IN_CELL: 1,
 
         MAX_CELLS           : 1000,
         MAX_TRACES          : 1000,

@@ -7,10 +7,10 @@ block.exit_step = ivec3(0);
 block.empty = false;
 
 // START_TRACE_IN_RAY
-trace.step_distance = ray.step_distance / float(TRACE_SUBSTEPS);
+trace.step_distance = ray.step_distance / float(MAX_TRACES_IN_CELL);
 
 // set distance with phase
-trace.distance = snapToTraceDistance(ray.start_distance, trace.step_distance, ray.phase);
+trace.distance = snapTraceDistanceCeil(ray.start_distance, trace.step_distance, ray.phase);
 trace.position = distanceToPosition(trace.distance); 
 
 #if DEBUG_ENABLED == 1
@@ -80,7 +80,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     // START_TRACE_IN_BLOCK
 
     // start distance with phase from block
-    trace.distance = snapToTraceDistance(block.entry_distance, trace.step_distance, ray.phase);
+    trace.distance = snapTraceDistanceCeil(block.entry_distance, trace.step_distance, ray.phase);
     trace.position = distanceToPosition(trace.distance); 
     
     #if DEBUG_ENABLED == 1

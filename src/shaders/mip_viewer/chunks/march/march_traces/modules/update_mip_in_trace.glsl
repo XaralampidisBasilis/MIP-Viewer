@@ -5,10 +5,8 @@ mip.update = trace.value > mip.value;
 if (mip.update)
 {
     // Update value
-    mip.value = trace.value;
-
-    // Update distance
     mip.distance = trace.distance;
+    mip.value = trace.value;
 
     // update stats
     #if DEBUG_ENABLED == 1

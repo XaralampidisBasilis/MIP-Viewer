@@ -18,5 +18,3 @@ if (cubic.maximize)
 
     #endif
 }
-
-mip.update = cubic.max_value > mip.value;
