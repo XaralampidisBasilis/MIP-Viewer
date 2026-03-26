@@ -28,12 +28,12 @@ export default class Configs extends EventEmitter
         super()
 
         this.downscaleEnabled = true
-        this.downscaleFactor = 0.7
+        this.downscaleFactor = 0.8
 
         this.errorTolerance = 0.01
-        this.blockSize = 1
+        this.blockSize = 2
         
-        this.distanceVariation = '8bit'
+        this.distanceVariation = '5bit'
         this.marchingMethod = 'cells'
         this.skippingMethod = 'distance'
         this.colormap = 'viridis'

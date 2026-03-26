@@ -1,5 +1,4 @@
 
-
 // start block at ray start
 #include "./modules/start_cell_in_ray"
 

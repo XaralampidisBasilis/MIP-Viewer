@@ -17,10 +17,10 @@ export default class DistanceMap
 
     computeTexture()
     {
-        if (this.distanceVariation ===   '1bit') this.computeR16UITexture()
-        if (this.distanceVariation ===  '5bits') this.computeRGBA16UITexture()
-        if (this.distanceVariation ===  '8bits') this.computeRGB32UITexture()
-        if (this.distanceVariation === '10bits') this.computeRGBA32UITexture()
+        if (this.distanceVariation ===  '1bit') this.computeR16UITexture()
+        if (this.distanceVariation ===  '5bit') this.computeRGBA16UITexture()
+        if (this.distanceVariation ===  '8bit') this.computeRGB32UITexture()
+        if (this.distanceVariation === '10bit') this.computeRGBA32UITexture()
     }
  
     computeR16UITexture()
