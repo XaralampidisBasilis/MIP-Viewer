@@ -122,7 +122,7 @@ export default class MIPViewer extends EventEmitter
         defines.MAX_CELLS = this.computes.volumeMap.dimensions.toArray().reduce((y, x) => y + x, -2)
         defines.MAX_CELLS_IN_BLOCK = defines.BLOCK_SIZE * 3 - 2
 
-        defines.MAX_TRACES_IN_CELL = 4
+        defines.MAX_TRACES_IN_CELL = 2
         defines.MAX_TRACES = defines.MAX_TRACES_IN_CELL * defines.MAX_CELLS
         defines.MAX_TRACES_IN_BLOCK = defines.MAX_TRACES_IN_CELL * defines.MAX_CELLS_IN_BLOCK
 

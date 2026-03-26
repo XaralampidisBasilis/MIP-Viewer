@@ -27,7 +27,7 @@ export default class Configs extends EventEmitter
     {
         super()
 
-        this.downscaleEnabled = false
+        this.downscaleEnabled = true
         this.downscaleFactor = 0.8
 
         this.errorTolerance = 0.01

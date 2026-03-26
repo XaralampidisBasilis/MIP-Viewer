@@ -1,6 +1,6 @@
 
 // START_BLOCK_IN_RAY
-#include "../march_blocks/modules/start_block_in_ray"
+#include "./modules/start_block_in_ray"
 
 // START_TRACE_IN_RAY
 #include "./modules/start_trace_in_ray"
@@ -12,7 +12,7 @@
 for (int j = 0; j < MAX_BLOCKS; j++) 
 {
     // UPDATE_BLOCK
-    #include "../march_blocks/modules/update_block"
+    #include "./modules/update_block"
 
     if (block.empty)
     {

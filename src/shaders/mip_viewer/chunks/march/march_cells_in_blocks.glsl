@@ -1,6 +1,6 @@
 
 // start block at ray start
-#include "../march_blocks/modules/start_block_in_ray"
+#include "./modules/start_block_in_ray"
 
 // start cubic at the ray start
 #include "./modules/start_cubic_in_ray"
@@ -12,7 +12,7 @@
 for (int j = 0; j < MAX_BLOCKS; j++) 
 {
     // Update block and get if its empty and what is the step distance we can take
-    #include "../march_blocks/modules/update_block"
+    #include "./modules/update_block"
 
     if (block.empty)
     {
