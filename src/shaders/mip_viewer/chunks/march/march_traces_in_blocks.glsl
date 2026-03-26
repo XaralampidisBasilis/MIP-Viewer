@@ -14,6 +14,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     // UPDATE_BLOCK_IN_RAY
     #include "./modules/update_block_in_ray"
 
+    // CONTINUE_OR_TERMINATE_MARCH_BLOCKS
     if (block.empty)
     {
         if (!block.terminated) continue; else break;    
@@ -29,6 +30,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         // UPDATE_TRACE_POSITION_IN_BLOCK
         #include "./modules/update_trace_position_in_block"
 
+        // TERMINATE_MARCH_TRACES_IN_BLOCK
         if (trace.terminated) break; 
 
         // UPDATE_TRACE_VALUE
@@ -38,6 +40,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         #include "./modules/update_mip_in_trace"
     }
 
+    // TERMINATE_MARCH_BLOCKS
     if (block.terminated) break;
 }
 

@@ -3,10 +3,10 @@
 if(block.prev_empty)
 {
     // Increment distance
-    trace.distance = cell.exit_distance;
+    trace.distance = block.entry_distance;
 
     // Compute position
-    trace.position = cell.exit_position; 
+    trace.position = block.entry_position; 
 
     // Update value
     trace.value = sampleVolume(trace.position);

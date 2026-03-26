@@ -11,6 +11,7 @@ for (int i = 0; i < MAX_TRACES; i++)
     // UPDATE_TRACE_POSITION_IN_RAY
     #include "./modules/update_trace_position_in_ray"
 
+    // TERMINATE_MARCH_TRACES
     if (trace.terminated) break; 
 
     // UPDATE_TRACE_VALUE

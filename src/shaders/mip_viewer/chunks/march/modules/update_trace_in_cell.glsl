@@ -1,4 +1,5 @@
 
+// point inside the cell entry and exit
 float ti = float(i) / float(MAX_TRACES_IN_CELL - 1);
 
 // Increment distance
