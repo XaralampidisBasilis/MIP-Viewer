@@ -3,7 +3,7 @@ import Experience from '../../Experience'
 import EventEmitter from '../../Utils/EventEmitter'
 import Configs from '../../Configs'
 import ISOMaterial from './MIPMaterial'
-import { updateRayUniforms as updateRayUniformState } from './RayUniforms'
+import { updateRayUniforms } from './RayUniforms'
 
 export default class MIPViewer extends EventEmitter
 {
@@ -85,7 +85,7 @@ export default class MIPViewer extends EventEmitter
 
     updateRayUniforms()
     {
-        updateRayUniformState(
+        updateRayUniforms(
             this.material.uniforms,
             this.camera.instance,
             this.mesh,
@@ -115,7 +115,6 @@ export default class MIPViewer extends EventEmitter
     setDefinesIterators()
     {        
         const defines = this.material.defines
-        const blockSize = new THREE.Vector3().setScalar(this.configs.blockSize)
 
         defines.BLOCK_SIZE = this.configs.blockSize
         defines.MAX_BLOCKS = this.computes.distanceMap.dimensions.toArray().reduce((y, x) => y + x, -2)
