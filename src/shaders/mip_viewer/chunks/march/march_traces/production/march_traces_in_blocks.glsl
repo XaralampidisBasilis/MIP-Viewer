@@ -10,7 +10,7 @@ block.empty = false;
 trace.step_distance = ray.step_distance / float(TRACE_SUBSTEPS);
 
 // set distance with phase
-trace.distance = snapToTraceDistance(ray.start_distance);
+trace.distance = snapToTraceDistance(ray.start_distance, trace.step_distance, ray.phase);
 trace.position = distanceToPosition(trace.distance); 
 
 #if DEBUG_ENABLED == 1
@@ -80,7 +80,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     // START_TRACE_IN_BLOCK
 
     // start distance with phase from block
-trace.distance = snapToTraceDistance(block.entry_distance);
+    trace.distance = snapToTraceDistance(block.entry_distance, trace.step_distance, ray.phase);
     trace.position = distanceToPosition(trace.distance); 
     
     #if DEBUG_ENABLED == 1
@@ -122,9 +122,7 @@ trace.distance = snapToTraceDistance(block.entry_distance);
         trace.position = distanceToPosition(trace.distance); 
 
         // Compute termination condition
-        trace.terminated = 
-            trace.distance > block.exit_distance - ray.eps_distance || 
-            trace.distance > ray.end_distance; 
+        trace.terminated = trace.distance > block.exit_distance || trace.distance > ray.end_distance; 
 
         // update stats
         #if DEBUG_ENABLED == 1

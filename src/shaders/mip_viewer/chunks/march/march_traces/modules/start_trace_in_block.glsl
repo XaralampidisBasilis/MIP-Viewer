@@ -1,6 +1,6 @@
 
 // start distance with phase from block
-trace.distance = trace.step_distance * (floor(block.entry_distance / trace.step_distance) + ray.phase);
+trace.distance = snapToTraceDistance(block.entry_distance, trace.step_distance, ray.phase);
 
 // update position
 trace.position = distanceToPosition(trace.distance); 

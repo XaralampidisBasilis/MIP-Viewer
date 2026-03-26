@@ -1,17 +1,17 @@
 
-// start block at ray start
+// START_BLOCK_IN_RAY
 #include "../march_blocks/modules/start_block_in_ray"
 
-// start cubic at the ray start
-#include "./modules/start_cubic_in_ray"
+// START_TRACE_IN_RAY
+#include "./modules/start_trace_in_ray"
 
-// start mip at the ray start
-#include "./modules/start_mip_in_cubic"
+// START_MIP_IN_TRACE
+#include "./modules/start_mip_in_trace"
 
-// START_MARCH
+// MARCH_BLOCKS
 for (int j = 0; j < MAX_BLOCKS; j++) 
 {
-    // Update block and get if its empty and what is the step distance we can take
+    // UPDATE_BLOCK
     #include "../march_blocks/modules/update_block"
 
     if (block.empty)
@@ -19,29 +19,26 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         if (!block.terminated) continue; else break;    
     }
 
-    // Start cell at the block entry
-    #include "./modules/start_cell_in_block"
+    // START_TRACE_IN_BLOCK
+    #include "./modules/start_trace_in_block"
 
-    // Start cubic at the block entry and reuse sample if previous was not empty
-    #include "./modules/start_cubic_in_block"
+    // UPDATE_MIP_IN_TRACE
+    #include "./modules/update_mip_in_trace"
       
-    // Start cell march inside the current non empty block until we escape
+    // MARCH_TRACES_IN_BLOCK
     #pragma unroll
-    for (int i = 0; i < MAX_CELLS_IN_BLOCK; i++)
+    for (int i = 0; i < MAX_TRACES_IN_BLOCK; i++)
     {
-        // update cell based on the previous one
-        #include "./modules/update_cell_in_block"
+        // UPDATE_TRACE_POSITION_IN_BLOCK
+        #include "./modules/update_trace_position_in_block"
 
-        // Reconstruct the cubic polynomial inside the cell entry and exit
-        #include "./modules/update_cubic_in_cell"
+        if (trace.terminated) break; 
 
-        // Maximize the cubic inside the cell 
-        #include "./modules/maximize_cubic_in_cell"
+        // UPDATE_TRACE_VALUE
+        #include "./modules/update_trace_value"
 
-        // Update mip based on the max cubic value
-        #include "./modules/update_mip_in_cubic"
-
-        if (cell.terminated) break; 
+        // UPDATE_MIP_IN_TRACE
+        #include "./modules/update_mip_in_trace"
     }
 
     if (block.terminated) break;

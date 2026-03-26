@@ -1,6 +1,8 @@
 
 // Compare trace to mip value
-if (trace.value > mip.value)
+mip.update = trace.value > mip.value;
+
+if (mip.update)
 {
     // Update value
     mip.value = trace.value;

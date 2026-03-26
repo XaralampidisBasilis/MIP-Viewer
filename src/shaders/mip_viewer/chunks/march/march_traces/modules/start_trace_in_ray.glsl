@@ -1,9 +1,9 @@
 
 // set spacing
-trace.step_distance = ray.step_distance / 4.0;
+trace.step_distance = ray.step_distance / float(TRACE_SUBSTEPS);
 
 // set distance with phase
-trace.distance = trace.step_distance * (floor(ray.start_distance / trace.step_distance) + ray.phase)
+trace.distance = snapToTraceDistance(ray.start_distance, trace.step_distance, ray.phase);
 
 // set position
 trace.position = distanceToPosition(trace.distance); 

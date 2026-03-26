@@ -6,9 +6,9 @@ float snapToTraceDistance(float t)
     return trace.step_distance * (ceil(t / trace.step_distance - ray.phase) + ray.phase);
 }
 
-float snapToTraceDistance(float t, float stepDistance, float phase)
+float snapToTraceDistance(float t, float stepDistance, float randomPhase)
 {
-    return stepDistance * (ceil(t / stepDistance - phase) + phase);
+    return stepDistance * (ceil(t / stepDistance - randomPhase) + randomPhase);
 }
 
 #endif
