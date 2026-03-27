@@ -47,15 +47,14 @@ export default class Experience
         this.gui = new GUI()
 
         // Size resize event
-        this.sizes.on('resize', (event) => 
+        this.sizes.on('resize', () => 
         {
-            this.resize(event)
+            this.resize()
         })
 
         // Time tick event
-        this.time.on('tick', ({ elapsed, delta }) => 
+        this.time.on('tick', () => 
         {
-            this.sizes.updateAdaptivePixelRatio(delta, elapsed)
             this.update()
         })
 
@@ -78,13 +77,10 @@ export default class Experience
         })
     }
 
-    resize(event = {})
+    resize()
     {
-        const { viewportChanged = true, pixelRatioChanged = true } = event
-
-        if (viewportChanged) this.camera.resize()
-        
-        this.renderer.resize({ viewportChanged, pixelRatioChanged })
+        this.camera.resize()
+        this.renderer.resize()
     }
 
     update()

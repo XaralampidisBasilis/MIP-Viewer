@@ -32,9 +32,8 @@ export default class Renderer
 
         // Set clear color for the background
         this.instance.setClearColor('#211d20', 1)
-        // this.instance.setClearColor('#000000', 1)
 
-        // Set renderer size and pixel ratio
+        // Set the canvas size and backing buffer from the current viewport.
         this.instance.setPixelRatio(this.sizes.pixelRatio)
         this.instance.setSize(this.sizes.width, this.sizes.height)
 
@@ -42,17 +41,10 @@ export default class Renderer
         this.instance.shadowMap.enabled = false
     }
 
-    resize({ viewportChanged = true, pixelRatioChanged = true } = {})
+    resize()
     {
-        if (pixelRatioChanged)
-        {
-            this.instance.setPixelRatio(this.sizes.pixelRatio)
-        }
-
-        if (viewportChanged)
-        {
-            this.instance.setSize(this.sizes.width, this.sizes.height)
-        }
+        this.instance.setPixelRatio(this.sizes.pixelRatio)
+        this.instance.setSize(this.sizes.width, this.sizes.height)
     }
 
     update()

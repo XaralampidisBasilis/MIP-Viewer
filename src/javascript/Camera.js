@@ -2,9 +2,8 @@ import * as THREE from 'three'
 import Experience from './Experience'
 import EventEmitter from './Utils/EventEmitter'
 import { ArcballControls } from 'three/examples/jsm/controls/ArcballControls.js'
-// import { TrackballControls } from './Utils/TrackballControls'
-// import { FlyControls } from './Utils/FlyControls'
-// import { ToggleControls } from './Utils/ToggleControls'
+
+const FRAME_DIRECTION = new THREE.Vector3(1, 1, 1).normalize()
 
 export default class Camera extends EventEmitter
 {
@@ -17,7 +16,6 @@ export default class Camera extends EventEmitter
         this.sizes = this.experience.sizes
         this.scene = this.experience.scene
         this.canvas = this.experience.canvas
-        this.time = this.experience.time
         this.onControlsChange = this.onControlsChange.bind(this)
         
         this.orthographic = {
@@ -53,6 +51,7 @@ export default class Camera extends EventEmitter
         this.controls.rotateSpeed = 1.0
         this.controls.minZoom = 0.5
         this.controls.maxZoom = 8.0
+        
         this.controls.setGizmosVisible(false)
         this.controls.addEventListener('change', this.onControlsChange)
         this.controls.update()
@@ -66,25 +65,23 @@ export default class Camera extends EventEmitter
 
     frameBounds(center, size)
     {
-        const radius = Math.max(size.length() * 0.5, 1e-3)
-        const distance = radius * 2.0
-        const direction = new THREE.Vector3(1, 1, 1).normalize()
+        const radius = Math.max(size.length() / 2.0, 0.001)
 
         this.orthographic.frustumHeight = radius * 2.4
         this.instance.near = 0.001
-        this.instance.far = distance + radius * 4.0
-        this.instance.position.copy(center).addScaledVector(direction, distance)
+        this.instance.far = radius * 6.0
+        this.instance.position.copy(center).addScaledVector(FRAME_DIRECTION, radius * 2.0)
 
         this.controls.target.copy(center)
-        this.controls.update()
-        this.controls.saveState?.()
         this.resize()
+
+        this.controls.saveState?.()
         this.trigger('change')
     }
 
     updateOrthographicFrustum()
     {
-        const aspect = this.sizes.renderWidth / this.sizes.renderHeight
+        const aspect = this.sizes.width / this.sizes.height
         const halfHeight = this.orthographic.frustumHeight * 0.5
         const halfWidth = halfHeight * aspect
 
