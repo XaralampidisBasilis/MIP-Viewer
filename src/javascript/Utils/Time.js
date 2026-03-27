@@ -13,7 +13,8 @@ export default class Time extends EventEmitter
         super()
 
         // Setup
-        this.start = Date.now()   // Timestamp when the instance was created
+        this.now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
+        this.start = this.now()   // Timestamp when the instance was created
         this.current = this.start // Most recent frame timestamp
         this.elapsed = 0          // Total time since start in milliseconds
         this.delta = 16           // Time between frames (initialized to ~60fps)
@@ -28,16 +29,16 @@ export default class Time extends EventEmitter
 
     tick()
     {
-        const currentTime = Date.now()
+        const currentTime = this.now()
         this.delta = currentTime - this.current // Time since last frame
         this.current = currentTime
         this.elapsed = this.current - this.start
 
         // Emit the `tick` event
-        this.trigger('tick', {
+        this.trigger('tick', [{
             elapsed: this.elapsed,
             delta: this.delta
-        })
+        }])
 
         // Continue the loop
         this.animationFrameId = window.requestAnimationFrame(this.tick)
@@ -57,6 +58,7 @@ export default class Time extends EventEmitter
         this.current = null
         this.elapsed = null
         this.delta = null
+        this.now = null
 
         console.log('Time destroyed')
     }

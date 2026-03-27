@@ -53,8 +53,9 @@ export default class Experience
         })
 
         // Time tick event
-        this.time.on('tick', () => 
+        this.time.on('tick', ({ elapsed, delta }) => 
         {
+            this.sizes.updateAdaptivePixelRatio(delta, elapsed)
             this.update()
         })
 
