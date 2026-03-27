@@ -14,7 +14,7 @@ export default class Stats
         this.instance.showPanel(0)
 
         this.active = false
-        this.max = 40
+        this.max = 60
         this.ignoreMaxed = true
 
         if(_active)

@@ -36,8 +36,8 @@ export default class Experience
         // Setup
         this.configs = new Configs()
         this.sizes = new Sizes()
-        this.pixelRatio = new PixelRatio(this)
         this.time = new Time()
+        this.pixelRatio = new PixelRatio(this)
         this.mouse = new Mouse()
         this.scene = new THREE.Scene()
         this.camera = new Camera()
@@ -48,29 +48,28 @@ export default class Experience
         this.stats = new Stats(true)
         this.gui = new GUI()
 
-        // Size resize event
-        this.sizes.on('resize', () => 
-        {
-            this.resize()
-        })
-
         // Time tick event
-        this.time.on('tick', ({ delta }) => 
+        this.time.on('tick', () => 
         {
-            // const pixelRatioChanged = this.pixelRatio.update(delta)
-
-            // if (pixelRatioChanged)
-            // {
-            //     this.renderer.resize()
-            // }
-
             this.update()
         })
 
         // Resources ready event
-        this.resources.on('ready', () =>
+        this.resources.on('ready', (event) =>
         {
-            this.start()
+            this.start(event)
+        })
+
+        // Size resize event
+        this.sizes.on('resize', (event) => 
+        {
+            this.resize(event)
+        })
+
+        // Pixel ration adapt event
+        this.pixelRatio.on('rescale', (event) =>
+        {
+            this.rescale(event)
         })
 
         // Config change event
@@ -86,21 +85,7 @@ export default class Experience
         })
     }
 
-    resize()
-    {
-        this.pixelRatio.resize()
-        this.camera.resize()
-        this.renderer.resize()
-    }
-
-    update()
-    {
-        this.camera.update()
-        this.stats.update()    
-        this.renderer.update()
-    }
-
-    async start()
+    async start(event)
     {
         await this.computes.start()
 
@@ -108,10 +93,30 @@ export default class Experience
         this.gui.start()
     }
 
+    update(event)
+    {
+        this.pixelRatio.update()
+        this.camera.update()
+        this.renderer.update()
+        this.stats.update()    
+    }
+
+    resize(event)
+    {
+        this.pixelRatio.resize()
+        this.camera.resize()
+        this.renderer.resize()
+    }
+
+    rescale(event)
+    {
+        this.renderer.rescale()
+    }
+
     async change(event)
     {
         // await this.computes.change(event)
-        this.world.change(event)
+        // this.world.change(event)
     }
 
     destroy()

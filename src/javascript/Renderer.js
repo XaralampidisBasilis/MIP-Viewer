@@ -47,6 +47,11 @@ export default class Renderer
         this.instance.setSize(this.sizes.width, this.sizes.height)
     }
 
+    rescale()
+    {
+        this.instance.setPixelRatio(this.pixelRatio.value)
+    }
+
     update()
     {
         // Render the scene from the camera's perspective

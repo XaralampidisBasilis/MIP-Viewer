@@ -71,7 +71,6 @@ export default class GUI
             skippingStrategy    : this.configs.skippingStrategy,    
             skippingMethod      : this.configs.skippingMethod,    
             skippingEnabled     : this.configs.skippingEnabled,
-            adaptivePixelRatioEnabled  : this.configs.adaptivePixelRatioEnabled,
         }
     
         this.controllers.configs = 
@@ -105,12 +104,6 @@ export default class GUI
             .onFinishChange((boolean) => 
             { 
                 this.configs.set('skippingEnabled', boolean) 
-            }),
-
-            adaptivePixelRatioEnabled : folder.add(objects, 'adaptivePixelRatioEnabled')
-            .onFinishChange((boolean) =>
-            {
-                this.configs.set('adaptivePixelRatioEnabled', boolean)
             }),
         
         }
