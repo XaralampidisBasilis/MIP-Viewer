@@ -8,7 +8,11 @@
 
 #else
 
+    #if VARIATION_ENABLED == 1
+    #include "./march_traces_in_cells"
+    #else
     #include "./march_traces_in_traces"
-    
+    #endif
+
 #endif
 

@@ -1,6 +1,6 @@
 
 // START_TRACE_IN_RAY
-trace.step_distance = ray.step_distance / float(MAX_TRACES_IN_CELL);
+trace.step_distance = ray.step_distance / float(MAX_TRACES_IN_CELL - 1);
 
 trace.distance = snapTraceDistanceCeil(ray.start_distance, trace.step_distance, ray.phase);
 trace.position = distanceToPosition(trace.distance); 

@@ -1,9 +1,9 @@
 
 // point inside the cell entry and exit
-float ti = float(i) / float(MAX_TRACES_IN_CELL - 1);
+float t = float(i) / float(MAX_TRACES_IN_CELL - 1);
 
 // Increment distance
-trace.distance = mix(cell.entry_distance, cell.exit_distance, ti);
+trace.distance = mix(cell.entry_distance, cell.exit_distance, t);
 
 // Compute position
 trace.position = distanceToPosition(trace.distance); 

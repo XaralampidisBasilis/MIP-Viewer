@@ -123,8 +123,8 @@ export default class MIPViewer extends EventEmitter
         defines.MAX_CELLS_IN_BLOCK = defines.BLOCK_SIZE * 3 - 2
 
         defines.MAX_TRACES_IN_CELL = 4
-        defines.MAX_TRACES = defines.MAX_TRACES_IN_CELL * defines.MAX_CELLS
-        defines.MAX_TRACES_IN_BLOCK = defines.MAX_TRACES_IN_CELL * defines.MAX_CELLS_IN_BLOCK
+        defines.MAX_TRACES = defines.MAX_CELLS * Math.max(defines.MAX_TRACES_IN_CELL - 1, 1)
+        defines.MAX_TRACES_IN_BLOCK = defines.MAX_CELLS_IN_BLOCK *  Math.max(defines.MAX_TRACES_IN_CELL - 1, 1)
 
         this.material.needsUpdate = true
 
