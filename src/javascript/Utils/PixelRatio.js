@@ -20,8 +20,11 @@ export default class PixelRatio extends EventEmitter
         this.decreaseFactor = 0.9
         this.increaseFactor = 1.05
         this.lowFPSThreshold = 0.95
+        this.stableFPSThreshold = 0.985
+        this.stableDurationMs = 1500
         this.elapsedSinceAdjust = 0
         this.framesSinceAdjust = 0
+        this.stableElapsedMs = 0
     }
 
     clampValue(pixelRatio)
@@ -49,21 +52,32 @@ export default class PixelRatio extends EventEmitter
             return false
         }
 
-        const fps = this.framesSinceAdjust * 1000 / this.elapsedSinceAdjust
+        const elapsedSinceAdjust = this.elapsedSinceAdjust
+        const fps = this.framesSinceAdjust * 1000 / elapsedSinceAdjust
 
         this.elapsedSinceAdjust = 0
         this.framesSinceAdjust = 0
 
         if (fps < this.targetFPS * this.lowFPSThreshold)
         {
+            this.stableElapsedMs = 0
             return this.apply(this.value * this.decreaseFactor)
         }
 
-        if (fps > this.targetFPS)
+        if (fps >= this.targetFPS * this.stableFPSThreshold)
         {
-            return this.apply(this.value * this.increaseFactor)
+            this.stableElapsedMs += elapsedSinceAdjust
+
+            if (this.stableElapsedMs >= this.stableDurationMs)
+            {
+                this.stableElapsedMs = 0
+                return this.apply(this.value * this.increaseFactor)
+            }
+
+            return false
         }
 
+        this.stableElapsedMs = 0
         return false
     }
 
@@ -99,5 +113,6 @@ export default class PixelRatio extends EventEmitter
         this.enabled = null
         this.elapsedSinceAdjust = null
         this.framesSinceAdjust = null
+        this.stableElapsedMs = null
     }
 }
