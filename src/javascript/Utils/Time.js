@@ -35,7 +35,8 @@ export default class Time extends EventEmitter
         this.elapsed = this.current - this.start
 
         // Emit the `tick` event
-        this.trigger('tick', [{
+        this.trigger('tick', 
+        [{
             elapsed: this.elapsed,
             delta: this.delta
         }])
