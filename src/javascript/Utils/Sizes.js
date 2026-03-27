@@ -8,22 +8,23 @@ import EventEmitter from './EventEmitter'
  */
 export default class Sizes extends EventEmitter 
 {
-    // Static pixel budget used to estimate a safe upper DPR from the viewport size.
-    targetPixels = 1920 * 1080 // 1920*1080, 1280*800, 800*600, 640*480
+    // Raymarching is typically fill-rate bound, so the viewport DPR ceiling should be conservative.
+    referencePixels = 1600 * 900
+    pixelRatioSafety = 0.9
     minPixelRatio = 0.5
     maxPixelRatio = 1.5
     pixelRatioStep = 0.05
 
-    // Runtime adaptation parameters. We drop quality faster than we recover it.
+    // Runtime adaptation aims to stay near 60 FPS and uses slower quality recovery than quality drop.
     adaptiveEnabled = true
     targetFrameTimeMs = 1000 / 60
+    stableFrameSlackMs = 0.35
+    slowFrameSlackMs = 1.5
     adaptIntervalMs = 250
-    adaptStableThresholdMs = 17.0
-    adaptDownThresholdMs = 18.5
     adaptUpAfterStableMs = 1500
     adaptDownStep = 0.1
     adaptUpStep = 0.05
-    adaptEpsilon = 0.05
+    adaptEpsilon = 0.001
     smoothingFactor = 0.1
 
     constructor() 
@@ -34,15 +35,15 @@ export default class Sizes extends EventEmitter
         this.width = window.innerWidth
         this.height = window.innerHeight
 
-        // `targetPixelRatio` is the budget-based ceiling for the current window size.
+        // `targetPixelRatio` is the viewport-dependent quality ceiling for the current window size.
         this.targetPixelRatio = this.computePixelRatio(this.width, this.height)
 
-        // Start from the budget-based target, then let runtime adaptation move below it if needed.
+        // Start from the safe ceiling, then let runtime adaptation lower or probe around it.
         this.pixelRatio = this.targetPixelRatio
         console.log(`pixelRatio: ${this.pixelRatio}`)
 
         // Exponential smoothing keeps one slow frame from immediately changing resolution.
-        this.smoothedFrameTime = 16
+        this.smoothedFrameTime = this.targetFrameTimeMs
         this.lastAdaptTime = 0
         this.stableSinceElapsed = 0
 
@@ -55,17 +56,18 @@ export default class Sizes extends EventEmitter
     {        
         const safeWidth = Math.max(1, width)
         const safeHeight = Math.max(1, height)
-        const devicePR = this.clampPixelRatio(window.devicePixelRatio || 1)
+        const devicePR = Math.max(1, window.devicePixelRatio || 1)
 
-        // Estimate the DPR that keeps the total rendered pixels near our target budget:
-        // width * height * dpr^2 ~= targetPixels
-        const budgetPR = Math.sqrt(this.targetPixels / (safeWidth * safeHeight))
+        // Estimate a safe DPR ceiling for fragment-heavy raymarching work:
+        // width * height * dpr^2 ~= referencePixels, then keep a bit of headroom.
+        const viewportBudgetPR = Math.sqrt(this.referencePixels / (safeWidth * safeHeight))
+        const budgetPR = viewportBudgetPR * this.pixelRatioSafety
 
         // Never exceed the device DPR or our app-specific cap.
         const capped = Math.min(devicePR, this.maxPixelRatio, budgetPR)
 
-        // Snap to stable steps so small resizes do not constantly churn the renderer DPR.
-        return this.quantizePixelRatio(this.clampPixelRatio(capped))
+        // Snap downward so the computed ceiling stays conservative.
+        return this.quantizePixelRatio(this.clampPixelRatio(capped), 'down')
     }
 
     clampPixelRatio(value, max = this.maxPixelRatio)
@@ -73,20 +75,46 @@ export default class Sizes extends EventEmitter
         return Math.max(this.minPixelRatio, Math.min(max, value))
     }
 
-    quantizePixelRatio(value)
+    quantizePixelRatio(value, mode = 'nearest')
     {
-        const snapped = Math.floor((value + 1e-6) / this.pixelRatioStep) * this.pixelRatioStep
+        const scaled = value / this.pixelRatioStep
+        const snapped =
+            mode === 'down'
+                ? Math.floor(scaled + 1e-6) * this.pixelRatioStep
+                : Math.round(scaled) * this.pixelRatioStep
+
         return Number(this.clampPixelRatio(snapped).toFixed(2))
+    }
+
+    getStableFrameThreshold()
+    {
+        return this.targetFrameTimeMs + this.stableFrameSlackMs
+    }
+
+    getSlowFrameThreshold()
+    {
+        return this.targetFrameTimeMs + this.slowFrameSlackMs
+    }
+
+    applyPixelRatio(nextPixelRatio, reason)
+    {
+        if (Math.abs(nextPixelRatio - this.pixelRatio) < this.adaptEpsilon)
+        {
+            return
+        }
+
+        this.pixelRatio = nextPixelRatio
+        console.log(`${reason} pixelRatio: ${this.pixelRatio.toFixed(2)} (${this.smoothedFrameTime.toFixed(2)} ms)`)
+        this.emitResize()
     }
 
     emitResize()
     {
-        this.trigger('resize', 
-        {
+        this.trigger('resize', [{
             width: this.width,
             height: this.height,
             pixelRatio: this.pixelRatio
-        })
+        }])
     }
 
     /**
@@ -106,7 +134,7 @@ export default class Sizes extends EventEmitter
         // Smooth the incoming frame time so quality changes respond to trends, not spikes.
         this.smoothedFrameTime += (delta - this.smoothedFrameTime) * this.smoothingFactor
 
-        const isStableAtTarget = this.smoothedFrameTime <= this.adaptStableThresholdMs
+        const isStableAtTarget = this.smoothedFrameTime <= this.getStableFrameThreshold()
 
         if (isStableAtTarget)
         {
@@ -130,7 +158,7 @@ export default class Sizes extends EventEmitter
 
         let nextPixelRatio = this.pixelRatio
 
-        if (this.smoothedFrameTime > this.adaptDownThresholdMs)
+        if (this.smoothedFrameTime > this.getSlowFrameThreshold())
         {
             nextPixelRatio -= this.adaptDownStep
             this.stableSinceElapsed = 0
@@ -148,16 +176,7 @@ export default class Sizes extends EventEmitter
 
         // Runtime adaptation may lower DPR, but it should never rise above the size-based budget.
         nextPixelRatio = this.quantizePixelRatio(this.clampPixelRatio(nextPixelRatio, this.targetPixelRatio))
-
-        // Ignore tiny changes that would cause extra resizes without a visible benefit.
-        if (Math.abs(nextPixelRatio - this.pixelRatio) < this.adaptEpsilon)
-        {
-            return
-        }
-
-        this.pixelRatio = nextPixelRatio
-        console.log(`adaptive pixelRatio: ${this.pixelRatio.toFixed(2)} (${this.smoothedFrameTime.toFixed(2)} ms)`)
-        this.emitResize()
+        this.applyPixelRatio(nextPixelRatio, 'adaptive')
     }
 
     onResize() 
@@ -165,10 +184,22 @@ export default class Sizes extends EventEmitter
         // Update dimensions
         this.width = window.innerWidth
         this.height = window.innerHeight
-        this.targetPixelRatio = this.computePixelRatio(this.width, this.height)
         
-        // Keep the current adaptive DPR if it is already lower; otherwise clamp to the new ceiling.
-        this.pixelRatio = Math.min(this.pixelRatio, this.targetPixelRatio)
+        const previousTargetPixelRatio = this.targetPixelRatio
+        this.targetPixelRatio = this.computePixelRatio(this.width, this.height)
+
+        // Clamp down immediately when the viewport grows, but let runtime adaptation probe up again when it shrinks.
+        if (this.targetPixelRatio < this.pixelRatio)
+        {
+            this.pixelRatio = this.targetPixelRatio
+        }
+        else if (this.targetPixelRatio > previousTargetPixelRatio && this.pixelRatio < this.targetPixelRatio)
+        {
+            this.pixelRatio = this.quantizePixelRatio(
+                this.clampPixelRatio(this.pixelRatio + this.adaptUpStep, this.targetPixelRatio)
+            )
+        }
+
         this.stableSinceElapsed = 0
         console.log(`pixelRatio: ${this.pixelRatio}`)
 
