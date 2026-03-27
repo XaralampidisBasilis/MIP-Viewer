@@ -6,7 +6,7 @@ trace.distance += trace.step_distance;
 trace.position = distanceToPosition(trace.distance); 
 
 // Compute termination condition
-trace.terminated = trace.distance > block.exit_distance || trace.distance > ray.end_distance; 
+trace.terminated = trace.distance > block.exit_distance; 
 
 // update stats
 #if DEBUG_ENABLED == 1

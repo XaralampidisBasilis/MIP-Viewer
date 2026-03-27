@@ -21,7 +21,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     }
 
     // START_TRACE_IN_BLOCK
-    #include "./modules/start_trace_in_block"
+    #include "./modules/start_trace_position_in_block"
 
     // MARCH_TRACES_IN_BLOCK
     #pragma unroll

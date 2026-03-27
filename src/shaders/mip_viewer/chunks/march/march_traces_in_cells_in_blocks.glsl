@@ -24,7 +24,7 @@ for (int k = 0; k < MAX_BLOCKS; k++)
     #include "./modules/start_cell_in_block"
 
     // START_TRACE_IN_BLOCK
-    #include "./modules/start_trace_in_cell"
+    #include "./modules/start_trace_in_block"
       
     // MARCH_CELLS_IN_BLOCK
     #pragma unroll

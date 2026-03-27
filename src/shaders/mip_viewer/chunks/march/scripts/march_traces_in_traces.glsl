@@ -1,6 +1,8 @@
 
 // START_TRACE_IN_RAY
 
+// START_TRACE_IN_RAY
+
 // set spacing
 trace.step_distance = ray.step_distance / float(MAX_TRACES_IN_CELL - 1);
 
@@ -18,6 +20,9 @@ trace.value = sampleVolume(trace.position);
     stats.num_traces += 1;
 
 #endif
+
+
+// START_MIP_IN_TRACE
 
 // START_MIP_IN_TRACE
 mip.distance = trace.distance;

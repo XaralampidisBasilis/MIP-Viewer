@@ -63,6 +63,11 @@
         
         // compute termination condition
         block.terminated = block.exit_distance > ray.end_distance - ray.eps_distance;
+        if (block.terminated)
+        {
+            block.exit_distance = ray.end_distance;
+            block.exit_position = ray.end_position;
+        }
         
         // update stats
         #if DEBUG_ENABLED == 1
@@ -97,6 +102,11 @@
         
         // Stop once the ray exit goes beyond the ray end
         block.terminated = block.exit_distance > ray.end_distance - ray.eps_distance;
+        if (block.terminated)
+        {
+            block.exit_distance = ray.end_distance;
+            block.exit_position = ray.end_position;
+        }
         
         // update stats
         #if DEBUG_ENABLED == 1
@@ -168,10 +178,13 @@
             cell.span_distance = cell.exit_distance - cell.entry_distance;
             
             // compute termination condition
-            cell.terminated = 
-                cell.exit_distance > block.exit_distance - ray.eps_distance || 
-                cell.exit_distance > ray.end_distance - ray.eps_distance;
-            
+            cell.terminated = cell.exit_distance > block.exit_distance - ray.eps_distance;
+            if (cell.terminated)
+            {
+                cell.exit_distance = block.exit_distance;
+                cell.exit_position = block.exit_position;
+            }
+                
             // update stats
             #if DEBUG_ENABLED == 1
             
@@ -345,6 +358,11 @@
         
         // compute termination condition
         cell.terminated = cell.exit_distance > ray.end_distance - ray.eps_distance;
+        if (cell.terminated)
+        {
+            cell.exit_distance = ray.end_distance;
+            cell.exit_position = ray.end_position;
+        }
         
         // update stats
         #if DEBUG_ENABLED == 1

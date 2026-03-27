@@ -61,6 +61,11 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     
     // compute termination condition
     block.terminated = block.exit_distance > ray.end_distance - ray.eps_distance;
+    if (block.terminated)
+    {
+        block.exit_distance = ray.end_distance;
+        block.exit_position = ray.end_position;
+    }
     
     // update stats
     #if DEBUG_ENABLED == 1
@@ -95,6 +100,11 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     
     // Stop once the ray exit goes beyond the ray end
     block.terminated = block.exit_distance > ray.end_distance - ray.eps_distance;
+    if (block.terminated)
+    {
+        block.exit_distance = ray.end_distance;
+        block.exit_position = ray.end_position;
+    }
     
     // update stats
     #if DEBUG_ENABLED == 1
@@ -103,8 +113,8 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         stats.num_blocks += 1;
     
     #endif
-
     #endif    
+    
 
     // CONTINUE_OR_TERMINATE_MARCH_BLOCKS
     if (block.empty)
@@ -127,6 +137,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     #endif
 
     // Start cubic at the block entry and reuse sample if previous was not empty
+    
     
     // START_CUBIC_IN_BLOCK
     if(block.prev_empty)
@@ -165,10 +176,13 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         cell.span_distance = cell.exit_distance - cell.entry_distance;
         
         // compute termination condition
-        cell.terminated = 
-            cell.exit_distance > block.exit_distance - ray.eps_distance || 
-            cell.exit_distance > ray.end_distance - ray.eps_distance;
-        
+        cell.terminated = cell.exit_distance > block.exit_distance - ray.eps_distance;
+        if (cell.terminated)
+        {
+            cell.exit_distance = block.exit_distance;
+            cell.exit_position = block.exit_position;
+        }
+            
         // update stats
         #if DEBUG_ENABLED == 1
         
@@ -243,11 +257,11 @@ for (int j = 0; j < MAX_BLOCKS; j++)
             stats.num_maxima += 1;
         
         #endif
-
         #endif
         
 
         // Update mip based on the max cubic value
+        
         
         // UPDATE_MIP_IN_CUBIC
         mip.update = cubic.max_value > mip.value;

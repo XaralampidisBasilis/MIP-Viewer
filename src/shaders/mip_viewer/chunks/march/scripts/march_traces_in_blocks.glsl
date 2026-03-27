@@ -73,6 +73,11 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     
     // compute termination condition
     block.terminated = block.exit_distance > ray.end_distance - ray.eps_distance;
+    if (block.terminated)
+    {
+        block.exit_distance = ray.end_distance;
+        block.exit_position = ray.end_position;
+    }
     
     // update stats
     #if DEBUG_ENABLED == 1
@@ -107,6 +112,11 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     
     // Stop once the ray exit goes beyond the ray end
     block.terminated = block.exit_distance > ray.end_distance - ray.eps_distance;
+    if (block.terminated)
+    {
+        block.exit_distance = ray.end_distance;
+        block.exit_position = ray.end_position;
+    }
     
     // update stats
     #if DEBUG_ENABLED == 1
@@ -128,6 +138,16 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     
     // START_TRACE_IN_BLOCK
     trace.distance = snapTraceDistanceFloor(block.entry_distance, trace.step_distance, ray.phase);
+    
+    // Compute position
+    trace.position = distanceToPosition(trace.distance); 
+    
+    // update stats
+    #if DEBUG_ENABLED == 1
+    
+        stats.num_traces += 1;
+    
+    #endif
 
     // MARCH_TRACES_IN_BLOCK
     #pragma unroll
@@ -142,7 +162,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         trace.position = distanceToPosition(trace.distance); 
         
         // Compute termination condition
-        trace.terminated = trace.distance > block.exit_distance || trace.distance > ray.end_distance; 
+        trace.terminated = trace.distance > block.exit_distance; 
         
         // update stats
         #if DEBUG_ENABLED == 1
