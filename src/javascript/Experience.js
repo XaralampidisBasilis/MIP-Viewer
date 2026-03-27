@@ -116,7 +116,7 @@ export default class Experience
     async change(event)
     {
         // await this.computes.change(event)
-        // this.world.change(event)
+        this.world.change(event)
     }
 
     destroy()
