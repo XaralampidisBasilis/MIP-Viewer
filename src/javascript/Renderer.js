@@ -35,18 +35,24 @@ export default class Renderer
         // this.instance.setClearColor('#000000', 1)
 
         // Set renderer size and pixel ratio
-        this.instance.setSize(this.sizes.width, this.sizes.height)
         this.instance.setPixelRatio(this.sizes.pixelRatio)
+        this.instance.setSize(this.sizes.width, this.sizes.height)
 
         // Disable shadows if not used
         this.instance.shadowMap.enabled = false
     }
 
-    resize()
+    resize({ viewportChanged = true, pixelRatioChanged = true } = {})
     {
-        // Update renderer size and pixel ratio on resize
-        this.instance.setSize(this.sizes.width, this.sizes.height)
-        this.instance.setPixelRatio(this.sizes.pixelRatio)
+        if (pixelRatioChanged)
+        {
+            this.instance.setPixelRatio(this.sizes.pixelRatio)
+        }
+
+        if (viewportChanged)
+        {
+            this.instance.setSize(this.sizes.width, this.sizes.height)
+        }
     }
 
     update()

@@ -105,15 +105,18 @@ export default class Sizes extends EventEmitter
 
         this.pixelRatio = nextPixelRatio
         console.log(`${reason} pixelRatio: ${this.pixelRatio.toFixed(2)} (${this.smoothedFrameTime.toFixed(2)} ms)`)
-        this.emitResize()
+        this.emitResize({ viewportChanged: false, pixelRatioChanged: true, reason })
     }
 
-    emitResize()
+    emitResize({ viewportChanged = true, pixelRatioChanged = true, reason = 'resize' } = {})
     {
         this.trigger('resize', [{
             width: this.width,
             height: this.height,
-            pixelRatio: this.pixelRatio
+            pixelRatio: this.pixelRatio,
+            viewportChanged,
+            pixelRatioChanged,
+            reason,
         }])
     }
 
@@ -182,6 +185,10 @@ export default class Sizes extends EventEmitter
     onResize() 
     {
         // Update dimensions
+        const previousWidth = this.width
+        const previousHeight = this.height
+        const previousPixelRatio = this.pixelRatio
+
         this.width = window.innerWidth
         this.height = window.innerHeight
         
@@ -204,7 +211,11 @@ export default class Sizes extends EventEmitter
         console.log(`pixelRatio: ${this.pixelRatio}`)
 
         // Emit the `resize` event with updated values
-        this.emitResize()
+        this.emitResize({
+            viewportChanged: this.width !== previousWidth || this.height !== previousHeight,
+            pixelRatioChanged: this.pixelRatio !== previousPixelRatio,
+            reason: 'viewport',
+        })
     }
 
     destroy() 

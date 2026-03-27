@@ -47,9 +47,9 @@ export default class Experience
         this.gui = new GUI()
 
         // Size resize event
-        this.sizes.on('resize', () => 
+        this.sizes.on('resize', (event) => 
         {
-            this.resize()
+            this.resize(event)
         })
 
         // Time tick event
@@ -78,10 +78,19 @@ export default class Experience
         })
     }
 
-    resize()
+    resize(event = {})
     {
-        this.camera.resize()
-        this.renderer.resize()
+        const { viewportChanged = true, pixelRatioChanged = true } = event
+
+        if (viewportChanged)
+        {
+            this.camera.resize()
+        }
+
+        if (viewportChanged || pixelRatioChanged)
+        {
+            this.renderer.resize({ viewportChanged, pixelRatioChanged })
+        }
     }
 
     update()
