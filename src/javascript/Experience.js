@@ -82,19 +82,9 @@ export default class Experience
     {
         const { viewportChanged = true, pixelRatioChanged = true } = event
 
-        if (viewportChanged)
-        {
-            this.camera.resize({ viewportChanged, pixelRatioChanged })
-        }
-        else if (pixelRatioChanged)
-        {
-            this.camera.resize({ viewportChanged, pixelRatioChanged })
-        }
-
-        if (viewportChanged || pixelRatioChanged)
-        {
-            this.renderer.resize({ viewportChanged, pixelRatioChanged })
-        }
+        if (viewportChanged) this.camera.resize()
+        
+        this.renderer.resize({ viewportChanged, pixelRatioChanged })
     }
 
     update()

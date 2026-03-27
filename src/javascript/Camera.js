@@ -100,15 +100,11 @@ export default class Camera extends EventEmitter
         this.raycaster.setFromCamera(this.mouse.ndcPosition, this.instance)
     }
 
-    resize({ viewportChanged = true, pixelRatioChanged = true } = {})
+    resize()
     {
         this.updateOrthographicFrustum()
         this.instance.updateProjectionMatrix()
-
-        if (viewportChanged)
-        {
-            this.controls?.update()
-        }
+        this.controls?.update()
     }
 
     update()
