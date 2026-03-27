@@ -40,6 +40,7 @@ export default class Sizes extends EventEmitter
 
         // Start from the safe ceiling, then let runtime adaptation lower or probe around it.
         this.pixelRatio = this.targetPixelRatio
+        this.updateRenderSize()
         console.log(`pixelRatio: ${this.pixelRatio}`)
 
         // Exponential smoothing keeps one slow frame from immediately changing resolution.
@@ -96,6 +97,13 @@ export default class Sizes extends EventEmitter
         return this.targetFrameTimeMs + this.slowFrameSlackMs
     }
 
+    updateRenderSize()
+    {
+        // Match Three.js viewport rounding so the camera aspect can follow the real render target.
+        this.renderWidth = Math.max(1, Math.round(this.width * this.pixelRatio))
+        this.renderHeight = Math.max(1, Math.round(this.height * this.pixelRatio))
+    }
+
     applyPixelRatio(nextPixelRatio, reason)
     {
         if (Math.abs(nextPixelRatio - this.pixelRatio) < this.adaptEpsilon)
@@ -104,6 +112,7 @@ export default class Sizes extends EventEmitter
         }
 
         this.pixelRatio = nextPixelRatio
+        this.updateRenderSize()
         console.log(`${reason} pixelRatio: ${this.pixelRatio.toFixed(2)} (${this.smoothedFrameTime.toFixed(2)} ms)`)
         this.emitResize({ viewportChanged: false, pixelRatioChanged: true, reason })
     }
@@ -114,6 +123,8 @@ export default class Sizes extends EventEmitter
             width: this.width,
             height: this.height,
             pixelRatio: this.pixelRatio,
+            renderWidth: this.renderWidth,
+            renderHeight: this.renderHeight,
             viewportChanged,
             pixelRatioChanged,
             reason,
@@ -207,6 +218,7 @@ export default class Sizes extends EventEmitter
             )
         }
 
+        this.updateRenderSize()
         this.stableSinceElapsed = 0
         console.log(`pixelRatio: ${this.pixelRatio}`)
 
@@ -228,6 +240,8 @@ export default class Sizes extends EventEmitter
         this.height = null
         this.pixelRatio = null
         this.targetPixelRatio = null
+        this.renderWidth = null
+        this.renderHeight = null
         this.smoothedFrameTime = null
         this.lastAdaptTime = null
         this.stableSinceElapsed = null

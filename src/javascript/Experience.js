@@ -84,7 +84,11 @@ export default class Experience
 
         if (viewportChanged)
         {
-            this.camera.resize()
+            this.camera.resize({ viewportChanged, pixelRatioChanged })
+        }
+        else if (pixelRatioChanged)
+        {
+            this.camera.resize({ viewportChanged, pixelRatioChanged })
         }
 
         if (viewportChanged || pixelRatioChanged)

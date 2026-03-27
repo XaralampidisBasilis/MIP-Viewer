@@ -84,7 +84,7 @@ export default class Camera extends EventEmitter
 
     updateOrthographicFrustum()
     {
-        const aspect = this.sizes.width / this.sizes.height
+        const aspect = this.sizes.renderWidth / this.sizes.renderHeight
         const halfHeight = this.orthographic.frustumHeight * 0.5
         const halfWidth = halfHeight * aspect
 
@@ -100,11 +100,15 @@ export default class Camera extends EventEmitter
         this.raycaster.setFromCamera(this.mouse.ndcPosition, this.instance)
     }
 
-    resize()
+    resize({ viewportChanged = true, pixelRatioChanged = true } = {})
     {
         this.updateOrthographicFrustum()
-        this.controls?.update()
         this.instance.updateProjectionMatrix()
+
+        if (viewportChanged)
+        {
+            this.controls?.update()
+        }
     }
 
     update()
