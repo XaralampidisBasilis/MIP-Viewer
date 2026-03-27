@@ -14,7 +14,7 @@ export default class PixelRatio extends EventEmitter
         this.targetPixels = 1920 * 1080
         this.maxPixelRatio = this.getMaxPixelRatio()
         this.value = this.maxPixelRatio
-        this.enabled = true
+        this.enabled = false
 
         this.targetFPS = 60
         this.adjustIntervalMs = 500
