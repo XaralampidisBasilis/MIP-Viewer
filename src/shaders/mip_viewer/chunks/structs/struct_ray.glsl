@@ -31,7 +31,7 @@ void set_ray()
     ray.direction      = u_ray.direction;
     ray.step_distance  = u_ray.step_distance;
     ray.eps_direction  = u_ray.direction * eps;
-    ray.eps_distance    = u_ray.step_distance * eps;
+    ray.eps_distance   = u_ray.step_distance * eps;
     ray.start_position = vec3(0.0);
     ray.end_position   = vec3(0.0);
     ray.start_distance = 0.0;

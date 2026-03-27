@@ -1,5 +1,6 @@
 
 out vec3 v_ray_origin;
+out vec3 v_vertex_position;
 
 flat out float v_box_min_distance;
 flat out float v_box_max_distance;
@@ -84,6 +85,7 @@ void main()
     vec3 rayOrigin = getRayOriginIndexSpace(vertexPosition, cameraPosition, u_ray.direction);
 
     v_ray_origin = rayOrigin;
+    v_vertex_position = vertexPosition;
 
     vec2 boxMinMaxDistance = getBoxPlaneMinMaxDistance(boxMin, boxMax, cameraPosition, u_ray.direction);
 

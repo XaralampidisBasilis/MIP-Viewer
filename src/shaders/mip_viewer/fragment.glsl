@@ -2,6 +2,7 @@ precision highp float;
 precision highp int;
 
 in vec3 v_ray_origin;
+in vec3 v_vertex_position;
 
 flat in float v_box_min_distance;
 flat in float v_box_max_distance;
@@ -15,6 +16,7 @@ out vec4 fragColor;
 
 void main() 
 {
+
     #include "./chunks/structs/set_structs"
     #include "./chunks/raycast/compute_raycast"
     #include "./chunks/march/compute_march"
