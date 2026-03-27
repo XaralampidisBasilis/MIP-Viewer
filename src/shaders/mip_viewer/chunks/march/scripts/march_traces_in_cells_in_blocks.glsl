@@ -1,5 +1,5 @@
 
-// start block at ray start
+// START_BLOCK_IN_RAY
 
 // START_BLOCK
 block.coords = positionToBlockCoords(ray.start_position);
@@ -8,22 +8,34 @@ block.exit_position = ray.start_position;
 block.exit_step = ivec3(0);
 block.empty = false;
 
-// start cubic at the ray start
+// START_TRACE_IN_RAY  
 
-// START_CUBIC_IN_RAY
-cubic.values.w = sampleVolume(ray.start_position);
+// START_TRACE_IN_RAY
 
+// set spacing
+trace.step_distance = ray.step_distance / float(MAX_TRACES_IN_CELL - 1);
+
+// set position
+trace.distance = snapTraceDistanceCeil(ray.start_distance, trace.step_distance, ray.phase);
+trace.position = distanceToPosition(trace.distance); 
+
+// set value
+trace.value = sampleVolume(trace.position);
+
+// update stats
 #if DEBUG_ENABLED == 1
 
     stats.num_volume_fetches += 1;
+    stats.num_traces += 1;
 
 #endif
 
-// start mip at the ray start
 
-// START_MIP_IN_CUBIC
-mip.distance = ray.start_distance;
-mip.value = cubic.values.w;
+// START_MIP_IN_TRACE 
+
+// START_MIP_IN_TRACE
+mip.distance = trace.distance;
+mip.value = trace.value;
 
 #if DEBUG_ENABLED == 1
 
@@ -31,10 +43,10 @@ mip.value = cubic.values.w;
 
 #endif
 
-// START_MARCH
-for (int j = 0; j < MAX_BLOCKS; j++) 
+// MARCH_BLOCKS
+for (int k = 0; k < MAX_BLOCKS; k++) 
 {
-    // Update block and get if its empty and what is the step distance we can take
+    // UPDATE_BLOCK_IN_RAY
     
     #if SKIPPING_METHOD == 0
     
@@ -103,16 +115,16 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         stats.num_blocks += 1;
     
     #endif
-
     #endif    
+    
 
-    // CONTINUE_OR_TERMINATE_MARCH_BLOCKS
+    // CONTINUE_OR_BREAK_MARCH_BLOCKS
     if (block.empty)
     {
         if (!block.terminated) continue; else break;    
     }
 
-    // Start cell at the block entry
+    // START_CELL_IN_BLOCK
     
     #if BLOCK_SIZE != 1
     
@@ -126,25 +138,33 @@ for (int j = 0; j < MAX_BLOCKS; j++)
     
     #endif
 
-    // Start cubic at the block entry and reuse sample if previous was not empty
+    // START_TRACE_IN_BLOCK
     
-    // START_CUBIC_IN_BLOCK
+    // START_TRACE_IN_CELL
     if(block.prev_empty)
     {
-        cubic.values.w = sampleVolume(block.entry_position);
+        // Increment distance
+        trace.distance = block.entry_distance;
+    
+        // Compute position
+        trace.position = block.entry_position; 
+    
+        // Update value
+        trace.value = sampleVolume(trace.position);
     
         #if DEBUG_ENABLED == 1
     
             stats.num_volume_fetches += 1;
+            stats.num_traces += 1;
         
         #endif
     }
       
-    // Start cell march inside the current non empty block until we escape
+    // MARCH_CELLS_IN_BLOCK
     #pragma unroll
-    for (int i = 0; i < MAX_CELLS_IN_BLOCK; i++)
+    for (int j = 0; j < MAX_CELLS_IN_BLOCK; j++)
     {
-        // update cell based on the previous one
+        // UPDATE_CELL_IN_BLOCK
         // UPDATE_CELL_IN_BLOCK
         
         #if BLOCK_SIZE != 1
@@ -190,83 +210,62 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         #endif
         
 
-        // Reconstruct the cubic polynomial inside the cell entry and exit
-        
-        // UPDATE_CUBIC_IN_CELL
-        vec3 span_vector = cell.exit_position - cell.entry_position;
-        
-        cubic.values.x = cubic.values.w;
-        cubic.values.y = sampleVolume(cell.entry_position + span_vector * (1.0 / 3.0));
-        cubic.values.z = sampleVolume(cell.entry_position + span_vector * (2.0 / 3.0));
-        cubic.values.w = sampleVolume(cell.exit_position);
-        
-        #if DEBUG_ENABLED == 1
-        
-            stats.num_volume_fetches += 3;
-        
-        #endif
-
-        // Maximize the cubic inside the cell 
-        
-        #if BERNSTEIN_ENABLED == 1
-        
-        // Cull with Bernstein coefficients before the full cubic maximize step.
-        cubic.bernstein_coeffs = cubic.values * CUBIC_INV_BERNSTEIN;
-        cubic.maximize = any(greaterThan(cubic.bernstein_coeffs, vec4(mip.value)));
-        
-        if (cubic.maximize)
+        // MARCH_TRACES_IN_CELL
+        #pragma unroll
+        for (int i = 1; i < MAX_TRACES_IN_CELL; i++)
         {
-            // MAXIMIZE_CUBIC
-            cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
-            CubicMax cubic_max = cubicMaxOnUnitInterval(cubic.coeffs, cubic.values.x, cubic.values.w);
-        
-            cubic.max_value = cubic_max.value;
-            cubic.argmax_point = cubic_max.point;
-        
+            // UPDATE_TRACE_IN_CELL
+            
+            // point inside the cell entry and exit
+            float t = float(i) / float(MAX_TRACES_IN_CELL - 1);
+            
+            // Increment distance
+            trace.distance = mix(cell.entry_distance, cell.exit_distance, t);
+            
+            // Compute position
+            trace.position = distanceToPosition(trace.distance); 
+            
+            // Update value
+            trace.value = sampleVolume(trace.position);
+            
+            // Compute termination condition
+            trace.terminated = trace.distance > ray.end_distance; 
+            
+            // update stats
             #if DEBUG_ENABLED == 1
-        
-                stats.num_maxima += 1;
-        
+            
+                stats.num_volume_fetches += 1;
+                stats.num_traces += 1;
+            
             #endif
-        }
-        #else
-        
-        // MAXIMIZE_CUBIC
-        cubic.coeffs = cubic.values * CUBIC_INV_VANDER;
-        CubicMax cubic_max = cubicMaxOnUnitInterval(cubic.coeffs, cubic.values.x, cubic.values.w);
-        
-        cubic.max_value = cubic_max.value;
-        cubic.argmax_point = cubic_max.point;
-        
-        #if DEBUG_ENABLED == 1
-        
-            stats.num_maxima += 1;
-        
-        #endif
 
-        #endif
-        
-
-        // Update mip based on the max cubic value
-        
-        // UPDATE_MIP_IN_CUBIC
-        mip.update = cubic.max_value > mip.value;
-        
-        if (mip.update) 
-        {
-            mip.distance = mix(cell.entry_distance, cell.exit_distance, cubic.argmax_point);
-            mip.value = cubic.max_value;
-        
-            #if DEBUG_ENABLED == 1
-        
-                stats.num_mips += 1;
-        
-            #endif
+            // UPDATE_MIP_IN_TRACE
+            
+            // Compare trace to mip value
+            mip.update = trace.value > mip.value;
+            
+            if (mip.update)
+            {
+                // Update value
+                mip.distance = trace.distance;
+                mip.value = trace.value;
+            
+                // update stats
+                #if DEBUG_ENABLED == 1
+            
+                    stats.num_mips += 1;
+            
+                #endif
+            
+            }
+            
         }
 
+        // BREAK_MARCH_CELLS_IN_BLOCK
         if (cell.terminated) break; 
     }
 
+    // BREAK_MARCH_BLOCKS
     if (block.terminated) break;
 }
 

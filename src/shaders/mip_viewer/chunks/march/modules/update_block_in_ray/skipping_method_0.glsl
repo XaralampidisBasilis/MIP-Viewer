@@ -21,7 +21,12 @@ block.exit_position = distanceToPosition(block.exit_distance);
 block.span_distance = block.exit_distance - block.entry_distance;
 
 // compute termination condition
-block.terminated = block.exit_distance > ray.end_distance;
+block.terminated = block.exit_distance > ray.end_distance - ray.eps_distance;
+if (block.terminated)
+{
+    block.exit_distance = ray.end_distance;
+    block.exit_position = ray.end_position;
+}
 
 // update stats
 #if DEBUG_ENABLED == 1

@@ -18,10 +18,13 @@ cell.exit_position = distanceToPosition(cell.exit_distance);
 cell.span_distance = cell.exit_distance - cell.entry_distance;
 
 // compute termination condition
-cell.terminated = 
-    cell.exit_distance > block.exit_distance - ray.eps_distance || 
-    cell.exit_distance > ray.end_distance;
-
+cell.terminated = cell.exit_distance > block.exit_distance - ray.eps_distance;
+if (cell.terminated)
+{
+    cell.exit_distance = block.exit_distance;
+    cell.exit_position = block.exit_position;
+}
+    
 // update stats
 #if DEBUG_ENABLED == 1
 

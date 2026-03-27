@@ -58,20 +58,16 @@ export function updateRayUniforms(uniforms, camera, mesh, dimensions)
         _indexDirection.z >= 0 ? 1 : -1,
     )
 
-    ray.step_distances.set(
-        Math.abs(1 / _indexDirection.x),
-        Math.abs(1 / _indexDirection.y),
-        Math.abs(1 / _indexDirection.z),
-    )
-
     const absX = Math.abs(_indexDirection.x)
     const absY = Math.abs(_indexDirection.y)
     const absZ = Math.abs(_indexDirection.z)
 
+    ray.step_distances.set(1 / absX, 1 / absY, 1 / absZ) // cell span distances across 3 axis for the DDA
+    ray.step_distance = 1 / (absX + absY + absZ) // mean cell span distance across all parallel rays in volume
+
     const dominantAxis = argmax3(absX, absY, absZ)
     const dominantSign = ray.sign_direction.getComponent(dominantAxis)
     
-    ray.step_distance = 1 / (absX + absY + absZ)
     ray.dominant_axis = dominantAxis     
     ray.quadrant_index = rayQuadrantIndex(ray.sign_direction, dominantAxis)
     ray.group_index = ray.quadrant_index + 4 * dominantAxis
