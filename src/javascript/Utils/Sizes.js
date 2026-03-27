@@ -78,6 +78,8 @@ export default class Sizes extends EventEmitter
 
     quantizePixelRatio(value, mode = 'nearest')
     {
+        return value
+        
         const scaled = value / this.pixelRatioStep
         const snapped =
             mode === 'down'
