@@ -40,6 +40,7 @@ export default class Configs extends EventEmitter
 
         this.skippingEnabled = true
         this.debugEnabled = true
+        this.adaptivePixelRatioEnabled = true
     }
 
     set(key, value) 

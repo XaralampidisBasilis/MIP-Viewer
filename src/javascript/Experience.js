@@ -4,6 +4,7 @@ import Sizes from './Utils/Sizes'
 import Time from './Utils/Time'
 import Mouse from './Utils/Mouse'
 import Stats from './Utils/Stats'
+import PixelRatio from './Utils/PixelRatio'
 import Camera from './Camera'
 import Renderer from './Renderer'
 import World from './World/World'
@@ -35,6 +36,7 @@ export default class Experience
         // Setup
         this.configs = new Configs()
         this.sizes = new Sizes()
+        this.pixelRatio = new PixelRatio(this)
         this.time = new Time()
         this.mouse = new Mouse()
         this.scene = new THREE.Scene()
@@ -53,8 +55,15 @@ export default class Experience
         })
 
         // Time tick event
-        this.time.on('tick', () => 
+        this.time.on('tick', ({ delta }) => 
         {
+            // const pixelRatioChanged = this.pixelRatio.update(delta)
+
+            // if (pixelRatioChanged)
+            // {
+            //     this.renderer.resize()
+            // }
+
             this.update()
         })
 
@@ -79,6 +88,7 @@ export default class Experience
 
     resize()
     {
+        this.pixelRatio.resize()
         this.camera.resize()
         this.renderer.resize()
     }
@@ -93,6 +103,7 @@ export default class Experience
     async start()
     {
         await this.computes.start()
+
         this.world.start()
         this.gui.start()
     }
@@ -117,6 +128,7 @@ export default class Experience
         this.world?.destroy()
         this.camera?.destroy()
         this.renderer?.destroy()
+        this.pixelRatio?.destroy()
         this.computes?.destroy()
         this.gui?.destroy()
 
@@ -126,6 +138,7 @@ export default class Experience
         this.time = null
         this.mouse = null
         this.scene = null
+        this.pixelRatio = null
         this.camera = null
         this.resources = null
         this.renderer = null
@@ -135,7 +148,7 @@ export default class Experience
         this.canvas = null
 
         // Clear the singleton instance
-        instance = null
+        Experience.instance = null
 
         console.log('Experience destroyed')
     }

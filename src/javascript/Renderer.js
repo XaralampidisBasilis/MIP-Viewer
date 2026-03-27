@@ -15,6 +15,7 @@ export default class Renderer
         this.canvas = this.experience.canvas
         this.context = this.experience.context
         this.sizes = this.experience.sizes
+        this.pixelRatio = this.experience.pixelRatio
         this.scene = this.experience.scene
         this.camera = this.experience.camera
 
@@ -33,8 +34,7 @@ export default class Renderer
         // Set clear color for the background
         this.instance.setClearColor('#211d20', 1)
 
-        // Set the canvas size and backing buffer from the current viewport.
-        this.instance.setPixelRatio(this.sizes.pixelRatio)
+        this.instance.setPixelRatio(this.pixelRatio.value)
         this.instance.setSize(this.sizes.width, this.sizes.height)
 
         // Disable shadows if not used
@@ -43,7 +43,7 @@ export default class Renderer
 
     resize()
     {
-        this.instance.setPixelRatio(this.sizes.pixelRatio)
+        this.instance.setPixelRatio(this.pixelRatio.value)
         this.instance.setSize(this.sizes.width, this.sizes.height)
     }
 
