@@ -1,6 +1,5 @@
 #ifdef STRUCT_STATS
 
-stats.num_groups           = 0;
 stats.num_blocks           = 0;
 stats.num_cells            = 0;
 stats.num_traces           = 0;

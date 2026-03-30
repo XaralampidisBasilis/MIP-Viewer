@@ -24,8 +24,7 @@ export default class PixelRatio extends EventEmitter
         this.maxStepUp = 0.02
         this.epsilon = 0.01
 
-        this.maxAllowed = this.computeMaxAllowed()
-        this.value = this.maxAllowed
+        this.value = this.clamp(this.devicePixelRatio)
 
         this.elapsed = 0
         this.smoothedDelta = 1000 / this.targetFps
@@ -36,17 +35,14 @@ export default class PixelRatio extends EventEmitter
         return window.devicePixelRatio || 1
     }
 
-    computeMaxAllowed()
+    getCurrentMax()
     {
-        return Math.max(
-            this.minValue,
-            Math.min(this.maxValue, this.devicePixelRatio)
-        )
+        return Math.min(this.maxValue, this.devicePixelRatio)
     }
 
     clamp(value)
     {
-        return Math.max(this.minValue, Math.min(this.maxAllowed, value))
+        return Math.max(this.minValue, Math.min(this.getCurrentMax(), value))
     }
 
     reset()
@@ -109,15 +105,15 @@ export default class PixelRatio extends EventEmitter
 
     resize()
     {
-        this.maxAllowed = this.computeMaxAllowed()
         this.reset()
 
-        if (this.value > this.maxAllowed)
+        const clamped = this.clamp(this.value)
+        if (Math.abs(clamped - this.value) < this.epsilon)
         {
-            return this.apply(this.maxAllowed)
+            return false
         }
 
-        return false
+        return this.apply(clamped)
     }
 
     destroy()
@@ -125,6 +121,5 @@ export default class PixelRatio extends EventEmitter
         this.experience = null
         this.time = null
         this.value = null
-        this.maxAllowed = null
     }
 }

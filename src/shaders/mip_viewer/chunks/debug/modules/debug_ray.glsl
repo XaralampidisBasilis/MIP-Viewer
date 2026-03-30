@@ -4,13 +4,13 @@
 vec4 debug_ray_discarded = to_color(ray.discarded);
 
 // direction
-vec4 debug_ray_direction = to_color(ray.direction * 0.5 + 0.5);
+vec4 debug_ray_direction = to_color(u_ray.direction * 0.5 + 0.5);
 
 // signs
 vec4 debug_ray_sign_direction = to_color(vec3(u_ray.sign_direction) * 0.5 + 0.5);
 
 // spacing
-vec4 debug_ray_step_distance = to_color(ray.step_distance);
+vec4 debug_ray_step_distance = to_color(u_ray.step_distance);
 
 // start distance
 vec4 debug_ray_start_distance = to_color(map(u_box.min_distance, u_box.max_distance, ray.start_distance));
@@ -41,7 +41,7 @@ vec4 debug_ray_group_index = to_color(vec3[12](
 )[u_ray.group_index]);
 
 // inverted
-vec4 debug_ray_reversed = to_color(ray.reversed);
+vec4 debug_ray_reversed = to_color(u_ray.reverse);
 
 // phase
 vec4 debug_ray_phase = to_color(ray.phase);
