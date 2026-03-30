@@ -35,26 +35,19 @@ export default class Renderer
         this.instance.setClearColor('#211d20', 1)
         this.instance.shadowMap.enabled = false
 
-        this.applySizeAndPixelRatio()
-    }
-
-    applySizeAndPixelRatio()
-    {
-        const width = Math.max(1, this.sizes.width)
-        const height = Math.max(1, this.sizes.height)
-
         this.instance.setPixelRatio(this.pixelRatio.value)
-        this.instance.setSize(width, height, false)
+        this.instance.setSize(this.sizes.width, this.sizes.height, false)
     }
 
     resize()
     {
-        this.applySizeAndPixelRatio()
+        this.instance.setSize(this.sizes.width, this.sizes.height, false)    
     }
 
     rescale()
     {
-        this.applySizeAndPixelRatio()
+        this.instance.setPixelRatio(this.pixelRatio.value)
+        this.instance.setSize(this.sizes.width, this.sizes.height, false)
     }
 
     update()

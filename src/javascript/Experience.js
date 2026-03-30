@@ -78,7 +78,6 @@ export default class Experience
         Experience.started = true
     }
 
-    
     updateWorld()
     {
         if (Experience.started) 
@@ -94,13 +93,12 @@ export default class Experience
         this.camera.update()
         this.updateWorld()
         this.renderer.update()
+
         this.stats.update()    
     }
 
     resize()
     {
-        this.pixelRatio.resize()
-
         this.camera.resize()
         this.updateWorld()
         this.renderer.resize()
@@ -108,9 +106,9 @@ export default class Experience
 
     rescale()
     {
-        this.renderer.rescale()
         this.camera.rescale()
         this.updateWorld()
+        this.renderer.rescale()
     }
 
     async change(event)

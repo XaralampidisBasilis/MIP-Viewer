@@ -112,7 +112,6 @@ export default class GUI
     addControlsShading()
     {
         const material = this.viewer.material
-        const uniforms = material.uniforms.u_shading.value
 
         const folder = this.folders.shading
         const objects = 

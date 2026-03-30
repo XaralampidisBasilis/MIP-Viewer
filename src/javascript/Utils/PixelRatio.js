@@ -64,7 +64,7 @@ export default class PixelRatio extends EventEmitter
         }
 
         this.value = clamped
-        console.log('pixelRatio:', this.value.toFixed(4))
+        console.log('Rescale:', this.value.toFixed(4))
 
         this.trigger('rescale')
         return true
@@ -102,21 +102,6 @@ export default class PixelRatio extends EventEmitter
         }
 
         return false
-    }
-
-    resize()
-    {
-        this.updateMaxValue()
-        this.reset()
-
-        const clamped = this.clamp(this.value)
-
-        if (Math.abs(clamped - this.value) < this.epsilon)
-        {
-            return false
-        }
-
-        return this.apply(clamped)
     }
 
     destroy()
