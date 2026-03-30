@@ -21,8 +21,8 @@ BlockHit intersectBlock(ivec3 coords)
     vec3 bMin = blockCoordsToMinPosition(cMin);
     vec3 bMax = blockCoordsToMinPosition(cMax);
 
-    vec3 t0 = (bMin - v_ray_origin) * u_ray.inv_direction;
-    vec3 t1 = (bMax - v_ray_origin) * u_ray.inv_direction;
+    vec3 t0 = (bMin - ray.origin) * u_ray.inv_direction;
+    vec3 t1 = (bMax - ray.origin) * u_ray.inv_direction;
 
     vec3 tMin = min(t0, t1);
     vec3 tMax = max(t0, t1);

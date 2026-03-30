@@ -2,8 +2,8 @@ import * as THREE from 'three'
 import Experience from '../../Experience'
 import EventEmitter from '../../Utils/EventEmitter'
 import Configs from '../../Configs'
-import ISOMaterial from './MIPMaterial'
-import { updateRayUniforms } from './RayUniforms'
+import MIPMaterial from './MIPMaterial'
+import { updateRaymarchUniforms } from './RaymarchUniforms'
 
 export default class MIPViewer extends EventEmitter
 {
@@ -27,8 +27,6 @@ export default class MIPViewer extends EventEmitter
         this.debug = this.experience.debug
         this.configs = this.experience.configs
         this.camera = this.experience.camera
-        this.onCameraChange = this.onCameraChange.bind(this)
-        this.cameraBound = false
 
         this.setMesh()
     }
@@ -37,18 +35,18 @@ export default class MIPViewer extends EventEmitter
     {
         this.setMaterial()
         this.size = this.computes.volumeMap.size
-
-        // scaled the unit cube into physical/world size, using the volume actual size.
-        this.mesh.scale.copy(this.size) 
-        
-        this.bindCamera()
-        this.updateRayUniforms()
+        this.mesh.scale.copy(this.size) // scaled the unit cube into physical/world size, using the volume actual size.
         console.log(this)
+    }
+
+    update()
+    {
+        this.updateRaymarchUniforms()
     }
 
     setMesh()
     {   
-        this.material = ISOMaterial()
+        this.material = MIPMaterial()
         this.uniforms = this.material.uniforms
         this.defines = this.material.defines
 
@@ -64,33 +62,11 @@ export default class MIPViewer extends EventEmitter
         this.setUniformsTextures()
         this.setUniformsVolume()
         this.setUniformsShading()
-        this.updateRayUniforms()
     }
 
-    bindCamera()
+    updateRaymarchUniforms()
     {
-        if (this.cameraBound)
-        {
-            return
-        }
-
-        this.camera.on('change.mipViewer', this.onCameraChange)
-        this.cameraBound = true
-    }
-
-    onCameraChange()
-    {
-        this.updateRayUniforms()
-    }
-
-    updateRayUniforms()
-    {
-        updateRayUniforms(
-            this.material.uniforms,
-            this.camera.instance,
-            this.mesh,
-            this.computes.volumeMap.dimensions,
-        )
+        updateRaymarchUniforms(this)
     }
 
     setDefinesEnablers()
@@ -123,8 +99,8 @@ export default class MIPViewer extends EventEmitter
         defines.MAX_CELLS_IN_BLOCK = defines.BLOCK_SIZE * 3 - 2
 
         defines.MAX_TRACES_IN_CELL = 2
-        defines.MAX_TRACES = defines.MAX_CELLS * Math.max(defines.MAX_TRACES_IN_CELL - 1, 1)
-        defines.MAX_TRACES_IN_BLOCK = defines.MAX_CELLS_IN_BLOCK *  Math.max(defines.MAX_TRACES_IN_CELL - 1, 1)
+        defines.MAX_TRACES = defines.MAX_CELLS * (defines.MAX_TRACES_IN_CELL - 1)
+        defines.MAX_TRACES_IN_BLOCK = defines.MAX_CELLS_IN_BLOCK *  (defines.MAX_TRACES_IN_CELL - 1)
 
         this.material.needsUpdate = true
 
@@ -156,12 +132,12 @@ export default class MIPViewer extends EventEmitter
 
     change(event)
     {
-        if      (event.key === 'blockSize'          ) this.onChangeBlockSize(event)
-        else if (event.key === 'downscaleFactor'    ) this.onChangeDownscaleFactor(event)
-        else if (event.key === 'skippingMethod'     ) this.onChangeSkippingMethod(event)
-        else if (event.key === 'marchingMethod'     ) this.onChangeMarchingMethod(event)
-        else if (event.key === 'skippingEnabled'    ) this.onChangeSkippingEnabled(event)
-        else if (event.key === 'colormap'           ) this.onChangeColormap(event)
+        if      (event.key === 'blockSize'      ) this.onChangeBlockSize(event)
+        else if (event.key === 'downscaleFactor') this.onChangeDownscaleFactor(event)
+        else if (event.key === 'skippingMethod' ) this.onChangeSkippingMethod(event)
+        else if (event.key === 'marchingMethod' ) this.onChangeMarchingMethod(event)
+        else if (event.key === 'skippingEnabled') this.onChangeSkippingEnabled(event)
+        else if (event.key === 'colormap'       ) this.onChangeColormap(event)
         
         console.log(this)
     }
@@ -215,11 +191,7 @@ export default class MIPViewer extends EventEmitter
 
     destroy() 
     {
-        if (this.cameraBound)
-        {
-            this.camera?.off('change.mipViewer')
-            this.cameraBound = false
-        }
+        this.camera?.off('change')
 
         if (this.mesh) 
         {
@@ -236,6 +208,6 @@ export default class MIPViewer extends EventEmitter
         this.sizes = null
         this.debug = null
 
-        console.log("ISOViewer destroyed")
+        console.log("MIPViewer destroyed")
     } 
 }

@@ -4,6 +4,7 @@ import EventEmitter from './Utils/EventEmitter'
 import { ArcballControls } from 'three/examples/jsm/controls/ArcballControls.js'
 
 const FRAME_DIRECTION = new THREE.Vector3(1, 1, 1).normalize()
+const _drawingBufferSize = new THREE.Vector2()
 
 export default class Camera extends EventEmitter
 {
@@ -16,34 +17,29 @@ export default class Camera extends EventEmitter
         this.sizes = this.experience.sizes
         this.scene = this.experience.scene
         this.canvas = this.experience.canvas
-        this.onControlsChange = this.onControlsChange.bind(this)
+        this.renderer = this.experience.renderer
         
-        this.orthographic = {
-            near: 0.001,
-            far: 10,
-            frustumHeight: 2,
-        }
-
         this.setInstance()
         this.setControls()
     }
 
     setInstance()
     {
+        this.orthographic = 
+        {
+            near: 0.001,
+            far: 10,
+            frustumHeight: 2,
+        }
+
         this.instance = new THREE.OrthographicCamera(-1, 1, 1, -1, this.orthographic.near, this.orthographic.far)
-        this.updateOrthographicFrustum()
+        this.updateFrustumAspect(this.getCSSAspect())
         this.instance.position.set(1, 1, 1)
         this.scene.add(this.instance)
     }
 
     setControls()
     {
-        if (this.controls)
-        {
-            this.controls.removeEventListener('change', this.onControlsChange)
-            this.controls.dispose()
-        }
-
         this.controls = new ArcballControls(this.instance, this.canvas, this.scene)
         this.controls.enableAnimations = true
         this.controls.enableGrid = false
@@ -53,14 +49,7 @@ export default class Camera extends EventEmitter
         this.controls.maxZoom = 8.0
         
         this.controls.setGizmosVisible(false)
-        this.controls.addEventListener('change', this.onControlsChange)
         this.controls.update()
-    }
-
-    onControlsChange()
-    {
-        this.instance.updateWorldMatrix(true, false)
-        this.trigger('change')
     }
 
     frameBounds(center, size)
@@ -75,15 +64,32 @@ export default class Camera extends EventEmitter
         this.controls.target.copy(center)
         this.resize()
 
-        this.controls.saveState?.()
         this.trigger('change')
     }
 
-    updateOrthographicFrustum()
+    getCSSAspect()
     {
-        const aspect = this.sizes.width / this.sizes.height
+        const width = Math.max(this.sizes.width, 1)
+        const height = Math.max(this.sizes.height, 1)
+
+        return width / height
+    }
+
+    getDrawingBufferAspect()
+    {
+        this.renderer.instance.getDrawingBufferSize(_drawingBufferSize)
+
+        const width = Math.max(_drawingBufferSize.x, 1)
+        const height = Math.max(_drawingBufferSize.y, 1)
+
+        return width / height
+    }
+
+    updateFrustumAspect(aspect)
+    {
+        const safeAspect = Math.max(aspect, 1e-6)
         const halfHeight = this.orthographic.frustumHeight * 0.5
-        const halfWidth = halfHeight * aspect
+        const halfWidth = halfHeight * safeAspect
 
         this.instance.left = -halfWidth
         this.instance.right = halfWidth
@@ -91,47 +97,43 @@ export default class Camera extends EventEmitter
         this.instance.bottom = -halfHeight
     }
 
-    setRaycaster()
-    {
-        this.raycaster = new THREE.Raycaster()
-        this.raycaster.setFromCamera(this.mouse.ndcPosition, this.instance)
-    }
-
     resize()
     {
-        this.updateOrthographicFrustum()
+        this.updateFrustumAspect(this.getCSSAspect())
         this.instance.updateProjectionMatrix()
-        this.controls?.update()
+        this.instance.updateWorldMatrix(true, false)
+        this.controls.update()
+        this.trigger('change')
+    }
+
+    rescale()
+    {
+        this.updateFrustumAspect(this.getDrawingBufferAspect())
+        this.instance.updateProjectionMatrix()
+        this.instance.updateWorldMatrix(true, false)
+        this.controls.update()
+        this.trigger('change')
     }
 
     update()
     {
-        if (this.controls) 
-            this.controls.update()
-        
-        if (this.raycaster) 
-            this.raycaster.setFromCamera(this.mouse.ndcPosition, this.instance)
+        this.controls.update()
+        this.instance.updateWorldMatrix(true, false)
+        this.trigger('change')
     }
 
     destroy() 
     {
         this.scene.remove(this.instance)
 
-        if (this.orbit) 
+        if(this.controls)
         {
-            this.orbit.dispose()
-            this.orbit = null
+            this.controls.dispose()
+            this.controls = null
         }
 
-        if (this.raycaster)
+        if(this.instance) 
         {
-            this.raycaster = null
-        }
-
-        if (this.instance) 
-        {
-            this.controls?.removeEventListener('change', this.onControlsChange)
-            this.controls?.dispose()
             this.instance = null
         }
 
@@ -140,9 +142,8 @@ export default class Camera extends EventEmitter
         this.sizes = null
         this.scene = null
         this.canvas = null
-        this.controls = null
+        this.renderer = null
 
         console.log('Camera destroyed')
     }
 }
-

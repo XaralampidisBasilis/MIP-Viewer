@@ -18,7 +18,7 @@ float intersectBlockExit(ivec3 coords, out ivec3 exitStep)
         u_ray.sign_direction.z > 0 ? bMax.z : bMin.z
     );
 
-    vec3 tFar = (bExit - v_ray_origin) * u_ray.inv_direction;
+    vec3 tFar = (bExit - ray.origin) * u_ray.inv_direction;
     float tExit = min(min(tFar.x, tFar.y), tFar.z);
 
     exitStep = ivec3(
@@ -43,7 +43,7 @@ float intersectBlockExit(ivec3 coords, int radius, out ivec3 exitStep)
         u_ray.sign_direction.z > 0 ? bMax.z : bMin.z
     );
 
-    vec3 tFar = (bExit - v_ray_origin) * u_ray.inv_direction;
+    vec3 tFar = (bExit - ray.origin) * u_ray.inv_direction;
     float tExit = min(min(tFar.x, tFar.y), tFar.z);
 
     exitStep = ivec3(

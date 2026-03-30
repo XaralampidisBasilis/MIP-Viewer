@@ -15,11 +15,11 @@ Box box; // Global mutable struct
 
 void set_box()
 {
-    box.min_position  = vec3(0.0);
-    box.max_position  = vec3(u_volume.dimensions);
-    box.min_distance  = v_box_min_distance;
-    box.max_distance  = v_box_max_distance;
-    box.span_distance = v_box_max_distance - v_box_min_distance;
+    u_box.min_position  = vec3(0.0);
+    u_box.min_position  = vec3(u_volume.dimensions);
+    u_box.min_distance  = v_box_min_distance;
+    u_box.max_distance  = v_box_max_distance;
+    u_box.span_distance = v_box_max_distance - v_box_min_distance;
 }
 
 #endif // STRUCT_BOX

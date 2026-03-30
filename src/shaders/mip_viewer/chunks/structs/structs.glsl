@@ -1,5 +1,4 @@
 #include "./struct_frag"
-#include "./struct_box"
 #include "./struct_ray"
 #include "./struct_trace"
 #include "./struct_mip"

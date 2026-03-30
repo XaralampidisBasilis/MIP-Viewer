@@ -7,10 +7,10 @@ vec4 debug_mip_terminated = to_color(mip.terminated);
 vec4 debug_mip_update = to_color(mip.update);
 
 // distance
-vec4 debug_mip_distance = to_color(map(box.min_distance, box.max_distance, mip.distance));
+vec4 debug_mip_distance = to_color(map(u_box.min_distance, u_box.max_distance, mip.distance));
 
 // position
-vec4 debug_mip_position = to_color(map(box.min_position, box.max_position, mip.position));
+vec4 debug_mip_position = to_color(map(u_box.min_position, u_box.max_position, mip.position));
 
 // value
 vec4 debug_mip_value = to_color(mip.value);

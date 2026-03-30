@@ -10,20 +10,26 @@ export default class PixelRatio extends EventEmitter
         this.sizes = this.experience.sizes
         this.time = this.experience.time
 
+        this.enabled = false 
         this.minPixelRatio = 0.5
+        this.maxPixelRatioCap = 1.5
         this.targetPixels = 1920 * 1080
-        this.maxPixelRatio = this.getMaxPixelRatio()
-        this.value = this.maxPixelRatio
-        this.enabled = false
 
         this.targetFPS = 60
         this.adjustIntervalMs = 500
-        this.decreaseFactor = 0.9
-        this.increaseFactor = 1.03
+        this.smoothing = 0.15
         this.lowFPSThreshold = 0.95
         this.highFPSThreshold = 0.99
+        this.maxDecreasePerStep = 0.2
+        this.maxIncreasePerStep = 0.02
+        this.epsilon = 0.01
+        this.debug = false
+
+        this.maxPixelRatio = this.getMaxPixelRatio()
+        this.value = this.maxPixelRatio
+
         this.elapsedSinceAdjust = 0
-        this.framesSinceAdjust = 0
+        this.smoothedDelta = 1000 / this.targetFPS
     }
 
     clampValue(pixelRatio)
@@ -38,43 +44,70 @@ export default class PixelRatio extends EventEmitter
         const safeHeight = Math.max(1, this.sizes.height || window.innerHeight || 1)
         const budgetPixelRatio = Math.sqrt(this.targetPixels / (safeWidth * safeHeight))
 
-        return Math.max(this.minPixelRatio, Math.min(1.5, devicePixelRatio, budgetPixelRatio))
+        return Math.max(this.minPixelRatio, Math.min(this.maxPixelRatioCap, devicePixelRatio, budgetPixelRatio))
+    }
+
+    resetMetrics()
+    {
+        this.elapsedSinceAdjust = 0
+        this.smoothedDelta = 1000 / this.targetFPS
+    }
+
+    getDecreaseScale(fpsRatio)
+    {
+        const minScale = 1 - this.maxDecreasePerStep
+
+        return Math.max(minScale, Math.min(1, Math.sqrt(fpsRatio)))
+    }
+
+    getIncreaseScale(fpsRatio)
+    {
+        if(this.highFPSThreshold >= 1)
+        {
+            return 1
+        }
+
+        const normalizedHeadroom = Math.max(
+            0,
+            Math.min(1, (fpsRatio - this.highFPSThreshold) / (1 - this.highFPSThreshold))
+        )
+
+        return 1 + normalizedHeadroom * this.maxIncreasePerStep
     }
 
     update()
     {
-        if (!this.enabled)
+        if(!this.enabled)
         {
             return false
         }
 
-        if (!Number.isFinite(this.time.delta) || this.time.delta <= 0)
+        if(!Number.isFinite(this.time.delta) || this.time.delta <= 0)
         {
             return false
         }
 
         this.elapsedSinceAdjust += this.time.delta
-        this.framesSinceAdjust += 1
+        this.smoothedDelta += (this.time.delta - this.smoothedDelta) * this.smoothing
 
-        if (this.elapsedSinceAdjust < this.adjustIntervalMs)
+        if(this.elapsedSinceAdjust < this.adjustIntervalMs)
         {
             return false
         }
 
-        const elapsedSinceAdjust = this.elapsedSinceAdjust
-        const fps = this.framesSinceAdjust * 1000 / elapsedSinceAdjust
-
         this.elapsedSinceAdjust = 0
-        this.framesSinceAdjust = 0
 
-        if (fps < this.targetFPS * this.lowFPSThreshold)
+        const fps = 1000 / this.smoothedDelta
+        const fpsRatio = fps / this.targetFPS
+
+        if(fpsRatio < this.lowFPSThreshold)
         {
-            return this.apply(this.value * this.decreaseFactor)
+            return this.apply(this.value * this.getDecreaseScale(fpsRatio))
         }
 
-        if (fps >= this.targetFPS * this.highFPSThreshold)
+        if(fpsRatio > this.highFPSThreshold)
         {
-            return this.apply(this.value * this.increaseFactor)
+            return this.apply(this.value * this.getIncreaseScale(fpsRatio))
         }
 
         return false
@@ -83,24 +116,32 @@ export default class PixelRatio extends EventEmitter
     resize()
     {
         this.maxPixelRatio = this.getMaxPixelRatio()
-        this.elapsedSinceAdjust = 0
-        this.framesSinceAdjust = 0
-        const changed = this.apply(this.enabled ? this.value : this.maxPixelRatio, false)
+        this.resetMetrics()
 
-        return changed
+        return this.apply(this.enabled ? this.value : this.maxPixelRatio)
     }
 
     apply(pixelRatio)
     {
+        if(!Number.isFinite(pixelRatio))
+        {
+            return false
+        }
+
         const nextPixelRatio = this.clampValue(pixelRatio)
 
-        if (Math.abs(nextPixelRatio - this.value) < 0.01)
+        if(Math.abs(nextPixelRatio - this.value) < this.epsilon)
         {
             return false
         }
 
         this.value = nextPixelRatio
-        console.log(`pixelRatio: ${this.value}`)
+
+        if(this.debug)
+        {
+            console.log(`pixelRatio: ${this.value}`)
+        }
+
         this.trigger('rescale')
 
         return true
@@ -110,12 +151,8 @@ export default class PixelRatio extends EventEmitter
     {
         this.experience = null
         this.sizes = null
+        this.time = null
         this.value = null
-        this.minPixelRatio = null
         this.maxPixelRatio = null
-        this.targetPixels = null
-        this.enabled = null
-        this.elapsedSinceAdjust = null
-        this.framesSinceAdjust = null
     }
 }

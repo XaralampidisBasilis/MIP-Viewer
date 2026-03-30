@@ -32,6 +32,23 @@ export default function()
             reverse       : 0,
         }),
 
+        u_box: new THREE.Uniform
+        ({
+            min_position: new THREE.Vector3(),
+            max_position: new THREE.Vector3(),
+            min_distance: 0.0,
+            max_distance: 0.0,
+            span_distance: 0.0,
+        }),
+
+        u_transform: new THREE.Uniform
+        ({
+            resolution: new THREE.Vector2(),   
+            inv_projection: new THREE.Matrix4(),   
+            inv_view: new THREE.Matrix4(),   
+            inv_model: new THREE.Matrix4(),   
+        }),
+
         u_textures: new THREE.Uniform
         ({
             volume_map : null,

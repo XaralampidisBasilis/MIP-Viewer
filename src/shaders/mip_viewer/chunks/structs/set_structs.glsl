@@ -1,4 +1,3 @@
-set_box();
 set_ray();
 set_trace();
 set_mip();

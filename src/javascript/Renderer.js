@@ -50,6 +50,22 @@ export default class Renderer
     rescale()
     {
         this.instance.setPixelRatio(this.pixelRatio.value)
+        this.instance.setSize(this.sizes.width, this.sizes.height, false)
+
+        const size = new THREE.Vector2()
+        const drawingBufferSize = new THREE.Vector2()
+
+        this.instance.getSize(size)
+        this.instance.getDrawingBufferSize(drawingBufferSize)
+
+        console.log({
+            pixelRatio: this.instance.getPixelRatio(),
+            width: size.x,
+            height: size.y,
+            drawingBufferWidth: drawingBufferSize.x,
+            drawingBufferHeight: drawingBufferSize.y,
+            drawingBufferAspect: drawingBufferSize.x / drawingBufferSize.y
+        })
     }
 
     update()

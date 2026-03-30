@@ -1,4 +1,6 @@
+#include "./uniforms_transform"
 #include "./uniforms_volume"
+#include "./uniforms_box"
 #include "./uniforms_ray"
 #include "./uniforms_textures"
 #include "./uniforms_shading"
