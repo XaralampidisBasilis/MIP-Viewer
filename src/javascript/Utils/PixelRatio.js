@@ -11,8 +11,8 @@ export default class PixelRatio extends EventEmitter
 
         this.enabled = true
 
-        this.minValue = 0.5
-        this.maxValue = 1.5
+        this.minValue = 0.1
+        this.maxValue = 1.0
         this.targetFps = 60
         this.adjustEveryMs = 500
         this.smoothing = 0.15
@@ -21,9 +21,10 @@ export default class PixelRatio extends EventEmitter
         this.highThreshold = 0.99
 
         this.maxStepDown = 0.2
-        this.maxStepUp = 0.02
+        this.maxStepUp = 0.05
         this.epsilon = 0.01
 
+        this.updateMaxValue()
         this.value = this.clamp(this.devicePixelRatio)
 
         this.elapsed = 0
@@ -35,14 +36,14 @@ export default class PixelRatio extends EventEmitter
         return window.devicePixelRatio || 1
     }
 
-    getCurrentMax()
+    updateMaxValue()
     {
-        return Math.min(this.maxValue, this.devicePixelRatio)
+        this.maxValue = this.devicePixelRatio
     }
 
     clamp(value)
     {
-        return Math.max(this.minValue, Math.min(this.getCurrentMax(), value))
+        return Math.max(this.minValue, Math.min(this.maxValue, value))
     }
 
     reset()
@@ -63,7 +64,7 @@ export default class PixelRatio extends EventEmitter
         }
 
         this.value = clamped
-        console.log('pixelRatio:', this.value)
+        console.log('pixelRatio:', this.value.toFixed(4))
 
         this.trigger('rescale')
         return true
@@ -105,9 +106,11 @@ export default class PixelRatio extends EventEmitter
 
     resize()
     {
+        this.updateMaxValue()
         this.reset()
 
         const clamped = this.clamp(this.value)
+
         if (Math.abs(clamped - this.value) < this.epsilon)
         {
             return false
@@ -121,5 +124,6 @@ export default class PixelRatio extends EventEmitter
         this.experience = null
         this.time = null
         this.value = null
+        this.maxValue = null
     }
 }

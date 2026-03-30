@@ -58,11 +58,6 @@ export default function()
         u_shading: new THREE.Uniform
         ({
             colormap          : 0,
-            shininess         : 40.0,
-            reflect_ambient   : 0.2,
-            reflect_diffuse   : 1.0,
-            reflect_specular  : 0.2,
-            modulate_edges    : 1.0,
             modulate_gradient : 1.0,
             modulate_curvature: 1.0,
         }),
