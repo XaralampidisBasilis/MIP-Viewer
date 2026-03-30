@@ -144,35 +144,6 @@ function updateBoxUniforms(uniforms, dimensions)
     box.span_distance = box.max_distance - box.min_distance
 }
 
-export function startRaymarchUniforms(viewer)
-{
-    const uniforms = viewer.material.uniforms
-    const camera = viewer.camera.instance
-    const mesh = viewer.mesh
-    const dimensions = viewer.computes.volumeMap.dimensions
-    const renderer = viewer.renderer.instance
-
-    camera.updateWorldMatrix(true, false)
-    mesh.updateWorldMatrix(true, false)
-
-    camera.getWorldDirection(_worldDirection)
-
-    _inverseModelMatrix.copy(mesh.matrixWorld).invert()
-    _localDirection.copy(_worldDirection).transformDirection(_inverseModelMatrix)
-
-    _indexDirection.set(
-        _localDirection.x * dimensions.x,
-        _localDirection.y * dimensions.y,
-        _localDirection.z * dimensions.z,
-    ).normalize()
-
-    _cameraPositionLocal.copy(camera.position).applyMatrix4(_inverseModelMatrix)
-
-    updateRayUniforms(uniforms)
-    updateTransformUniforms(uniforms, camera, renderer)
-    updateBoxUniforms(uniforms, dimensions)
-}
-
 export function updateRaymarchUniforms(viewer)
 {
     const uniforms = viewer.material.uniforms

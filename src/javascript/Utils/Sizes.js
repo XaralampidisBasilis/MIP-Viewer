@@ -1,16 +1,12 @@
 import EventEmitter from './EventEmitter'
 
-/**
- * Sizes
- *
- * Tracks the browser viewport size.
- */
 export default class Sizes extends EventEmitter
 {
-    constructor()
+    constructor(canvas)
     {
         super()
 
+        this.canvas = canvas
         this.updateSize = this.updateSize.bind(this)
 
         this.updateSize()
@@ -19,8 +15,10 @@ export default class Sizes extends EventEmitter
 
     updateSize()
     {
-        this.width = window.innerWidth
-        this.height = window.innerHeight
+        const rectangle = this.canvas.getBoundingClientRect()
+
+        this.width = Math.max(1, Math.round(rectangle.width))
+        this.height = Math.max(1, Math.round(rectangle.height))
 
         this.trigger('resize')
     }
@@ -29,6 +27,7 @@ export default class Sizes extends EventEmitter
     {
         window.removeEventListener('resize', this.updateSize)
 
+        this.canvas = null
         this.width = null
         this.height = null
 

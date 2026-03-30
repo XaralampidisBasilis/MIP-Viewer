@@ -36,7 +36,7 @@ export default class Experience
 
         // Setup
         this.configs = new Configs()
-        this.sizes = new Sizes()
+        this.sizes = new Sizes(canvas)
         this.time = new Time()
         this.pixelRatio = new PixelRatio(this)
         this.mouse = new Mouse()
@@ -50,16 +50,16 @@ export default class Experience
         this.gui = new GUI()
 
         // Resources ready event
-        this.resources.on('ready', (event) =>  this.start(event))
+        this.resources.on('ready', () =>  this.start())
 
         // Time tick event
-        this.time.on('tick', (event) => this.update(event))
+        this.time.on('tick', () => this.update())
         
         // Size resize event
-        this.sizes.on('resize', (event) => this.resize(event))
+        this.sizes.on('resize', () => this.resize())
     
         // Pixel ration adapt event
-        this.pixelRatio.on('rescale', (event) => this.rescale(event))
+        this.pixelRatio.on('rescale', () => this.rescale())
 
         // Config change event
         this.configs.on('change', (event) => this.change(event))
@@ -78,14 +78,21 @@ export default class Experience
         Experience.started = true
     }
 
+    
+    updateWorld()
+    {
+        if (Experience.started) 
+        {
+            this.world.update()
+        }
+    }
+
     update()
     {
-        if (!Experience.started) return
-
         this.pixelRatio.update()
-        
+
         this.camera.update()
-        this.world.update()
+        this.updateWorld()
         this.renderer.update()
         this.stats.update()    
     }
@@ -95,7 +102,7 @@ export default class Experience
         this.pixelRatio.resize()
 
         this.camera.resize()
-        this.world.update()
+        this.updateWorld()
         this.renderer.resize()
     }
 
@@ -103,7 +110,7 @@ export default class Experience
     {
         this.renderer.rescale()
         this.camera.rescale()
-        this.world.update()
+        this.updateWorld()
     }
 
     async change(event)

@@ -1,8 +1,6 @@
 #ifndef STRUCT_RAY
 #define STRUCT_RAY
 
-const float eps = 0.001;
-
 struct Ray 
 {
     bool  reversed;
@@ -21,22 +19,5 @@ struct Ray
 };
 
 Ray ray; // Global mutable struct
-
-void set_ray()
-{
-    ray.phase          = random(v_ray_origin);
-    ray.discarded      = false;
-    ray.reversed       = u_ray.reverse;
-    ray.origin         = v_ray_origin;
-    ray.direction      = u_ray.direction;
-    ray.step_distance  = u_ray.step_distance;
-    ray.eps_direction  = u_ray.direction * eps;
-    ray.eps_distance   = u_ray.step_distance * eps;
-    ray.start_position = vec3(0.0);
-    ray.end_position   = vec3(0.0);
-    ray.start_distance = 0.0;
-    ray.end_distance   = 0.0;
-    ray.span_distance  = 0.0;
-}
 
 #endif // STRUCT_RAY

@@ -4,7 +4,6 @@ import EventEmitter from './Utils/EventEmitter'
 import { ArcballControls } from 'three/examples/jsm/controls/ArcballControls.js'
 
 const FRAME_DIRECTION = new THREE.Vector3(1, 1, 1).normalize()
-const _drawingBufferSize = new THREE.Vector2()
 
 export default class Camera extends EventEmitter
 {
@@ -17,22 +16,26 @@ export default class Camera extends EventEmitter
         this.sizes = this.experience.sizes
         this.scene = this.experience.scene
         this.canvas = this.experience.canvas
-        this.renderer = this.experience.renderer
-        
+
         this.setInstance()
         this.setControls()
     }
 
     setInstance()
     {
-        this.orthographic = 
+        this.orthographic =
         {
             near: 0.001,
             far: 10,
             frustumHeight: 2,
         }
 
-        this.instance = new THREE.OrthographicCamera(-1, 1, 1, -1, this.orthographic.near, this.orthographic.far)
+        this.instance = new THREE.OrthographicCamera(
+            -1, 1, 1, -1,
+            this.orthographic.near,
+            this.orthographic.far
+        )
+
         this.updateFrustumAspect(this.getCSSAspect())
         this.instance.position.set(1, 1, 1)
         this.scene.add(this.instance)
@@ -47,7 +50,7 @@ export default class Camera extends EventEmitter
         this.controls.rotateSpeed = 1.0
         this.controls.minZoom = 0.5
         this.controls.maxZoom = 8.0
-        
+
         this.controls.setGizmosVisible(false)
         this.controls.update()
     }
@@ -63,7 +66,6 @@ export default class Camera extends EventEmitter
 
         this.controls.target.copy(center)
         this.resize()
-
         this.trigger('change')
     }
 
@@ -71,16 +73,6 @@ export default class Camera extends EventEmitter
     {
         const width = Math.max(this.sizes.width, 1)
         const height = Math.max(this.sizes.height, 1)
-
-        return width / height
-    }
-
-    getDrawingBufferAspect()
-    {
-        this.renderer.instance.getDrawingBufferSize(_drawingBufferSize)
-
-        const width = Math.max(_drawingBufferSize.x, 1)
-        const height = Math.max(_drawingBufferSize.y, 1)
 
         return width / height
     }
@@ -108,10 +100,8 @@ export default class Camera extends EventEmitter
 
     rescale()
     {
-        this.updateFrustumAspect(this.getDrawingBufferAspect())
-        this.instance.updateProjectionMatrix()
-        this.instance.updateWorldMatrix(true, false)
         this.controls.update()
+        this.instance.updateWorldMatrix(true, false)
         this.trigger('change')
     }
 
@@ -122,27 +112,22 @@ export default class Camera extends EventEmitter
         this.trigger('change')
     }
 
-    destroy() 
+    destroy()
     {
         this.scene.remove(this.instance)
 
-        if(this.controls)
+        if (this.controls)
         {
             this.controls.dispose()
             this.controls = null
         }
 
-        if(this.instance) 
-        {
-            this.instance = null
-        }
-
+        this.instance = null
         this.experience = null
         this.mouse = null
         this.sizes = null
         this.scene = null
         this.canvas = null
-        this.renderer = null
 
         console.log('Camera destroyed')
     }

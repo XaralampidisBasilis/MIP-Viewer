@@ -33,39 +33,28 @@ export default class Renderer
 
         // Set clear color for the background
         this.instance.setClearColor('#211d20', 1)
+        this.instance.shadowMap.enabled = false
+
+        this.applySizeAndPixelRatio()
+    }
+
+    applySizeAndPixelRatio()
+    {
+        const width = Math.max(1, this.sizes.width)
+        const height = Math.max(1, this.sizes.height)
 
         this.instance.setPixelRatio(this.pixelRatio.value)
-        this.instance.setSize(this.sizes.width, this.sizes.height)
-
-        // Disable shadows if not used
-        this.instance.shadowMap.enabled = false
+        this.instance.setSize(width, height, false)
     }
 
     resize()
     {
-        this.instance.setPixelRatio(this.pixelRatio.value)
-        this.instance.setSize(this.sizes.width, this.sizes.height)
+        this.applySizeAndPixelRatio()
     }
 
     rescale()
     {
-        this.instance.setPixelRatio(this.pixelRatio.value)
-        this.instance.setSize(this.sizes.width, this.sizes.height, false)
-
-        const size = new THREE.Vector2()
-        const drawingBufferSize = new THREE.Vector2()
-
-        this.instance.getSize(size)
-        this.instance.getDrawingBufferSize(drawingBufferSize)
-
-        console.log({
-            pixelRatio: this.instance.getPixelRatio(),
-            width: size.x,
-            height: size.y,
-            drawingBufferWidth: drawingBufferSize.x,
-            drawingBufferHeight: drawingBufferSize.y,
-            drawingBufferAspect: drawingBufferSize.x / drawingBufferSize.y
-        })
+        this.applySizeAndPixelRatio()
     }
 
     update()

@@ -3,6 +3,7 @@
 #include "./sampleShadow"
 #include "./computeGradientTriquadraticBspline"
 #include "./computePrincipalCurvatures"
+#include "./getRayOrigin"
 #include "./distanceToPosition"
 #include "./positionToBlockCoords"
 #include "./positionToCellCoords"
