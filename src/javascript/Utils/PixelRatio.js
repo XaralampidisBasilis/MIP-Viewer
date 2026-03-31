@@ -7,25 +7,25 @@ export default class PixelRatio extends EventEmitter
         super()
 
         this.experience = experience
+        this.configs = experience.configs
         this.time = experience.time
 
-        this.enabled = true
+        this.enabled = this.configs.adaptivePixelRatioEnabled
 
-        this.minValue = 0.1
-        this.maxValue = 1.0
+        this.minValue = 0.5
+        this.updateMaxValue()
         this.targetFps = 60
-        this.adjustEveryMs = 500
-        this.smoothing = 0.15
+        this.adjustEveryMs = 300
+        this.smoothing = 0.1
 
-        this.lowThreshold = 0.95
+        this.lowThreshold = 0.9
         this.highThreshold = 0.99
 
-        this.maxStepDown = 0.2
-        this.maxStepUp = 0.05
-        this.epsilon = 0.01
+        this.maxStepDown = 0.15
+        this.maxStepUp = 0.03
+        this.epsilon = 0.005
 
-        this.updateMaxValue()
-        this.value = this.clamp(this.devicePixelRatio)
+        this.value = this.clampValue(this.devicePixelRatio)
 
         this.elapsed = 0
         this.smoothedDelta = 1000 / this.targetFps
@@ -38,10 +38,10 @@ export default class PixelRatio extends EventEmitter
 
     updateMaxValue()
     {
-        this.maxValue = this.devicePixelRatio
+        this.maxValue = Math.min(this.devicePixelRatio, 1.25)
     }
 
-    clamp(value)
+    clampValue(value)
     {
         return Math.max(this.minValue, Math.min(this.maxValue, value))
     }
@@ -56,7 +56,7 @@ export default class PixelRatio extends EventEmitter
     {
         if (!Number.isFinite(next)) return false
 
-        const clamped = this.clamp(next)
+        const clamped = this.clampValue(next)
 
         if (Math.abs(clamped - this.value) < this.epsilon)
         {
@@ -75,6 +75,7 @@ export default class PixelRatio extends EventEmitter
         if (!this.enabled) return false
         if (!Number.isFinite(this.time.delta) || this.time.delta <= 0) return false
 
+        this.updateMaxValue()
         this.elapsed += this.time.delta
         this.smoothedDelta += (this.time.delta - this.smoothedDelta) * this.smoothing
 
@@ -92,13 +93,10 @@ export default class PixelRatio extends EventEmitter
 
         if (ratio > this.highThreshold)
         {
-            const headroom = Math.min(
-                1,
-                Math.max(0, (ratio - this.highThreshold) / (1 - this.highThreshold))
-            )
+            const headroom = Math.min(1, Math.max(0, (ratio - this.highThreshold) / (1 - this.highThreshold)))
 
-            const scale = 1 + headroom * this.maxStepUp
-            return this.apply(this.value * scale)
+            const step = headroom * this.maxStepUp
+            return this.apply(this.value + step)
         }
 
         return false

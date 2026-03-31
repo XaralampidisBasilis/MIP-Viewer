@@ -20,7 +20,7 @@ export default class Sizes extends EventEmitter
         this.width = Math.max(1, Math.round(rectangle.width))
         this.height = Math.max(1, Math.round(rectangle.height))
 
-        console.log('Resize:', this.width, this.height)
+        console.log(`Resize: ${this.width} x ${this.height}`)
         this.trigger('resize')
     }
 
