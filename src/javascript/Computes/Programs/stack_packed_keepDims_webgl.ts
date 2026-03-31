@@ -219,20 +219,27 @@ export function stackPacked(slices: tf.Tensor[], axis: Axis3 = 0, chunkSize?: nu
     assertAxis3(axis)
     assertSlices(slices, axis)
     
-    const K = chunkSize ?? getDefaultChunkSize()
+    const K = getChunkSize(chunkSize)
 
     // Fast path: one pass, K samplers total.
     if (slices.length <= K) 
     {
-        return stackSlicesPacked(slices, axis)
+        const output = stackSlicesPacked(slices, axis)
+        tf.dispose(slices)
+
+        return output
     }
 
     // Pass 1: stack slices in groups of K -> produces "blocks" along axis.
     let level: tf.Tensor[] = []
     for (let start = 0; start < slices.length; start += K) 
     {
-        const chunk = slices.slice(start, start + K)
+        const end = Math.min(start + K, slices.length)
+        const chunk = slices.slice(start, end)
+
         level.push(stackSlicesPacked(chunk, axis))
+        
+        for (let i = start; i < end; i++) slices[i].dispose()
     }
 
     // Reduction passes: repeatedly concat blocks in groups of K until one remains.
@@ -242,11 +249,14 @@ export function stackPacked(slices: tf.Tensor[], axis: Axis3 = 0, chunkSize?: nu
 
         for (let start = 0; start < level.length; start += K) 
         {
-            const group = level.slice(start, start + K)
+            const end = Math.min(start + K, level.length)
+            const group = level.slice(start, end)
+
             next.push(stackBlocksPacked(group, axis))
+            
+            for (let i = start; i < end; i++) level[i].dispose()
         }
 
-        for (const t of level) t.dispose()
         level = next
     }
 
@@ -460,5 +470,24 @@ function getDefaultChunkSize(): number
 
     const maxUnits = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS) as number
     return Math.max(MIN, Math.min(MAX, maxUnits - SAFETY))
+}
+
+function getChunkSize(chunkSize?: number): number
+{
+    const fallback = getDefaultChunkSize()
+
+    if (chunkSize === undefined)
+    {
+        return fallback
+    }
+
+    const size = Math.floor(chunkSize)
+
+    if (!Number.isFinite(size) || size < 1)
+    {
+        return fallback
+    }
+
+    return size
 }
 
