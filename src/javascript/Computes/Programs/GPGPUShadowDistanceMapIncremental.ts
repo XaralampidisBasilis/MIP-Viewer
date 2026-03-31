@@ -637,243 +637,196 @@ function extendedAnisotropicBidirectionalDistanceMapInt32Array(
     return d as Int32Array
 }
 
+type DistanceVariation = '1bit' | '5bit' | '8bit' | '10bit'
+type DistanceMapSpec = [Axis, Octant, number]
+type DistanceMapFn = (volume: tf.Tensor3D, dominantAxis: Axis, octant: Octant, tolerance: number, blockSize: number, maxDistance: number, verbose?: boolean) => Int32Array
+
+function buildDistanceMapSpecs(maxDistanceXY: number, maxDistanceZ: number): Tuple<DistanceMapSpec, 12>
+{
+    return [
+        ['x', '+++', maxDistanceXY],
+        ['x', '+-+', maxDistanceXY],
+        ['x', '++-', maxDistanceXY],
+        ['x', '+--', maxDistanceXY],
+        ['y', '+++', maxDistanceXY],
+        ['y', '-++', maxDistanceXY],
+        ['y', '++-', maxDistanceXY],
+        ['y', '-+-', maxDistanceXY],
+        ['z', '+++', maxDistanceZ],
+        ['z', '+-+', maxDistanceZ],
+        ['z', '-++', maxDistanceZ],
+        ['z', '--+', maxDistanceZ],
+    ] as Tuple<DistanceMapSpec, 12>
+}
+
+function createPackedDistanceBuffer(variation: DistanceVariation, voxels: number): Uint16Array | Uint32Array
+{
+    if (variation === '1bit') return new Uint16Array(voxels)
+    if (variation === '5bit') return new Uint16Array(voxels * 4)
+    if (variation === '8bit') return new Uint32Array(voxels * 3)
+
+    return new Uint32Array(voxels * 4)
+}
+
+function packDistanceMapInPlace(packed: Uint16Array | Uint32Array, map: Int32Array, mapIndex: number, variation: DistanceVariation): void
+{
+    const voxels = map.length
+
+    if (variation === '1bit')
+    {
+        const out = packed as Uint16Array
+        const bit = mapIndex
+
+        for (let i = 0; i < voxels; i++)
+        {
+            out[i] = out[i] | ((map[i] & 0x1) << bit)
+        }
+
+        return
+    }
+
+    if (variation === '5bit')
+    {
+        const out = packed as Uint16Array
+        const channel = mapIndex & 3
+        const axis = Math.floor(mapIndex / 4)
+        const shift = (axis === 0) ? 0 : ((axis === 1) ? 5 : 10)
+        const mask = (axis === 2) ? 0x3f : 0x1f
+
+        for (let i = 0; i < voxels; i++)
+        {
+            const i4 = i * 4 + channel
+            out[i4] = out[i4] | ((map[i] & mask) << shift)
+        }
+
+        return
+    }
+
+    if (variation === '8bit')
+    {
+        const out = packed as Uint32Array
+        const axis = Math.floor(mapIndex / 4)
+        const shift = (mapIndex & 3) * 8
+
+        for (let i = 0; i < voxels; i++)
+        {
+            const i3 = i * 3 + axis
+            out[i3] = (out[i3] | ((map[i] & 0xff) << shift)) >>> 0
+        }
+
+        return
+    }
+
+    const out = packed as Uint32Array
+    const channel = mapIndex & 3
+    const axis = Math.floor(mapIndex / 4)
+    const shift = (axis === 0) ? 0 : ((axis === 1) ? 11 : 22)
+    const mask = (axis === 2) ? 0x3ff : 0x7ff
+
+    for (let i = 0; i < voxels; i++)
+    {
+        const i4 = i * 4 + channel
+        out[i4] = (out[i4] | ((map[i] & mask) << shift)) >>> 0
+    }
+}
+
+function computeDistanceMapPacked(
+    volume: tf.Tensor3D,
+    tolerance: number,
+    blockSize: number,
+    variation: DistanceVariation,
+    maxDistanceXY: number,
+    maxDistanceZ: number,
+    mapFn: DistanceMapFn,
+    verbose: boolean = false,
+): Uint16Array | Uint32Array
+{
+    const specs = buildDistanceMapSpecs(maxDistanceXY, maxDistanceZ)
+
+    let voxels = -1
+    let packed: Uint16Array | Uint32Array | null = null
+
+    for (let i = 0; i < 12; i++)
+    {
+        const [dominantAxis, octant, maxDistance] = specs[i]
+
+        tf.engine().startScope()
+        const map = mapFn(volume, dominantAxis, octant, tolerance, blockSize, maxDistance, verbose)
+        tf.engine().endScope()
+
+        if (voxels < 0)
+        {
+            voxels = map.length
+            packed = createPackedDistanceBuffer(variation, voxels)
+        }
+        else if (map.length !== voxels)
+        {
+            throw new Error(`Expected all maps to have length ${voxels}, got ${map.length} at index ${i}`)
+        }
+
+        packDistanceMapInPlace(packed as Uint16Array | Uint32Array, map, i, variation)
+    }
+
+    return packed as Uint16Array | Uint32Array
+}
+
 export function computeIsotropicDistanceMap1bit(volume: tf.Tensor3D, tolerance: number, blockSize: number, verbose: boolean = false) : Uint16Array
 {
-    const maps = new Array(12) 
-
-    maps[ 0] = isotropicDistanceMapInt32Array(volume, 'x', '+++', tolerance, blockSize, 1, verbose)
-    maps[ 1] = isotropicDistanceMapInt32Array(volume, 'x', '+-+', tolerance, blockSize, 1, verbose)
-    maps[ 2] = isotropicDistanceMapInt32Array(volume, 'x', '++-', tolerance, blockSize, 1, verbose)
-    maps[ 3] = isotropicDistanceMapInt32Array(volume, 'x', '+--', tolerance, blockSize, 1, verbose)
-    maps[ 4] = isotropicDistanceMapInt32Array(volume, 'y', '+++', tolerance, blockSize, 1, verbose)
-    maps[ 5] = isotropicDistanceMapInt32Array(volume, 'y', '-++', tolerance, blockSize, 1, verbose)
-    maps[ 6] = isotropicDistanceMapInt32Array(volume, 'y', '++-', tolerance, blockSize, 1, verbose)
-    maps[ 7] = isotropicDistanceMapInt32Array(volume, 'y', '-+-', tolerance, blockSize, 1, verbose)
-    maps[ 8] = isotropicDistanceMapInt32Array(volume, 'z', '+++', tolerance, blockSize, 1, verbose)
-    maps[ 9] = isotropicDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 1, verbose)
-    maps[10] = isotropicDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 1, verbose)
-    maps[11] = isotropicDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 1, verbose)
-
-    return packToR16UIArray(maps as Tuple<Int32Array, 12>) 
+    return computeDistanceMapPacked(volume, tolerance, blockSize, '1bit', 1, 1, isotropicDistanceMapInt32Array, verbose) as Uint16Array
 }
 
 export function computeIsotropicDistanceMap5bit(volume: tf.Tensor3D, tolerance: number, blockSize: number, verbose: boolean = false) : Uint16Array
 {
-    const maps = new Array(12) 
-
-    maps[ 0] = isotropicDistanceMapInt32Array(volume, 'x', '+++', tolerance, blockSize, 31, verbose)
-    maps[ 1] = isotropicDistanceMapInt32Array(volume, 'x', '+-+', tolerance, blockSize, 31, verbose)
-    maps[ 2] = isotropicDistanceMapInt32Array(volume, 'x', '++-', tolerance, blockSize, 31, verbose)
-    maps[ 3] = isotropicDistanceMapInt32Array(volume, 'x', '+--', tolerance, blockSize, 31, verbose)
-    maps[ 4] = isotropicDistanceMapInt32Array(volume, 'y', '+++', tolerance, blockSize, 31, verbose)
-    maps[ 5] = isotropicDistanceMapInt32Array(volume, 'y', '-++', tolerance, blockSize, 31, verbose)
-    maps[ 6] = isotropicDistanceMapInt32Array(volume, 'y', '++-', tolerance, blockSize, 31, verbose)
-    maps[ 7] = isotropicDistanceMapInt32Array(volume, 'y', '-+-', tolerance, blockSize, 31, verbose)
-    maps[ 8] = isotropicDistanceMapInt32Array(volume, 'z', '+++', tolerance, blockSize, 63, verbose)
-    maps[ 9] = isotropicDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 63, verbose)
-    maps[10] = isotropicDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 63, verbose)
-    maps[11] = isotropicDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 63, verbose)
-
-    return packToRGBA16UIArray(maps as Tuple<Int32Array, 12>) 
+    return computeDistanceMapPacked(volume, tolerance, blockSize, '5bit', 31, 63, isotropicDistanceMapInt32Array, verbose) as Uint16Array
 }
 
 export function computeIsotropicDistanceMap8bit(volume: tf.Tensor3D, tolerance: number, blockSize: number, verbose: boolean = false) : Uint32Array
 {
-    const maps = new Array(12)
-
-    maps[ 0] = isotropicDistanceMapInt32Array(volume, 'x', '+++', tolerance, blockSize, 255, verbose)
-    maps[ 1] = isotropicDistanceMapInt32Array(volume, 'x', '+-+', tolerance, blockSize, 255, verbose)
-    maps[ 2] = isotropicDistanceMapInt32Array(volume, 'x', '++-', tolerance, blockSize, 255, verbose)
-    maps[ 3] = isotropicDistanceMapInt32Array(volume, 'x', '+--', tolerance, blockSize, 255, verbose)
-    maps[ 4] = isotropicDistanceMapInt32Array(volume, 'y', '+++', tolerance, blockSize, 255, verbose)
-    maps[ 5] = isotropicDistanceMapInt32Array(volume, 'y', '-++', tolerance, blockSize, 255, verbose)
-    maps[ 6] = isotropicDistanceMapInt32Array(volume, 'y', '++-', tolerance, blockSize, 255, verbose)
-    maps[ 7] = isotropicDistanceMapInt32Array(volume, 'y', '-+-', tolerance, blockSize, 255, verbose)
-    maps[ 8] = isotropicDistanceMapInt32Array(volume, 'z', '+++', tolerance, blockSize, 255, verbose)
-    maps[ 9] = isotropicDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 255, verbose)
-    maps[10] = isotropicDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 255, verbose)
-    maps[11] = isotropicDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 255, verbose)
-
-    return packToRGB32UIArray(maps as Tuple<Int32Array, 12>) 
+    return computeDistanceMapPacked(volume, tolerance, blockSize, '8bit', 255, 255, isotropicDistanceMapInt32Array, verbose) as Uint32Array
 }
 
 export function computeIsotropicDistanceMap10bit(volume: tf.Tensor3D, tolerance: number, blockSize: number, verbose: boolean = false) : Uint32Array
 {
-    const maps = new Array(12)
-
-    maps[ 0] = isotropicDistanceMapInt32Array(volume, 'x', '+++', tolerance, blockSize, 2047, verbose)
-    maps[ 1] = isotropicDistanceMapInt32Array(volume, 'x', '+-+', tolerance, blockSize, 2047, verbose)
-    maps[ 2] = isotropicDistanceMapInt32Array(volume, 'x', '++-', tolerance, blockSize, 2047, verbose)
-    maps[ 3] = isotropicDistanceMapInt32Array(volume, 'x', '+--', tolerance, blockSize, 2047, verbose)
-    maps[ 4] = isotropicDistanceMapInt32Array(volume, 'y', '+++', tolerance, blockSize, 2047, verbose)
-    maps[ 5] = isotropicDistanceMapInt32Array(volume, 'y', '-++', tolerance, blockSize, 2047, verbose)
-    maps[ 6] = isotropicDistanceMapInt32Array(volume, 'y', '++-', tolerance, blockSize, 2047, verbose)
-    maps[ 7] = isotropicDistanceMapInt32Array(volume, 'y', '-+-', tolerance, blockSize, 2047, verbose)
-    maps[ 8] = isotropicDistanceMapInt32Array(volume, 'z', '+++', tolerance, blockSize, 1023, verbose)
-    maps[ 9] = isotropicDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 1023, verbose)
-    maps[10] = isotropicDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 1023, verbose)
-    maps[11] = isotropicDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 1023, verbose)
-
-    return packToRGBA32UIArray(maps as Tuple<Int32Array, 12>) 
+    return computeDistanceMapPacked(volume, tolerance, blockSize, '10bit', 2047, 1023, isotropicDistanceMapInt32Array, verbose) as Uint32Array
 }
 
 export function computeExtendedAnisotropicUnidirectionalDistanceMap1bit(volume: tf.Tensor3D, tolerance: number, blockSize: number, verbose: boolean = false) : Uint16Array
 {
-    const maps = new Array(12) 
-
-    maps[ 0] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'x', '+++', tolerance, blockSize, 1, verbose)
-    maps[ 1] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'x', '+-+', tolerance, blockSize, 1, verbose)
-    maps[ 2] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'x', '++-', tolerance, blockSize, 1, verbose)
-    maps[ 3] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'x', '+--', tolerance, blockSize, 1, verbose)
-    maps[ 4] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'y', '+++', tolerance, blockSize, 1, verbose)
-    maps[ 5] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'y', '-++', tolerance, blockSize, 1, verbose)
-    maps[ 6] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'y', '++-', tolerance, blockSize, 1, verbose)
-    maps[ 7] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'y', '-+-', tolerance, blockSize, 1, verbose)
-    maps[ 8] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+++', tolerance, blockSize, 1, verbose)
-    maps[ 9] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 1, verbose)
-    maps[10] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 1, verbose)
-    maps[11] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 1, verbose)
-
-    return packToR16UIArray(maps as Tuple<Int32Array, 12>) 
+    return computeDistanceMapPacked(volume, tolerance, blockSize, '1bit', 1, 1, extendedAnisotropicUnidirectionalDistanceMapInt32Array, verbose) as Uint16Array
 }
 
 export function computeExtendedAnisotropicUnidirectionalDistanceMap5bit(volume: tf.Tensor3D, tolerance: number, blockSize: number, verbose: boolean = false) : Uint16Array
 {
-    const maps = new Array(12) 
-
-    maps[ 0] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'x', '+++', tolerance, blockSize, 31, verbose)
-    maps[ 1] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'x', '+-+', tolerance, blockSize, 31, verbose)
-    maps[ 2] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'x', '++-', tolerance, blockSize, 31, verbose)
-    maps[ 3] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'x', '+--', tolerance, blockSize, 31, verbose)
-    maps[ 4] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'y', '+++', tolerance, blockSize, 31, verbose)
-    maps[ 5] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'y', '-++', tolerance, blockSize, 31, verbose)
-    maps[ 6] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'y', '++-', tolerance, blockSize, 31, verbose)
-    maps[ 7] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'y', '-+-', tolerance, blockSize, 31, verbose)
-    maps[ 8] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+++', tolerance, blockSize, 63, verbose)
-    maps[ 9] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 63, verbose)
-    maps[10] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 63, verbose)
-    maps[11] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 63, verbose)
-
-    return packToRGBA16UIArray(maps as Tuple<Int32Array, 12>) 
+    return computeDistanceMapPacked(volume, tolerance, blockSize, '5bit', 31, 63, extendedAnisotropicUnidirectionalDistanceMapInt32Array, verbose) as Uint16Array
 }
 
 export function computeExtendedAnisotropicUnidirectionalDistanceMap8bit(volume: tf.Tensor3D, tolerance: number, blockSize: number, verbose: boolean = false) : Uint32Array
 {
-    const maps = new Array(12)
-
-    maps[ 0] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'x', '+++', tolerance, blockSize, 255, verbose)
-    maps[ 1] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'x', '+-+', tolerance, blockSize, 255, verbose)
-    maps[ 2] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'x', '++-', tolerance, blockSize, 255, verbose)
-    maps[ 3] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'x', '+--', tolerance, blockSize, 255, verbose)
-    maps[ 4] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'y', '+++', tolerance, blockSize, 255, verbose)
-    maps[ 5] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'y', '-++', tolerance, blockSize, 255, verbose)
-    maps[ 6] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'y', '++-', tolerance, blockSize, 255, verbose)
-    maps[ 7] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'y', '-+-', tolerance, blockSize, 255, verbose)
-    maps[ 8] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+++', tolerance, blockSize, 255, verbose)
-    maps[ 9] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 255, verbose)
-    maps[10] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 255, verbose)
-    maps[11] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 255, verbose)
-
-    return packToRGB32UIArray(maps as Tuple<Int32Array, 12>) 
+    return computeDistanceMapPacked(volume, tolerance, blockSize, '8bit', 255, 255, extendedAnisotropicUnidirectionalDistanceMapInt32Array, verbose) as Uint32Array
 }
 
 export function computeExtendedAnisotropicUnidirectionalDistanceMap10bit(volume: tf.Tensor3D, tolerance: number, blockSize: number, verbose: boolean = false) : Uint32Array
 {
-    const maps = new Array(12)
-
-    maps[ 0] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'x', '+++', tolerance, blockSize, 2047, verbose)
-    maps[ 1] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'x', '+-+', tolerance, blockSize, 2047, verbose)
-    maps[ 2] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'x', '++-', tolerance, blockSize, 2047, verbose)
-    maps[ 3] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'x', '+--', tolerance, blockSize, 2047, verbose)
-    maps[ 4] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'y', '+++', tolerance, blockSize, 2047, verbose)
-    maps[ 5] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'y', '-++', tolerance, blockSize, 2047, verbose)
-    maps[ 6] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'y', '++-', tolerance, blockSize, 2047, verbose)
-    maps[ 7] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'y', '-+-', tolerance, blockSize, 2047, verbose)
-    maps[ 8] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+++', tolerance, blockSize, 1023, verbose)
-    maps[ 9] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 1023, verbose)
-    maps[10] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 1023, verbose)
-    maps[11] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 1023, verbose)
-
-    return packToRGBA32UIArray(maps as Tuple<Int32Array, 12>) 
+    return computeDistanceMapPacked(volume, tolerance, blockSize, '10bit', 2047, 1023, extendedAnisotropicUnidirectionalDistanceMapInt32Array, verbose) as Uint32Array
 }
 
 export function computeExtendedAnisotropicBidirectionalDistanceMap1bit(volume: tf.Tensor3D, tolerance: number, blockSize: number, verbose: boolean = false) : Uint16Array
 {
-    const maps = new Array(12) 
-
-    maps[ 0] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'x', '+++', tolerance, blockSize, 1, verbose)
-    maps[ 1] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'x', '+-+', tolerance, blockSize, 1, verbose)
-    maps[ 2] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'x', '++-', tolerance, blockSize, 1, verbose)
-    maps[ 3] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'x', '+--', tolerance, blockSize, 1, verbose)
-    maps[ 4] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'y', '+++', tolerance, blockSize, 1, verbose)
-    maps[ 5] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'y', '-++', tolerance, blockSize, 1, verbose)
-    maps[ 6] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'y', '++-', tolerance, blockSize, 1, verbose)
-    maps[ 7] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'y', '-+-', tolerance, blockSize, 1, verbose)
-    maps[ 8] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '+++', tolerance, blockSize, 1, verbose)
-    maps[ 9] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 1, verbose)
-    maps[10] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 1, verbose)
-    maps[11] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 1, verbose)
-
-    return packToR16UIArray(maps as Tuple<Int32Array, 12>) 
+    return computeDistanceMapPacked(volume, tolerance, blockSize, '1bit', 1, 1, extendedAnisotropicBidirectionalDistanceMapInt32Array, verbose) as Uint16Array
 }
 
 export function computeExtendedAnisotropicBidirectionalDistanceMap5bit(volume: tf.Tensor3D, tolerance: number, blockSize: number, verbose: boolean = false) : Uint16Array
 {
-    const maps = new Array(12) 
-
-    maps[ 0] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'x', '+++', tolerance, blockSize, 31, verbose)
-    maps[ 1] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'x', '+-+', tolerance, blockSize, 31, verbose)
-    maps[ 2] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'x', '++-', tolerance, blockSize, 31, verbose)
-    maps[ 3] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'x', '+--', tolerance, blockSize, 31, verbose)
-    maps[ 4] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'y', '+++', tolerance, blockSize, 31, verbose)
-    maps[ 5] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'y', '-++', tolerance, blockSize, 31, verbose)
-    maps[ 6] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'y', '++-', tolerance, blockSize, 31, verbose)
-    maps[ 7] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'y', '-+-', tolerance, blockSize, 31, verbose)
-    maps[ 8] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '+++', tolerance, blockSize, 63, verbose)
-    maps[ 9] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 63, verbose)
-    maps[10] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 63, verbose)
-    maps[11] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 63, verbose)
-
-    return packToRGBA16UIArray(maps as Tuple<Int32Array, 12>) 
+    return computeDistanceMapPacked(volume, tolerance, blockSize, '5bit', 31, 63, extendedAnisotropicBidirectionalDistanceMapInt32Array, verbose) as Uint16Array
 }
 
 export function computeExtendedAnisotropicBidirectionalDistanceMap8bit(volume: tf.Tensor3D, tolerance: number, blockSize: number, verbose: boolean = false) : Uint32Array
 {
-    const maps = new Array(12)
-
-    maps[ 0] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'x', '+++', tolerance, blockSize, 255, verbose)
-    maps[ 1] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'x', '+-+', tolerance, blockSize, 255, verbose)
-    maps[ 2] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'x', '++-', tolerance, blockSize, 255, verbose)
-    maps[ 3] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'x', '+--', tolerance, blockSize, 255, verbose)
-    maps[ 4] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'y', '+++', tolerance, blockSize, 255, verbose)
-    maps[ 5] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'y', '-++', tolerance, blockSize, 255, verbose)
-    maps[ 6] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'y', '++-', tolerance, blockSize, 255, verbose)
-    maps[ 7] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'y', '-+-', tolerance, blockSize, 255, verbose)
-    maps[ 8] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '+++', tolerance, blockSize, 255, verbose)
-    maps[ 9] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 255, verbose)
-    maps[10] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 255, verbose)
-    maps[11] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 255, verbose)
-
-    return packToRGB32UIArray(maps as Tuple<Int32Array, 12>) 
+    return computeDistanceMapPacked(volume, tolerance, blockSize, '8bit', 255, 255, extendedAnisotropicBidirectionalDistanceMapInt32Array, verbose) as Uint32Array
 }
 
 export function computeExtendedAnisotropicBidirectionalDistanceMap10bit(volume: tf.Tensor3D, tolerance: number, blockSize: number, verbose: boolean = false) : Uint32Array
 {
-    const maps = new Array(12)
-
-    maps[ 0] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'x', '+++', tolerance, blockSize, 2047, verbose)
-    maps[ 1] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'x', '+-+', tolerance, blockSize, 2047, verbose)
-    maps[ 2] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'x', '++-', tolerance, blockSize, 2047, verbose)
-    maps[ 3] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'x', '+--', tolerance, blockSize, 2047, verbose)
-    maps[ 4] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'y', '+++', tolerance, blockSize, 2047, verbose)
-    maps[ 5] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'y', '-++', tolerance, blockSize, 2047, verbose)
-    maps[ 6] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'y', '++-', tolerance, blockSize, 2047, verbose)
-    maps[ 7] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'y', '-+-', tolerance, blockSize, 2047, verbose)
-    maps[ 8] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '+++', tolerance, blockSize, 1023, verbose)
-    maps[ 9] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 1023, verbose)
-    maps[10] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 1023, verbose)
-    maps[11] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 1023, verbose)
-
-    return packToRGBA32UIArray(maps as Tuple<Int32Array, 12>) 
+    return computeDistanceMapPacked(volume, tolerance, blockSize, '10bit', 2047, 1023, extendedAnisotropicBidirectionalDistanceMapInt32Array, verbose) as Uint32Array
 }
 
