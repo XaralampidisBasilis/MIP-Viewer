@@ -23,6 +23,7 @@ import {
     updateGLPeakTracker,
     logGLPeakCounters,
     logGLMemorySnapshot,
+    purgeGLFreeTexturePool,
 } from '../../Utils/glUtils'
 
 import { maxPool3d, minPool3d, avgPool3d } from './pool3d'
@@ -722,24 +723,18 @@ function unidirectionalDifferencesGates(
 {
     const axis = permute[0]
     const backwards = reverse.includes(axis)
-    const peak = createGLPeakTracker('unidirectionalDifferencesGates')
 
     try
     {
-        applyAggressiveGLMemoryPolicy()
         const program = new UnidirectionalDifferences(volume.shape, permute, reverse)
         let differences = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
-        updateGLPeakTracker(peak)
 
         if (verbose) logTensor('differencesStart', differences)
 
-        applyPerformanceGLMemoryPolicy()
         const slices = unstackPacked(differences, axis) 
-        updateGLPeakTracker(peak)
-
-        applyAggressiveGLMemoryPolicy()
         tf.dispose(differences)
         flushWebGL()
+        purgeGLFreeTexturePool()
 
         const shape = slices[0].shape as [number, number, number, 2, 2]
         const propagate = new PropagateUnidirectionalDifferencesGates(shape, permute, reverse)
@@ -748,23 +743,21 @@ function unidirectionalDifferencesGates(
         const end = backwards ? -1 : slices.length
         const step = backwards ? -1 : 1
 
-        applyPerformanceGLMemoryPolicy()
         for (let i = start; i !== end; i += step) 
         {
             const slice = runWebGLProgram(propagate, [slices[i], slices[i-step], gates], 'float32', [[i]], true)
-            updateGLPeakTracker(peak)
-
+    
             tf.dispose(slices[i])
             slices[i] = slice
         }
 
-        applyPerformanceGLMemoryPolicy()
-        differences = stackPacked(slices, axis) as tf.Tensor5D 
-        updateGLPeakTracker(peak)
+        flushWebGL()
+        purgeGLFreeTexturePool()
 
-        applyAggressiveGLMemoryPolicy()
+        differences = stackPacked(slices, axis) as tf.Tensor5D 
         tf.dispose(slices) 
         flushWebGL()
+        purgeGLFreeTexturePool()
 
         if (verbose) logTensor('differencesPropagated', differences)
 
@@ -772,9 +765,7 @@ function unidirectionalDifferencesGates(
     }
     finally
     {
-        // logGLPeakCounters(peak, ['peakNumBytesInGPU', 'peakNumBytesAllocated'], 'unidirectionalDifferencesGates')
         logGLMemorySnapshot('unidirectionalDifferencesGates')
-        applyAggressiveGLMemoryPolicy()
     }
 }
 
@@ -788,24 +779,18 @@ function unidirectionalDifferences(
     const axis = permute[0]
     const backwards = reverse.includes(axis)
 
-    const peak = createGLPeakTracker('unidirectionalDifferences')
-
     try
     {
-        applyAggressiveGLMemoryPolicy()
         const program = new UnidirectionalDifferences(volume.shape, permute, reverse)
         let differences = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
-        updateGLPeakTracker(peak)
 
         if (verbose) logTensor('differencesStart', differences)
 
-        applyPerformanceGLMemoryPolicy()
         const slices = unstackPacked(differences, axis) 
-        updateGLPeakTracker(peak)
-
-        applyAggressiveGLMemoryPolicy()
         tf.dispose(differences) 
+
         flushWebGL()
+        purgeGLFreeTexturePool()
 
         const shape = slices[0].shape as [number, number, number, 2, 2]
         const propagate = new PropagateUnidirectionalDifferences(shape, permute, reverse)
@@ -814,33 +799,30 @@ function unidirectionalDifferences(
         const end = backwards ? -1 : slices.length
         const step = backwards ? -1 : 1
 
-        applyPerformanceGLMemoryPolicy()
         for (let i = start; i !== end; i += step) 
         {
             const slice = runWebGLProgram(propagate, [slices[i], slices[i-step]], 'float32', [[i]], true)
-            updateGLPeakTracker(peak)
-
+    
             tf.dispose(slices[i])
             slices[i] = slice
         }
 
-        applyPerformanceGLMemoryPolicy()
-        differences = stackPacked(slices, axis) as tf.Tensor5D 
-        updateGLPeakTracker(peak)
-
-        applyAggressiveGLMemoryPolicy()
-        tf.dispose(slices)
         flushWebGL()
-        
+        purgeGLFreeTexturePool()
+
+        differences = stackPacked(slices, axis) as tf.Tensor5D 
+        tf.dispose(slices)
+
+        flushWebGL()
+        purgeGLFreeTexturePool()
+
         if (verbose) logTensor('differencesPropagated', differences)
 
         return differences
     }
     finally
     {
-        // logGLPeakCounters(peak, ['peakNumBytesInGPU', 'peakNumBytesAllocated'], 'unidirectionalDifferences')
         logGLMemorySnapshot('unidirectionalDifferences')
-        applyAggressiveGLMemoryPolicy()
     }
 }
 
@@ -937,6 +919,7 @@ export function computeUnidirectionalShadowMap(
 
     tf.dispose(differences)
     flushWebGL()
+    purgeGLFreeTexturePool()
 
     return shadowMap as tf.Tensor3D
 }
@@ -959,17 +942,23 @@ export function computeBidirectionalShadowMap(
 
     const backwardDifferences = unidirectionalDifferencesGates(volume, backwardGates, permute, backwardReverse)
     tf.dispose(backwardGates)
+
     flushWebGL()
+    purgeGLFreeTexturePool()
 
     const backwardShadowMap = unidirectionalShadowMap(backwardDifferences, permute, backwardReverse, tolerance)
     if (verbose) logTensor('backwardShadowMap', backwardShadowMap)
     tf.dispose(backwardDifferences)
+
     flushWebGL()
+    purgeGLFreeTexturePool()
 
     const shadowMap = bidirectionalShadowMap(forwardShadowMap, backwardShadowMap)
     if (verbose) logTensor('shadowMap', shadowMap)
     tf.dispose([forwardShadowMap, backwardShadowMap])
+
     flushWebGL()
+    purgeGLFreeTexturePool()
 
     return shadowMap as tf.Tensor3D
 }
@@ -1004,7 +993,7 @@ export function computeExtendedAnisotropicUnidirectionalShadowMap(
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
-    flushWebGL()
+    purgeGLFreeTexturePool()
 
     // dominantAxis = y
     anisotropicMaps = []
@@ -1015,7 +1004,7 @@ export function computeExtendedAnisotropicUnidirectionalShadowMap(
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
-    flushWebGL()
+    purgeGLFreeTexturePool()
 
     // dominantAxis = z
     anisotropicMaps = []
@@ -1026,13 +1015,12 @@ export function computeExtendedAnisotropicUnidirectionalShadowMap(
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
-    flushWebGL()
+    purgeGLFreeTexturePool()
 
     const shadowMap = extendedAnisotropicBidirectionalShadowMap(extendedMaps as Array3<tf.Tensor3D>)
     if (verbose) logExtendedAnisotropicBidirectionalShadowMaps(shadowMap)
 
     tf.dispose(extendedMaps)
-    flushWebGL()
     return shadowMap as tf.Tensor3D
 }
 
@@ -1053,7 +1041,6 @@ export function computeExtendedAnisotropicBidirectionalShadowMap(
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
-    flushWebGL()
    
     anisotropicMaps = []
     anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'y', '+++', tolerance))
@@ -1063,7 +1050,6 @@ export function computeExtendedAnisotropicBidirectionalShadowMap(
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
-    flushWebGL()
 
     anisotropicMaps = []
     anisotropicMaps.push(computeBidirectionalShadowMap(volume, 'z', '+++', tolerance))
@@ -1073,13 +1059,11 @@ export function computeExtendedAnisotropicBidirectionalShadowMap(
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
-    flushWebGL()
 
     const shadowMap = extendedAnisotropicBidirectionalShadowMap(extendedMaps as Array3<tf.Tensor3D>)
     if (verbose) logExtendedAnisotropicBidirectionalShadowMaps(shadowMap)
         
     tf.dispose(extendedMaps)
-    flushWebGL()
 
     return shadowMap as tf.Tensor3D
 }
@@ -1103,24 +1087,20 @@ export function computeBidirectionalBlockShadowMap(
 
     const backwardDifferences = unidirectionalDifferencesGates(volume, backwardGates, permute, backwardReverse)
     tf.dispose(backwardGates)
-    flushWebGL()
 
     const backwardShadowMap = unidirectionalShadowMap(backwardDifferences, permute, backwardReverse, tolerance)
     if (verbose) logTensor('backwardShadowMap', backwardShadowMap)
     tf.dispose(backwardDifferences)
-    flushWebGL()
 
     const shadowMap = bidirectionalShadowMap(forwardShadowMap, backwardShadowMap)
     if (verbose) logTensor('shadowMap', shadowMap)
     tf.dispose([forwardShadowMap, backwardShadowMap])
-    flushWebGL()
 
     if (blockSize == 1) return shadowMap
     
     const blockShadowMap = minPool3d(shadowMap, blockSize, blockSize, 'same')
     if (verbose) logTensor('blockShadowMap', blockShadowMap)
     tf.dispose(shadowMap)
-    flushWebGL()
 
     return blockShadowMap as tf.Tensor3D
 }
@@ -1143,7 +1123,6 @@ export function computeExtendedAnisotropicBidirectionalBlockShadowMap(
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
-    flushWebGL()
    
     anisotropicMaps = []
     anisotropicMaps.push(computeBidirectionalBlockShadowMap(volume, 'y', '+++', tolerance, blockSize))
@@ -1153,7 +1132,6 @@ export function computeExtendedAnisotropicBidirectionalBlockShadowMap(
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
-    flushWebGL()
 
     anisotropicMaps = []
     anisotropicMaps.push(computeBidirectionalBlockShadowMap(volume, 'z', '+++', tolerance, blockSize))
@@ -1163,13 +1141,11 @@ export function computeExtendedAnisotropicBidirectionalBlockShadowMap(
 
     extendedMaps.push(anisotropicBidirectionalShadowMap(anisotropicMaps as Array4<tf.Tensor3D>))
     tf.dispose(anisotropicMaps)
-    flushWebGL()
 
     const shadowMap = extendedAnisotropicBidirectionalShadowMap(extendedMaps as Array3<tf.Tensor3D>)
     if (verbose) logExtendedAnisotropicBidirectionalShadowMaps(shadowMap)
         
     tf.dispose(extendedMaps)
-    flushWebGL()
 
     return shadowMap as tf.Tensor3D
 }

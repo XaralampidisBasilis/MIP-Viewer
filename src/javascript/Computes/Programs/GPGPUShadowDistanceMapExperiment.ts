@@ -2,7 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMap'
-import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapDifferences'
+import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapDifferenceExperiment'
 import {
     type Axis,
     type Octant,
@@ -12,6 +12,18 @@ import {
     reverseSign,
     signFromOctant,
 } from '../../Utils/ShadowMapUtils'
+import {
+    type GLMemoryPolicy,
+    applyAggressiveGLMemoryPolicy,
+    applyPerformanceGLMemoryPolicy,
+    flushWebGL,
+    createGLPeakTracker,
+    updateGLPeakTracker,
+    logGLPeakCounters,
+    logGLMemorySnapshot,
+    purgeGLFreeTexturePool,
+    finishWebGL,
+} from '../../Utils/glUtils'
 
 class ShadowChebyshevDistancePass implements GPGPUProgram 
 {
@@ -519,6 +531,9 @@ function isotropicDistanceMapInt32Array(
     const d = t3.dataSync() 
     tf.dispose(t3)
 
+    flushWebGL()
+    purgeGLFreeTexturePool()
+
     return d as Int32Array
 }
 
@@ -563,6 +578,9 @@ function extendedAnisotropicUnidirectionalDistanceMapInt32Array(
 
     const d = t3.dataSync() 
     tf.dispose(t3)
+
+    flushWebGL()
+    purgeGLFreeTexturePool()
 
     return d as Int32Array
 }
@@ -630,6 +648,9 @@ function extendedAnisotropicBidirectionalDistanceMapInt32Array(
     const d = t7.dataSync() 
     tf.dispose(t7)
 
+    flushWebGL()
+    purgeGLFreeTexturePool()
+
     return d as Int32Array
 }
 
@@ -649,6 +670,8 @@ export function computeIsotropicDistanceMap1bit(volume: tf.Tensor3D, tolerance: 
     maps[ 9] = isotropicDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 1, verbose)
     maps[10] = isotropicDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 1, verbose)
     maps[11] = isotropicDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 1, verbose)
+
+    finishWebGL()
 
     return packToR16UIArray(maps as Tuple<Int32Array, 12>) 
 }
@@ -670,6 +693,8 @@ export function computeIsotropicDistanceMap5bit(volume: tf.Tensor3D, tolerance: 
     maps[10] = isotropicDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 63, verbose)
     maps[11] = isotropicDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 63, verbose)
 
+    finishWebGL()
+
     return packToRGBA16UIArray(maps as Tuple<Int32Array, 12>) 
 }
 
@@ -689,6 +714,8 @@ export function computeIsotropicDistanceMap8bit(volume: tf.Tensor3D, tolerance: 
     maps[ 9] = isotropicDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 255, verbose)
     maps[10] = isotropicDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 255, verbose)
     maps[11] = isotropicDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 255, verbose)
+
+    finishWebGL()
 
     return packToRGB32UIArray(maps as Tuple<Int32Array, 12>) 
 }
@@ -710,6 +737,8 @@ export function computeIsotropicDistanceMap10bit(volume: tf.Tensor3D, tolerance:
     maps[10] = isotropicDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 1023, verbose)
     maps[11] = isotropicDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 1023, verbose)
 
+    finishWebGL()
+
     return packToRGBA32UIArray(maps as Tuple<Int32Array, 12>) 
 }
 
@@ -729,6 +758,8 @@ export function computeExtendedAnisotropicUnidirectionalDistanceMap1bit(volume: 
     maps[ 9] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 1, verbose)
     maps[10] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 1, verbose)
     maps[11] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 1, verbose)
+
+    finishWebGL()
 
     return packToR16UIArray(maps as Tuple<Int32Array, 12>) 
 }
@@ -750,6 +781,8 @@ export function computeExtendedAnisotropicUnidirectionalDistanceMap5bit(volume: 
     maps[10] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 63, verbose)
     maps[11] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 63, verbose)
 
+    finishWebGL()
+
     return packToRGBA16UIArray(maps as Tuple<Int32Array, 12>) 
 }
 
@@ -769,6 +802,8 @@ export function computeExtendedAnisotropicUnidirectionalDistanceMap8bit(volume: 
     maps[ 9] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 255, verbose)
     maps[10] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 255, verbose)
     maps[11] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 255, verbose)
+
+    finishWebGL()
 
     return packToRGB32UIArray(maps as Tuple<Int32Array, 12>) 
 }
@@ -790,6 +825,8 @@ export function computeExtendedAnisotropicUnidirectionalDistanceMap10bit(volume:
     maps[10] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 1023, verbose)
     maps[11] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 1023, verbose)
 
+    finishWebGL()
+
     return packToRGBA32UIArray(maps as Tuple<Int32Array, 12>) 
 }
 
@@ -809,6 +846,8 @@ export function computeExtendedAnisotropicBidirectionalDistanceMap1bit(volume: t
     maps[ 9] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 1, verbose)
     maps[10] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 1, verbose)
     maps[11] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 1, verbose)
+    
+    finishWebGL()
 
     return packToR16UIArray(maps as Tuple<Int32Array, 12>) 
 }
@@ -830,6 +869,8 @@ export function computeExtendedAnisotropicBidirectionalDistanceMap5bit(volume: t
     maps[10] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 63, verbose)
     maps[11] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 63, verbose)
 
+    finishWebGL()
+
     return packToRGBA16UIArray(maps as Tuple<Int32Array, 12>) 
 }
 
@@ -849,6 +890,8 @@ export function computeExtendedAnisotropicBidirectionalDistanceMap8bit(volume: t
     maps[ 9] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '+-+', tolerance, blockSize, 255, verbose)
     maps[10] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 255, verbose)
     maps[11] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 255, verbose)
+
+    finishWebGL()
 
     return packToRGB32UIArray(maps as Tuple<Int32Array, 12>) 
 }
@@ -870,6 +913,8 @@ export function computeExtendedAnisotropicBidirectionalDistanceMap10bit(volume: 
     maps[10] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 1023, verbose)
     maps[11] = extendedAnisotropicBidirectionalDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 1023, verbose)
 
+    finishWebGL()
+    
     return packToRGBA32UIArray(maps as Tuple<Int32Array, 12>) 
 }
 

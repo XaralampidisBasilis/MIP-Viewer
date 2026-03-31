@@ -16,12 +16,6 @@ import {
 } from '../../Utils/ShadowMapUtils'
 import { maxPool3d, minPool3d, avgPool3d } from './pool3d'
 
-import {
-    flushWebGL,
-    logGLMemorySnapshot,
-} from '../../Utils/glUtils'
-
-
 type Array3<T> = [T, T, T]
 type Array4<T> = [T, T, T, T]
 
@@ -744,8 +738,6 @@ function unidirectionalDifferencesGates(
     tf.dispose(slices)
     if (verbose) logTensor('differencesPropagated', differences)
 
-        logGLMemorySnapshot('unidirectionalDifferencesGates')
-
     return differences
 }
 
@@ -784,8 +776,6 @@ function unidirectionalDifferences(
     differences = stackPacked(slices, axis) as tf.Tensor5D 
     tf.dispose(slices)
     if (verbose) logTensor('differencesPropagated', differences)
-
-    logGLMemorySnapshot('unidirectionalDifferencesGates')
 
     return differences
 }
