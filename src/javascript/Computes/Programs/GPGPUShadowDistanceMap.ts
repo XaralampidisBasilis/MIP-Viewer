@@ -3,6 +3,7 @@ import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMap'
 import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapDifferences'
+// import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapDifferenceExperiment'
 import {
     type Axis,
     type Octant,
@@ -12,7 +13,10 @@ import {
     reverseSign,
     signFromOctant,
 } from '../../Utils/ShadowMapUtils'
-
+import {
+    flushWebGL,
+    logGLMemorySnapshot,
+} from '../../Utils/glUtils'
 
 class ShadowChebyshevDistancePass implements GPGPUProgram 
 {
@@ -501,11 +505,10 @@ function isotropicDistanceMapInt32Array(
     const shape = shadows.shape as [number, number, number]
 
     if (verbose) logTensor('shadows', shadows)
-
+    
     const pass0 = new ShadowChebyshevDistancePass(shape, maxDistance)
     const t0 = runWebGLProgram(pass0, [shadows], 'int32', [], false)
     tf.dispose(shadows)
-
     const pass1 = new IsotropicChebyshevDistancePass(shape, 'x', maxDistance)
     const t1 = runWebGLProgram(pass1, [t0], 'int32', [], false)
     tf.dispose(t0)
@@ -515,7 +518,7 @@ function isotropicDistanceMapInt32Array(
     const pass3 = new IsotropicChebyshevDistancePass(shape, 'z', maxDistance)
     const t3 = runWebGLProgram(pass3, [t2], 'int32', [], false)
     tf.dispose(t2)
-    
+
     if (verbose) logTensor('distance', t3)
 
     const d = t3.dataSync() 
@@ -548,12 +551,9 @@ function extendedAnisotropicUnidirectionalDistanceMapInt32Array(
     const inAxes = [...otherAxes, dominantAxis] as [Axis, Axis, Axis]
     const inSigns = [...otherSigns, dominantSign] as [Sign, Sign, Sign]
 
-    // initial distance
     const pass0 = new ShadowChebyshevDistancePass(shape, maxDistance)
     const t0 = runWebGLProgram(pass0, [shadows], 'int32', [], false)
     tf.dispose(shadows)
-
-    // forward distance
     const pass1 = new AnisotropicChebyshevDistancePass(shape, inAxes[0], inSigns[0], maxDistance)
     const t1 = runWebGLProgram(pass1, [t0], 'int32', [], false)
     tf.dispose(t0)
@@ -596,6 +596,7 @@ function extendedAnisotropicBidirectionalDistanceMapInt32Array(
     const inAxes = [...otherAxes, dominantAxis] as [Axis, Axis, Axis]
     const inSigns = [...otherSigns, dominantSign] as [Sign, Sign, Sign]
     const invSigns = inSigns.map((s) => reverseSign(s))
+
 
     // initial distance
     const pass0 = new ShadowChebyshevDistancePass(shape, maxDistance)
@@ -754,6 +755,7 @@ export function computeExtendedAnisotropicUnidirectionalDistanceMap5bit(volume: 
     maps[10] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '-++', tolerance, blockSize, 63, verbose)
     maps[11] = extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '--+', tolerance, blockSize, 63, verbose)
 
+    logGLMemorySnapshot('computeExtendedAnisotropicUnidirectionalDistanceMap5bit')
     return packToRGBA16UIArray(maps as Tuple<Int32Array, 12>) 
 }
 
