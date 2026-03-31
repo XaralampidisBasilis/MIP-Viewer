@@ -23,7 +23,7 @@ import {
     logGLMemorySnapshot,
     purgeGLFreeTexturePool,
     finishWebGL,
-} from '../../Utils/glUtils'
+} from '../../Utils/GLUtils'
 
 class ShadowChebyshevDistancePass implements GPGPUProgram 
 {

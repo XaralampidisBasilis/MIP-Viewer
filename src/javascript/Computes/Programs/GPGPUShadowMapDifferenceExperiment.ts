@@ -24,7 +24,7 @@ import {
     logGLPeakCounters,
     logGLMemorySnapshot,
     purgeGLFreeTexturePool,
-} from '../../Utils/glUtils'
+} from '../../Utils/GLUtils'
 
 import { maxPool3d, minPool3d, avgPool3d } from './pool3d'
 
