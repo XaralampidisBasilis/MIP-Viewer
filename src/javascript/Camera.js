@@ -44,10 +44,13 @@ export default class Camera extends EventEmitter
     setControls()
     {
         this.controls = new ArcballControls(this.instance, this.canvas, this.scene)
-        this.controls.enableAnimations = true
+        this.controls.enableAnimations = false
         this.controls.enableGrid = false
         this.controls.cursorZoom = true
-        this.controls.rotateSpeed = 1.0
+        this.controls.rotateSpeed = 0.75
+        this.controls.scaleFactor = 1.05
+        this.controls.wMax = 8.0
+        this.controls.adjustNearFar = false
         this.controls.minZoom = 0.5
         this.controls.maxZoom = 8.0
 
@@ -57,15 +60,21 @@ export default class Camera extends EventEmitter
 
     frameBounds(center, size)
     {
-        const radius = Math.max(size.length() / 2.0, 0.001)
+        const radius = Math.max(size.length() * 0.5, 0.001)
+        const distance = radius * 2.0
+        const fitHeight = Math.max(size.length() * 1.2, 0.001)
+        const zoom = THREE.MathUtils.clamp(
+            this.orthographic.frustumHeight / fitHeight,
+            this.controls.minZoom,
+            this.controls.maxZoom
+        )
 
-        this.orthographic.frustumHeight = radius * 2.4
-        this.instance.near = 0.001
-        this.instance.far = radius * 6.0
-        this.instance.position.copy(center).addScaledVector(FRAME_DIRECTION, radius * 2.0)
-
+        this.instance.position.copy(center).addScaledVector(FRAME_DIRECTION, distance)
+        this.instance.zoom = zoom
         this.controls.target.copy(center)
-        this.resize()
+        this.instance.updateProjectionMatrix()
+        this.controls.update()
+        this.instance.updateWorldMatrix(true, false)
         this.trigger('change')
     }
 

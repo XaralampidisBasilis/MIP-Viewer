@@ -39,7 +39,7 @@ This project focuses on interactive volume rendering in WebGL2, together with ac
 
 ## Controls
 
-The viewer uses custom probe-style controls for exploring the volume in 3D.
+The viewer uses ArcballControls for exploring the volume in 3D.
 
 ## Running locally
 

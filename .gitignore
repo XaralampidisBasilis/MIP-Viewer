@@ -3,3 +3,7 @@ static/deprecated/
 shaders/libraries/lygia
 static/nifti/cardiac/ct_train_1001_image.nii.gz
 static/nifti/cardiac/ct_train_1001_label.nii.gz
+static/nifti/cardiac/mr_train_1014_image.nii.gz
+static/nifti/cardiac/mr_train_1014_label.nii.gz
+static/nifti/cardiac/Angelou0516Cardiac.nii.gz
+static/nifti/cardiac/MedHK23_CCA.nii.gz
