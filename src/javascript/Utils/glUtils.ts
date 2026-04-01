@@ -54,16 +54,37 @@ export type GLPeakTracker =
 
 export type GLPeakCounter = Exclude<keyof GLPeakTracker, 'label' | 'lastSnapshot'>
 
+export type GLExecutionProfile = 
+{
+    label: string
+    timeMs: number
+    samples: number
+    startSnapshot: GLMemorySnapshot
+    endSnapshot: GLMemorySnapshot
+    peakSnapshot: GLMemorySnapshot
+}
+
+export type GLExecutionProfileOptions = 
+{
+    label?: string
+    flushBeforeStart?: boolean
+    flushAfterEnd?: boolean
+    finishAfterEnd?: boolean
+    log?: boolean
+    logLevel?: 'summary' | 'full'
+    onProfile?: (profile: GLExecutionProfile) => void
+}
+
 export const GLMemoryProfiles = Object.freeze
 ({
     aggressive: 
     {
         deleteTextureThreshold: 0,
-        flushThreshold: 0.01,
+        flushThreshold: 1,
     },
     balanced:
     {
-        deleteTextureThreshold: 256 * 1024 * 1024,
+        deleteTextureThreshold: 0x10000000, // 256MB
         flushThreshold: 1,
     },
     performance:
@@ -347,6 +368,157 @@ export function getGLMemorySnapshot(): GLMemorySnapshot
         numBytesFree,
         numBytesUsed,
     }
+}
+
+function isHigherSnapshot(current: GLMemorySnapshot, peak: GLMemorySnapshot): boolean
+{
+    return (
+        current.numBytesAllocated > peak.numBytesAllocated ||
+        current.numBytesInGPU > peak.numBytesInGPU ||
+        current.numBytes > peak.numBytes ||
+        current.numTensors > peak.numTensors ||
+        current.numDataBuffers > peak.numDataBuffers
+    )
+}
+
+function logGLExecutionProfile(profile: GLExecutionProfile, level: 'summary' | 'full' = 'summary'): void
+{
+    if (level === 'summary')
+    {
+        console.log(
+            `[${profile.label}] timeMs=${profile.timeMs.toFixed(3)} samples=${profile.samples} peakAllocated=${profile.peakSnapshot.numBytesAllocated} peakInGPU=${profile.peakSnapshot.numBytesInGPU} peakTensors=${profile.peakSnapshot.numTensors}`
+        )
+        return
+    }
+
+    console.log(
+        `[${profile.label}] timeMs=${profile.timeMs.toFixed(3)} samples=${profile.samples}`
+    )
+    logGLMemorySnapshot(`${profile.label}:start`, profile.startSnapshot)
+    logGLMemorySnapshot(`${profile.label}:end`, profile.endSnapshot)
+    logGLMemorySnapshot(`${profile.label}:peak`, profile.peakSnapshot)
+}
+
+export function profileGLExecution<T>(
+    fn: (samplePeak: () => GLMemorySnapshot) => T,
+    options: GLExecutionProfileOptions = {}
+): T
+{
+    // Profile a sync GL segment and return callback result.
+    const label = options.label ?? 'glProfile'
+    const flushBeforeStart = options.flushBeforeStart ?? false
+    const flushAfterEnd = options.flushAfterEnd ?? false
+    const finishAfterEnd = options.finishAfterEnd ?? false
+    const shouldLog = options.log ?? true
+    const logLevel = options.logLevel ?? 'summary'
+
+    if (flushBeforeStart) flushWebGL()
+
+    const startSnapshot = getGLMemorySnapshot()
+    let peakSnapshot = startSnapshot
+    let samples = 1
+
+    const samplePeak = (): GLMemorySnapshot =>
+    {
+        const snapshot = getGLMemorySnapshot()
+        samples += 1
+
+        if (isHigherSnapshot(snapshot, peakSnapshot))
+        {
+            peakSnapshot = snapshot
+        }
+
+        return snapshot
+    }
+
+    const t0 = performance.now()
+    const result = fn(samplePeak)
+    samplePeak()
+
+    if (flushAfterEnd) flushWebGL()
+    if (finishAfterEnd) finishWebGL()
+
+    const endSnapshot = getGLMemorySnapshot()
+    samples += 1
+    if (isHigherSnapshot(endSnapshot, peakSnapshot))
+    {
+        peakSnapshot = endSnapshot
+    }
+
+    const profile: GLExecutionProfile = {
+        label,
+        timeMs: performance.now() - t0,
+        samples,
+        startSnapshot,
+        endSnapshot,
+        peakSnapshot,
+    }
+
+    options.onProfile?.(profile)
+    if (shouldLog) logGLExecutionProfile(profile, logLevel)
+
+    return result
+}
+
+export async function profileGLExecutionAsync<T>(
+    fn: (samplePeak: () => GLMemorySnapshot) => T | Promise<T>,
+    options: GLExecutionProfileOptions = {}
+): Promise<T>
+{
+    // Async variant of profileGLExecution for callbacks that await.
+    const label = options.label ?? 'glProfile'
+    const flushBeforeStart = options.flushBeforeStart ?? false
+    const flushAfterEnd = options.flushAfterEnd ?? false
+    const finishAfterEnd = options.finishAfterEnd ?? false
+    const shouldLog = options.log ?? true
+    const logLevel = options.logLevel ?? 'summary'
+
+    if (flushBeforeStart) flushWebGL()
+
+    const startSnapshot = getGLMemorySnapshot()
+    let peakSnapshot = startSnapshot
+    let samples = 1
+
+    const samplePeak = (): GLMemorySnapshot =>
+    {
+        const snapshot = getGLMemorySnapshot()
+        samples += 1
+
+        if (isHigherSnapshot(snapshot, peakSnapshot))
+        {
+            peakSnapshot = snapshot
+        }
+
+        return snapshot
+    }
+
+    const t0 = performance.now()
+    const result = await fn(samplePeak)
+    samplePeak()
+
+    if (flushAfterEnd) flushWebGL()
+    if (finishAfterEnd) finishWebGL()
+
+    const endSnapshot = getGLMemorySnapshot()
+    samples += 1
+    if (isHigherSnapshot(endSnapshot, peakSnapshot))
+    {
+        peakSnapshot = endSnapshot
+    }
+
+    const profile: GLExecutionProfile = {
+        label,
+        timeMs: performance.now() - t0,
+        samples,
+        startSnapshot,
+        endSnapshot,
+        peakSnapshot,
+    }
+
+    options.onProfile?.(profile)
+    if (shouldLog) logGLExecutionProfile(profile, logLevel)
+
+    return result
 }
 
 export function logGLMemorySnapshot(label: string = 'glMemory', snapshot?: GLMemorySnapshot): GLMemorySnapshot

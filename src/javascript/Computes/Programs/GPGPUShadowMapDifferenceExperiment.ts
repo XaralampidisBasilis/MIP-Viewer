@@ -19,11 +19,13 @@ import {
     applyAggressiveGLMemoryPolicy,
     applyPerformanceGLMemoryPolicy,
     flushWebGL,
+    profileGLExecution,
     createGLPeakTracker,
     updateGLPeakTracker,
     logGLPeakCounters,
     logGLMemorySnapshot,
     purgeGLFreeTexturePool,
+    applyBalancedGLMemoryPolicy,
 } from '../../Utils/GLUtils'
 
 import { maxPool3d, minPool3d, avgPool3d } from './pool3d'
@@ -724,49 +726,40 @@ function unidirectionalDifferencesGates(
     const axis = permute[0]
     const backwards = reverse.includes(axis)
 
-    try
+    applyBalancedGLMemoryPolicy()
+    const program = new UnidirectionalDifferences(volume.shape, permute, reverse)
+    let differences = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
+
+    if (verbose) logTensor('differencesStart', differences)
+
+    applyBalancedGLMemoryPolicy()
+    const slices = unstackPacked(differences, axis) 
+    tf.dispose(differences)
+
+    const shape = slices[0].shape as [number, number, number, 2, 2]
+    const propagate = new PropagateUnidirectionalDifferencesGates(shape, permute, reverse)
+
+    const start = backwards ? slices.length - 2 : 1
+    const end = backwards ? -1 : slices.length
+    const step = backwards ? -1 : 1
+
+    applyPerformanceGLMemoryPolicy()
+    for (let i = start; i !== end; i += step) 
     {
-        const program = new UnidirectionalDifferences(volume.shape, permute, reverse)
-        let differences = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
+        const slice = runWebGLProgram(propagate, [slices[i], slices[i-step], gates], 'float32', [[i]], true)
 
-        if (verbose) logTensor('differencesStart', differences)
-
-        const slices = unstackPacked(differences, axis) 
-        tf.dispose(differences)
-        flushWebGL()
-        purgeGLFreeTexturePool()
-
-        const shape = slices[0].shape as [number, number, number, 2, 2]
-        const propagate = new PropagateUnidirectionalDifferencesGates(shape, permute, reverse)
-
-        const start = backwards ? slices.length - 2 : 1
-        const end = backwards ? -1 : slices.length
-        const step = backwards ? -1 : 1
-
-        for (let i = start; i !== end; i += step) 
-        {
-            const slice = runWebGLProgram(propagate, [slices[i], slices[i-step], gates], 'float32', [[i]], true)
-    
-            tf.dispose(slices[i])
-            slices[i] = slice
-        }
-
-        flushWebGL()
-        purgeGLFreeTexturePool()
-
-        differences = stackPacked(slices, axis) as tf.Tensor5D 
-        tf.dispose(slices) 
-        flushWebGL()
-        purgeGLFreeTexturePool()
-
-        if (verbose) logTensor('differencesPropagated', differences)
-
-        return differences
+        tf.dispose(slices[i])
+        slices[i] = slice
     }
-    finally
-    {
-        logGLMemorySnapshot('unidirectionalDifferencesGates')
-    }
+
+    applyAggressiveGLMemoryPolicy()
+    differences = stackPacked(slices, axis) as tf.Tensor5D 
+    tf.dispose(slices) 
+
+    if (verbose) logTensor('differencesPropagated', differences)
+
+    applyPerformanceGLMemoryPolicy()
+    return differences
 }
 
 function unidirectionalDifferences(
@@ -779,51 +772,101 @@ function unidirectionalDifferences(
     const axis = permute[0]
     const backwards = reverse.includes(axis)
 
-    try
+    applyBalancedGLMemoryPolicy()
+    const program = new UnidirectionalDifferences(volume.shape, permute, reverse)
+    let differences = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
+
+    if (verbose) logTensor('differencesStart', differences)
+
+    applyBalancedGLMemoryPolicy()
+    const slices = unstackPacked(differences, axis) as tf.Tensor5D[]
+    tf.dispose(differences) 
+
+    const shape = slices[0].shape as [number, number, number, 2, 2]
+    const propagate = new PropagateUnidirectionalDifferences(shape, permute, reverse)
+
+    const start = backwards ? slices.length - 2 : 1
+    const end = backwards ? -1 : slices.length
+    const step = backwards ? -1 : 1
+
+    applyPerformanceGLMemoryPolicy()
+    for (let i = start; i !== end; i += step) 
     {
-        const program = new UnidirectionalDifferences(volume.shape, permute, reverse)
-        let differences = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
+        const slice = runWebGLProgram(propagate, [slices[i], slices[i-step]], 'float32', [[i]], true)
 
-        if (verbose) logTensor('differencesStart', differences)
+        tf.dispose(slices[i])
+        slices[i] = slice as tf.Tensor5D
+    }
 
-        const slices = unstackPacked(differences, axis) 
-        tf.dispose(differences) 
+    applyAggressiveGLMemoryPolicy()
+    differences =  stackPacked(slices, axis) as tf.Tensor5D
+    tf.dispose(slices)
 
-        flushWebGL()
-        purgeGLFreeTexturePool()
+    if (verbose) logTensor('differencesPropagated', differences)
 
-        const shape = slices[0].shape as [number, number, number, 2, 2]
-        const propagate = new PropagateUnidirectionalDifferences(shape, permute, reverse)
+    applyPerformanceGLMemoryPolicy()
+    return differences
+}
 
-        const start = backwards ? slices.length - 2 : 1
-        const end = backwards ? -1 : slices.length
-        const step = backwards ? -1 : 1
+function unidirectionalDifferencesProfile(
+    volume: tf.Tensor3D, 
+    permute: Permute, 
+    reverse: Reverse,
+    verbose: boolean = false
+): tf.Tensor5D
+{
+    const axis = permute[0]
+    const backwards = reverse.includes(axis)
 
-        for (let i = start; i !== end; i += step) 
+    applyBalancedGLMemoryPolicy()
+    const program = new UnidirectionalDifferences(volume.shape, permute, reverse)
+    let differences = profileGLExecution(
+        () => runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D,
+        { label: 'unidirectionalDifferences:init', flushBeforeStart: true, logLevel: 'full' }
+    ) as tf.Tensor5D
+
+    if (verbose) logTensor('differencesStart', differences)
+
+    applyBalancedGLMemoryPolicy()
+    const slices = profileGLExecution(
+        () => unstackPacked(differences, axis),
+        { label: 'unidirectionalDifferences:unstackPacked', flushBeforeStart: true, logLevel: 'full' }
+    ) as tf.Tensor5D[]
+    tf.dispose(differences) 
+
+    const shape = slices[0].shape as [number, number, number, 2, 2]
+    const propagate = new PropagateUnidirectionalDifferences(shape, permute, reverse)
+
+    const start = backwards ? slices.length - 2 : 1
+    const end = backwards ? -1 : slices.length
+    const step = backwards ? -1 : 1
+
+    applyPerformanceGLMemoryPolicy()
+    profileGLExecution(
+        () =>
         {
-            const slice = runWebGLProgram(propagate, [slices[i], slices[i-step]], 'float32', [[i]], true)
-    
-            tf.dispose(slices[i])
-            slices[i] = slice
-        }
+            for (let i = start; i !== end; i += step) 
+            {
+                const slice = runWebGLProgram(propagate, [slices[i], slices[i-step]], 'float32', [[i]], true)
 
-        flushWebGL()
-        purgeGLFreeTexturePool()
+                tf.dispose(slices[i])
+                slices[i] = slice as tf.Tensor5D
+            }
+        },
+        { label: 'unidirectionalDifferences:propagateLoop', flushBeforeStart: true, logLevel: 'full' }
+    )
 
-        differences = stackPacked(slices, axis) as tf.Tensor5D 
-        tf.dispose(slices)
+    applyAggressiveGLMemoryPolicy()
+    differences = profileGLExecution(
+        () => stackPacked(slices, axis) as tf.Tensor5D,
+        { label: 'unidirectionalDifferences:stackPacked', flushBeforeStart: true, logLevel: 'full' }
+    ) as tf.Tensor5D
+    tf.dispose(slices)
 
-        flushWebGL()
-        purgeGLFreeTexturePool()
+    if (verbose) logTensor('differencesPropagated', differences)
 
-        if (verbose) logTensor('differencesPropagated', differences)
-
-        return differences
-    }
-    finally
-    {
-        logGLMemorySnapshot('unidirectionalDifferences')
-    }
+    applyPerformanceGLMemoryPolicy()
+    return differences
 }
 
 function unidirectionalGates(
@@ -918,8 +961,6 @@ export function computeUnidirectionalShadowMap(
     if (verbose) logTensor('shadowMap', shadowMap)
 
     tf.dispose(differences)
-    flushWebGL()
-    purgeGLFreeTexturePool()
 
     return shadowMap as tf.Tensor3D
 }
@@ -943,21 +984,14 @@ export function computeBidirectionalShadowMap(
     const backwardDifferences = unidirectionalDifferencesGates(volume, backwardGates, permute, backwardReverse)
     tf.dispose(backwardGates)
 
-    flushWebGL()
-    purgeGLFreeTexturePool()
-
     const backwardShadowMap = unidirectionalShadowMap(backwardDifferences, permute, backwardReverse, tolerance)
     if (verbose) logTensor('backwardShadowMap', backwardShadowMap)
     tf.dispose(backwardDifferences)
-
-    flushWebGL()
-    purgeGLFreeTexturePool()
 
     const shadowMap = bidirectionalShadowMap(forwardShadowMap, backwardShadowMap)
     if (verbose) logTensor('shadowMap', shadowMap)
     tf.dispose([forwardShadowMap, backwardShadowMap])
 
-    flushWebGL()
     purgeGLFreeTexturePool()
 
     return shadowMap as tf.Tensor3D
