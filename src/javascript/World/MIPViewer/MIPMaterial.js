@@ -21,6 +21,8 @@ export default function()
 
         u_ray: new THREE.Uniform
         ({
+            min_value     : 0.0,
+            max_value     : 1.0,
             direction     : new THREE.Vector3(),
             inv_direction : new THREE.Vector3(),
             sign_direction: new THREE.Vector3(),

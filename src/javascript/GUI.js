@@ -62,6 +62,8 @@ export default class GUI
 
     addControlsConfigs() 
     {
+        const uRay = material.uniforms.u_ray.value
+
         const folder = this.folders.configs
         const objects = 
         { 
@@ -75,18 +77,21 @@ export default class GUI
     
         this.controllers.configs = 
         {
-            blockSize : folder.add(objects, 'blockSize').min(2).max(8).step(1)
-            .onFinishChange((value) => 
-            { 
-                this.configs.set('blockSize', value) 
-            }),
+            // blockSize : folder.add(objects, 'blockSize').min(2).max(8).step(1)
+            // .onFinishChange((value) => 
+            // { 
+            //     this.configs.set('blockSize', value) 
+            // }),
 
-            // DANGEROUS for WebGL Context Loss
-            downscaleFactor : folder.add(objects, 'downscaleFactor').min(0).max(1).step(0.05)
-            .onFinishChange((value) => 
-            { 
-                this.configs.set('downscaleFactor', value) 
-            }),
+            // // DANGEROUS for WebGL Context Loss
+            // downscaleFactor : folder.add(objects, 'downscaleFactor').min(0).max(1).step(0.05)
+            // .onFinishChange((value) => 
+            // { 
+            //     this.configs.set('downscaleFactor', value) 
+            // }),
+
+            minValue : folder.add(uRay, 'min_value').min(0).max(1).step(0.01),
+            maxValue : folder.add(uRay, 'max_value').min(0).max(1).step(0.01),
             
             marchingMethod: folder.add(objects, 'marchingMethod').options(Configs.MarchingMethods)
             .onFinishChange((option) => 
