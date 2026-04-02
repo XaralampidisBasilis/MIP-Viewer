@@ -3,8 +3,6 @@
 
 struct UniformsRay
 {
-    float min_value;
-    float max_value;
     vec3  direction;
     vec3  inv_direction;
     ivec3 sign_direction;

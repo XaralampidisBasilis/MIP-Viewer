@@ -1,10 +1,16 @@
 
 // START_MIP_IN_TRACE
-mip.distance = trace.distance;
-mip.value = trace.value;
+mip.update = trace.value > mip.value;
 
-#if DEBUG_ENABLED == 1
+if (mip.update)
+{
+    mip.distance = trace.distance;
+    mip.value = trace.value;
 
-    stats.num_mips += 1;
+    #if DEBUG_ENABLED == 1
 
-#endif
+        stats.num_mips += 1;
+
+    #endif
+
+}

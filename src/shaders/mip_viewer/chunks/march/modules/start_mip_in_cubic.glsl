@@ -1,10 +1,16 @@
 
 // START_MIP_IN_CUBIC
-mip.distance = ray.start_distance;
-mip.value = cubic.values.w;
+mip.update = cubic.values.w > mip.value;
 
-#if DEBUG_ENABLED == 1
+if (mip.update)
+{
+    mip.distance = ray.start_distance;
+    mip.value = cubic.values.w;
 
-    stats.num_mips += 1;
+    #if DEBUG_ENABLED == 1
 
-#endif
+        stats.num_mips += 1;
+
+    #endif
+
+}
