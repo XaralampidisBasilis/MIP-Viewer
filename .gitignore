@@ -1,9 +1,17 @@
 node_modules/
 static/deprecated/
 shaders/libraries/lygia
-static/nifti/cardiac/ct_train_1001_image.nii.gz
-static/nifti/cardiac/ct_train_1001_label.nii.gz
-static/nifti/cardiac/mr_train_1014_image.nii.gz
-static/nifti/cardiac/mr_train_1014_label.nii.gz
-static/nifti/cardiac/Angelou0516Cardiac.nii.gz
-static/nifti/cardiac/MedHK23_CCA.nii.gz
+
+# Ignore all nifti files
+static/nifti/**/*.nii
+static/nifti/**/*.nii.gz
+
+# Make sure parent dirs are visible to git
+!static/nifti/
+!static/nifti/cardiac/
+
+# Keep only these nifti files
+!static/nifti/head/CTA-Head-and-Neck.nii.gz
+# !static/nifti/cardiac/ct_train_1001_image.nii.gz
+# !static/nifti/cardiac/Angelou0516Cardiac.nii.gz
+# !static/nifti/cardiac/MedHK23_CCA.nii.gz
