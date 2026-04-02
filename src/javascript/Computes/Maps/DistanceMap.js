@@ -32,7 +32,7 @@ export default class DistanceMap
         const blockShape = volumeTensor.shape.map(X => Math.ceil((X + 1) / this.blockSize))
         
         this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
-        this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap1bit(volumeTensor, this.errorTolerance, this.blockSize, true)
+        this.textureData = GPGPU.computeExtendedAnisotropicBidirectionalDistanceMap1bit(volumeTensor, this.errorTolerance, this.blockSize, true)
 
         this.texture = new THREE.Data3DTexture(this.textureData, ...this.dimensions)
         this.texture.format = 'RED_INTEGER' // THREE.RedIntegerFormat
@@ -55,7 +55,7 @@ export default class DistanceMap
         const blockShape = volumeTensor.shape.map(X => Math.ceil((X + 1) / this.blockSize))
 
         this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
-        this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap5bit(volumeTensor, this.errorTolerance, this.blockSize, true)
+        this.textureData = GPGPU.computeExtendedAnisotropicBidirectionalDistanceMap5bit(volumeTensor, this.errorTolerance, this.blockSize, true)
 
         this.texture = new THREE.Data3DTexture(this.textureData, ...this.dimensions)
         this.texture.format = 'RGBA_INTEGER' // THREE.RGBAIntegerFormat
@@ -78,7 +78,7 @@ export default class DistanceMap
         const blockShape = volumeTensor.shape.map(X => Math.ceil((X + 1) / this.blockSize))
 
         this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
-        this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap8bit(volumeTensor, this.errorTolerance, this.blockSize, true)
+        this.textureData = GPGPU.computeExtendedAnisotropicBidirectionalDistanceMap8bit(volumeTensor, this.errorTolerance, this.blockSize, true)
 
         // Workaround: this Three.js version does not map THREE.RGBIntegerFormat to WebGL's RGB_INTEGER
         // for Data3DTexture uploads, so use the raw WebGL enum name string instead.
@@ -103,7 +103,7 @@ export default class DistanceMap
         const blockShape = volumeTensor.shape.map(X => Math.ceil((X + 1) / this.blockSize))
 
         this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
-        this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap10bit(volumeTensor, this.errorTolerance, this.blockSize, true)
+        this.textureData = GPGPU.computeExtendedAnisotropicBidirectionalDistanceMap10bit(volumeTensor, this.errorTolerance, this.blockSize, true)
 
         // Workaround: this Three.js version does not map THREE.RGBIntegerFormat to WebGL's RGB_INTEGER
         // for Data3DTexture uploads, so use the raw WebGL enum name string instead.

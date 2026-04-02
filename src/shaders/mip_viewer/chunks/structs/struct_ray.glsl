@@ -3,7 +3,6 @@
 
 struct Ray 
 {
-    bool  reversed;
     bool  discarded;       // flag indicating if the ray has been discarded
     float phase;     
     vec3  origin;

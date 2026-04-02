@@ -94,13 +94,6 @@ function updateRayUniforms(uniforms)
     ray.quadrant_index = rayQuadrantIndex(ray.sign_direction, dominantAxis)
     ray.group_index = ray.quadrant_index + 4 * dominantAxis
     ray.reverse = dominantSign < 0
-
-    if (ray.reverse)
-    {
-        ray.sign_direction.negate()
-        ray.direction.negate()
-        ray.inv_direction.negate()
-    }
 }
 
 function updateTransformUniforms(uniforms, camera, renderer)
