@@ -11,6 +11,7 @@ export default class Configs extends EventEmitter
     static MarchingMethods = Object.freeze([
         'cells',
         'traces',
+        'blocks',
     ])
     static SkippingMethods = Object.freeze([
         'shadow',

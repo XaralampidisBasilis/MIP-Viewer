@@ -6,6 +6,10 @@
 #elif MARCHING_METHOD == 1
 
     #include "./march_traces"
-    
+
+#elif MARCHING_METHOD == 2
+
+    #include "./march_blocks"
+
 #endif
 
