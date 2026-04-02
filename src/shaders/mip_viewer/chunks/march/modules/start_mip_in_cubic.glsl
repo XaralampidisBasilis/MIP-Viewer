@@ -1,6 +1,6 @@
 
 // START_MIP_IN_CUBIC
-mip.update = cubic.values.w > mip.value;
+mip.update = shouldUpdateMip(mip.value, cubic.values.w);
 
 if (mip.update)
 {

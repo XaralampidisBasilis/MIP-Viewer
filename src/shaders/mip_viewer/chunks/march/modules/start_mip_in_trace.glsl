@@ -1,6 +1,6 @@
 
 // START_MIP_IN_TRACE
-mip.update = trace.value > mip.value;
+mip.update = shouldUpdateMip(mip.value, trace.value);
 
 if (mip.update)
 {
