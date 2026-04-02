@@ -5,19 +5,21 @@
 #include "./positionToBlockCoords"
 #endif
 
-ivec3 advanceBlockCoords(ivec3 coords, ivec3 exitStep)
+ivec3 advanceBlockCoords(ivec3 coords, ivec3 stepVector)
 {
-    return coords + exitStep * u_ray.sign_direction;
+    ivec3 stepNormal = stepVector * u_ray.sign_direction;
+    return coords + stepNormal;
 }
 
-ivec3 advanceBlockCoords(ivec3 coords, ivec3 exitStep, int stepRadius, vec3 exitPosition)
+ivec3 advanceBlockCoords(ivec3 coords, ivec3 stepVector, int stepRadius, vec3 position)
 {
-    if (stepRadius == 1) return coords + exitStep * u_ray.sign_direction;
+    ivec3 stepNormal = stepVector * u_ray.sign_direction;
+    if (stepRadius == 1) return coords + stepNormal;
 
-    ivec3 exitCoords = positionToBlockCoords(exitPosition);
-    ivec3 stepCoords = coords + stepRadius * u_ray.sign_direction;
+    ivec3 exitCoords = positionToBlockCoords(position);
+    ivec3 stepCoords = coords + stepRadius * stepNormal;
 
-    return exitCoords + (stepCoords - exitCoords) * exitStep;
+    return exitCoords + (stepCoords - exitCoords) * stepVector;
 }
 
 #endif

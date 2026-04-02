@@ -10,6 +10,7 @@
 #include "./blockCoordsToMinPosition"
 #include "./cellCoordsToMinPosition"
 #include "./cellCoordsToFarDistances"
+#include "./intersectBlockEntry"
 #include "./intersectBlockExit"
 #include "./intersectCellExit"
 #include "./intersectCellFarDistances"

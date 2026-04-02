@@ -11,6 +11,12 @@ for (int i = 0; i < MAX_BLOCKS; i++)
     // Update block and get if its empty and what is the step distance we can take
     #include "./modules/update_block_in_ray"
 
+    // if (!block.empty)
+    // {
+    //     #include "./modules/update_mip_in_block"
+    //     break;
+    // }
+
     // CONTINUE_OR_TERMINATE_MARCH_BLOCKS
     if (block.empty)
     {
