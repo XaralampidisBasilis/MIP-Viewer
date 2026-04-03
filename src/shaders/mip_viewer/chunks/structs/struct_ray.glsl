@@ -5,7 +5,7 @@ struct Ray
 {
     bool  discarded;       // flag indicating if the ray has been discarded
     float phase;     
-    vec3  origin;
+    vec3  origin_position;
     vec3  direction;       // direction vector for each step along the ray
     float step_distance;         // fixed step distance for each ray 
     float eps_distance;

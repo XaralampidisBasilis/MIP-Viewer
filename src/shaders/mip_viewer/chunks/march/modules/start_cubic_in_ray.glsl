@@ -1,9 +1,8 @@
 
 // START_CUBIC_IN_RAY
 cubic.values.w = sampleVolume(ray.start_position);
-
 cubic.max_value = cubic.values.w;
-cubic.argmax_point = ray.start_distance;
+cubic.argmax_point = 0.0;
 
 #if DEBUG_ENABLED == 1
 

@@ -18,7 +18,7 @@ float intersectBlockEntry(ivec3 coords, out ivec3 entryStep)
         u_ray.sign_direction.z > 0 ? bMin.z : bMax.z
     );
 
-    vec3 tNear = (bEntry - ray.origin) * u_ray.inv_direction;
+    vec3 tNear = (bEntry - ray.origin_position) * u_ray.inv_direction;
     float tEntry = max(max(tNear.x, tNear.y), tNear.z);
 
     entryStep = ivec3(
@@ -43,7 +43,7 @@ float intersectBlockEntry(ivec3 coords, int radius, out ivec3 entryStep)
         u_ray.sign_direction.z > 0 ? bMin.z : bMax.z
     );
 
-    vec3 tNear = (bEntry - ray.origin) * u_ray.inv_direction;
+    vec3 tNear = (bEntry - ray.origin_position) * u_ray.inv_direction;
     float tEntry = max(max(tNear.x, tNear.y), tNear.z);
 
     entryStep = ivec3(

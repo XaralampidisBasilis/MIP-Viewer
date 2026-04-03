@@ -1,13 +1,13 @@
 
-// #if MARCHING_METHOD == 0
+#if MARCHING_METHOD == 0
 
-//     #include "./second_march_cells"
+    #include "./second_march_cells"
 
-// #elif MARCHING_METHOD == 1
+#elif MARCHING_METHOD == 1
 
-//     #include "./second_march_traces"
+    #include "./second_march_traces"
 
-// #endif
+#endif
 
-#include "./second_march_traces_in_cells"
+// #include "./second_march_traces_in_cells"
 

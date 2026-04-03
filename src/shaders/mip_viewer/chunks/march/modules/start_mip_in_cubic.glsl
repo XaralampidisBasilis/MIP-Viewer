@@ -1,11 +1,11 @@
 
 // START_MIP_IN_CUBIC
-mip.update = shouldUpdateMip(mip.value, cubic.values.w);
+mip.update = shouldUpdateMip(mip.value, cubic.max_value);
 
 if (mip.update)
 {
     mip.distance = ray.start_distance;
-    mip.value = cubic.values.w;
+    mip.value = cubic.max_value;
 
     #if DEBUG_ENABLED == 1
 

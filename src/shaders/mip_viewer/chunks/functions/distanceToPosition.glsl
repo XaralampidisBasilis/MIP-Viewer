@@ -3,7 +3,7 @@
 
 vec3 distanceToPosition(float t)
 {
-    return ray.origin + u_ray.direction * t;
+    return ray.origin_position + u_ray.direction * t;
 }
 
 #endif

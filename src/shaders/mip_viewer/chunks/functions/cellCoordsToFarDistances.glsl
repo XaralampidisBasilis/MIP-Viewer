@@ -16,7 +16,7 @@ vec3 cellCoordsToFarDistances(ivec3 coords)
         u_ray.sign_direction.z > 0 ? cMax.z : cMin.z
     );
 
-    vec3 tFar = (cFar - ray.origin) * u_ray.inv_direction;
+    vec3 tFar = (cFar - ray.origin_position) * u_ray.inv_direction;
     
     return tFar;
 }

@@ -6,7 +6,7 @@
 #include "../modules/start_cubic_in_ray"
 
 // START_MARCH
-for (int j = 0; j < MAX_BLOCKS; j++) 
+for (int j = 0; j < u_debug.max_blocks; j++) 
 {
     // Update block and get if its empty and what is the step distance we can take
     #include "../modules/update_block_in_ray"

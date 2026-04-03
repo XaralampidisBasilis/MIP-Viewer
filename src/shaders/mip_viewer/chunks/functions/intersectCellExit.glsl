@@ -15,7 +15,7 @@ float intersectCellExit(ivec3 coords, out ivec3 exitStep)
         u_ray.sign_direction.z > 0 ? cMax.z : cMin.z
     );
 
-    vec3 tFar = (cFar - ray.origin) * u_ray.inv_direction;
+    vec3 tFar = (cFar - ray.origin_position) * u_ray.inv_direction;
     float tExit = min(min(tFar.x, tFar.y), tFar.z);
 
     exitStep = ivec3(
