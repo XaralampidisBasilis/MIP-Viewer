@@ -1,7 +1,7 @@
 
 
 // UPDATE_MIP_IN_CUBIC
-mip.update = shouldUpdateMip(mip.value, cubic.max_value);
+mip.update = shouldUpdateMip(mip.value, cubic.max_value) && cubic.maximize;
 
 if (mip.update) 
 {

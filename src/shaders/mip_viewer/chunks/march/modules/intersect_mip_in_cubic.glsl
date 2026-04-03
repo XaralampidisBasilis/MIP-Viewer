@@ -1,7 +1,7 @@
 
 
 // INTERSECT_MIP_IN_CUBIC
-mip.intersected = shouldIntersectMip(mip.value, cubic.max_value);
+mip.intersected = shouldIntersectMip(mip.value, cubic.max_value) && cubic.maximize;
 
 if (mip.intersected) 
 {
