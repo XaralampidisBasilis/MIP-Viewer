@@ -5,6 +5,7 @@
 struct Mip 
 {
     bool  update;           
+    bool  intersected;
     bool  terminated;           
     vec3  position;           
     float distance;   

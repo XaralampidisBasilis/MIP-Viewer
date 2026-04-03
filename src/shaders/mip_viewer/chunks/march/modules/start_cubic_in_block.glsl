@@ -5,6 +5,9 @@ if(block.prev_empty)
 {
     cubic.values.w = sampleVolume(block.entry_position);
 
+    cubic.max_value = cubic.values.w;
+    cubic.argmax_point = block.entry_distance;
+
     #if DEBUG_ENABLED == 1
 
         stats.num_volume_fetches += 1;

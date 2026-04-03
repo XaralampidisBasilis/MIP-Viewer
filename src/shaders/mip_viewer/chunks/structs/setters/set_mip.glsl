@@ -1,6 +1,7 @@
 #ifdef STRUCT_MIP
 
 mip.update      = false;
+mip.intersected = false;
 mip.terminated  = false;
 mip.position    = vec3(0.0);
 mip.distance    = 0.0;

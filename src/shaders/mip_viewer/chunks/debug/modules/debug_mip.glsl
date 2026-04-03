@@ -3,6 +3,9 @@
 // terminated
 vec4 debug_mip_terminated = to_color(mip.terminated);
 
+// intersected
+vec4 debug_mip_intersected = to_color(mip.intersected);
+
 // update
 vec4 debug_mip_update = to_color(mip.update);
 
@@ -36,13 +39,14 @@ vec4 debug_mip_curvatures = to_color(mmix2(
 // PRINT DEBUG
 switch (u_debug.option - 450)
 { 
-    case 1: fragColor = debug_mip_terminated;      break;
-    case 2: fragColor = debug_mip_update;          break;
-    case 3: fragColor = debug_mip_distance;        break;
-    case 4: fragColor = debug_mip_position;        break;
-    case 5: fragColor = debug_mip_value;           break;
-    case 6: fragColor = debug_mip_normal;          break;
-    case 7: fragColor = debug_mip_gradient;        break;
-    case 8: fragColor = debug_mip_steepness;       break;
-    case 9: fragColor = debug_mip_curvatures;      break;
+    case 1: fragColor = debug_mip_intersected;      break;
+    case 2: fragColor = debug_mip_terminated;      break;
+    case 3: fragColor = debug_mip_update;          break;
+    case 4: fragColor = debug_mip_distance;        break;
+    case 5: fragColor = debug_mip_position;        break;
+    case 6: fragColor = debug_mip_value;           break;
+    case 7: fragColor = debug_mip_normal;          break;
+    case 8: fragColor = debug_mip_gradient;        break;
+    case 9: fragColor = debug_mip_steepness;       break;
+    case 10: fragColor = debug_mip_curvatures;      break;
 }

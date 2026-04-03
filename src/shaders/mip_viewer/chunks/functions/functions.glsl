@@ -22,4 +22,5 @@
 #include "./startCellFarDistancesInBlock"
 #include "./snapTraceDistance"
 #include "./shouldUpdateMip"
+#include "./shouldIntersectMip"
 
