@@ -29,7 +29,7 @@ export default class Configs extends EventEmitter
 
         this.adaptivePixelRatioEnabled = true
         
-        this.downscaleEnabled = false
+        this.downscaleEnabled = true
         this.downscaleFactor = 0.8
 
         this.errorTolerance = 0.01
