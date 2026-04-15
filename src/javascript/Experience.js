@@ -11,7 +11,12 @@ import World from './World/World'
 import Resources from './Utils/Resources'
 import Computes from './Computes/Computes'
 import GUI from './GUI'
-import sources from './sources'
+import createSources, { getResolvedVolumeUrl } from './sources'
+
+function postViewerMessage(type, url)
+{
+    window.parent?.postMessage({ type, url }, '*')
+}
 
 export default class Experience
 {
@@ -26,6 +31,7 @@ export default class Experience
             return Experience.instance
         }
         Experience.instance = this
+        Experience.started = false
         
         // Global access
         window.experience = this
@@ -33,6 +39,10 @@ export default class Experience
         // Options
         this.canvas = canvas
         this.context = context
+        this.destroyed = false
+        this.started = false
+        this.sources = createSources()
+        this.volumeUrl = this.sources.find((source) => source.name === 'volume')?.path ?? getResolvedVolumeUrl()
 
         // Setup
         this.configs = new Configs()
@@ -43,7 +53,7 @@ export default class Experience
         this.scene = new THREE.Scene()
         this.camera = new Camera()
         this.renderer = new Renderer()
-        this.resources = new Resources(sources)
+        this.resources = new Resources(this.sources)
         this.computes = new Computes()
         this.world = new World()
         this.stats = new Stats(true)
@@ -63,19 +73,29 @@ export default class Experience
 
         // Config change event
         this.configs.on('change', (event) => this.change(event))
-
-        // Window refresh event
-        window.addEventListener('beforeunload', () => this.destroy())
     }
 
     async start()
     {
+        if (this.destroyed || this.started)
+        {
+            return
+        }
+
         await this.computes.start()
+
+        if (this.destroyed || Experience.instance !== this)
+        {
+            return
+        }
 
         this.world.start()
         this.gui.start()
 
+        this.started = true
         Experience.started = true
+
+        postViewerMessage('experienceBuildCompleted', this.volumeUrl)
     }
 
     updateWorld()
@@ -119,8 +139,19 @@ export default class Experience
 
     destroy()
     {
+        if (this.destroyed)
+        {
+            return
+        }
+
+        this.destroyed = true
+        this.started = false
+        Experience.started = false
+
+        this.resources?.off('ready')
         this.sizes.off('resize')
         this.time.off('tick')
+        this.pixelRatio.off('rescale')
         this.configs.off('change')
 
         // destroy components
@@ -133,6 +164,7 @@ export default class Experience
         this.renderer?.destroy()
         this.pixelRatio?.destroy()
         this.computes?.destroy()
+        this.stats?.destroy()
         this.gui?.destroy()
 
         // Nullify properties for cleanup
@@ -149,6 +181,14 @@ export default class Experience
         this.stats = null
         this.computes = null
         this.canvas = null
+        this.context = null
+        this.sources = null
+        this.volumeUrl = null
+
+        if (window.experience === this)
+        {
+            window.experience = null
+        }
 
         // Clear the singleton instance
         Experience.instance = null

@@ -4,8 +4,6 @@ import Experience from '../Experience'
 import VolumeMap from './Maps/VolumeMap'
 import DistanceMap from './Maps/DistanceMap'
 
-import { purgeGLFreeTexturePool } from './../Utils/GLUtils';
-
 export default class Computes extends EventEmitter
 {
     static instance = null
@@ -20,6 +18,7 @@ export default class Computes extends EventEmitter
         }
         Computes.instance = this
 
+        this.destroyed = false
         this.experience = new Experience()
         this.renderer = this.experience.renderer
         this.configs = this.experience.configs
@@ -31,13 +30,28 @@ export default class Computes extends EventEmitter
 
     async start()
     {
+        if (this.destroyed)
+        {
+            return
+        }
+
         console.time('start@Computes') 
 
         this.volumeMap.computeTensor()
         await tf.nextFrame()
 
+        if (this.destroyed)
+        {
+            return
+        }
+
         this.distanceMap.computeTexture()
         await tf.nextFrame()
+
+        if (this.destroyed)
+        {
+            return
+        }
 
         this.volumeMap.computeTexture()
         this.volumeMap.tensor.dispose()
@@ -130,20 +144,24 @@ export default class Computes extends EventEmitter
 
     destroy()
     {
-        this.volumeMap.dispose()
-        this.shadowMap.dispose()
-        // this.distanceMap.dispose()
+        if (this.destroyed)
+        {
+            return
+        }
+
+        this.destroyed = true
+        this.volumeMap?.dispose()
+        this.distanceMap?.dispose()
 
         this.volumeMap = null
-        this.shadowMap = null
-        // this.distanceMap = null
+        this.distanceMap = null
 
         this.experience = null
         this.renderer = null
         this.configs = null
         this.resources = null
 
-        instance = null
+        Computes.instance = null
 
         console.log('Computes destroyed')
     }

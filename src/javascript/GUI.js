@@ -272,28 +272,14 @@ export default class GUI
     // controllers bindings
 
     destroy() {
+        this.instance?.destroy()
 
-        // Dispose of controllers
-        Object.values(this.controllers).forEach(group => 
-        {
-            Object.values(group).forEach(controller => 
-            {
-                controller.remove()
-            })
-        })
-    
-        // Dispose of folders
-        Object.values(this.folders).forEach(folder => 
-        {
-            folder.close()
-            folder.destroy()
-        })
-    
-    
-        // Clear references
         this.controllers = null
         this.folders = null
         this.experience = null
+        this.configs = null
+        this.viewer = null
+        this.instance = null
     }
     
 }

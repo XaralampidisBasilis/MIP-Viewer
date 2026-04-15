@@ -195,18 +195,27 @@ export default class MIPViewer extends EventEmitter
 
         if (this.mesh) 
         {
+            this.scene?.remove(this.mesh)
             this.mesh.geometry.dispose()
             this.mesh.material.dispose()
             this.mesh = null
         }
 
         // Clean up references
+        this.experience = null
         this.scene = null
         this.resources = null
         this.renderer = null
+        this.computes = null
+        this.configs = null
         this.camera = null
         this.sizes = null
         this.debug = null
+        this.material = null
+        this.uniforms = null
+        this.defines = null
+
+        MIPViewer.instance = null
 
         console.log("MIPViewer destroyed")
     } 
