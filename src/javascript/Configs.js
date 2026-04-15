@@ -38,7 +38,7 @@ export default class Configs extends EventEmitter
         this.distanceVariation = '8bit'
         this.marchingMethod = 'cells'
         this.skippingMethod = 'distance'
-        this.colormap = 'turbo'
+        this.colormap = 'viridis'
 
         this.skippingEnabled = true
         this.debugEnabled = true
