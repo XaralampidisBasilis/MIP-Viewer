@@ -6,7 +6,7 @@ mip.intersected = shouldIntersectMip(mip.value, cubic.max_value) && cubic.maximi
 if (mip.intersected) 
 {
     mip.distance = mix(cell.entry_distance, cell.exit_distance, cubic.argmax_point);
-    mip.value = cubic.max_value;
+    // mip.value = cubic.max_value;
 
     #if DEBUG_ENABLED == 1
 

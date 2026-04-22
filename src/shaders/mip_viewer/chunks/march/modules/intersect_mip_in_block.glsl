@@ -6,7 +6,7 @@ mip.intersected = shouldIntersectMip(mip.value, block_value);
 if (mip.intersected) 
 {
     mip.distance = block.entry_distance;
-    mip.value = block_value;
+    // mip.value = block_value;
 
     #if DEBUG_ENABLED == 1
 

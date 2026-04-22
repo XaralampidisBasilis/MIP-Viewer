@@ -58,3 +58,21 @@ foreach ($sourceDir in @($marchDir, $scriptsDir)) {
         Set-Content -LiteralPath $outputPath -Value $expandedContent
     }
 }
+
+$variantSourceFiles = foreach ($sourceDir in @(
+    (Join-Path $marchDir "first"),
+    (Join-Path $marchDir "second")
+)) {
+    Get-ChildItem -LiteralPath $sourceDir -Filter "*.glsl" -File |
+        Where-Object {
+            $_.Name -notlike "*_march.glsl" -and
+            $_.Name -notlike "*_march_cells.glsl" -and
+            $_.Name -notlike "*_march_traces.glsl"
+        }
+}
+
+foreach ($sourceFile in $variantSourceFiles) {
+    $expandedContent = Expand-Includes -FilePath $sourceFile.FullName
+    $outputPath = Join-Path $scriptsDir $sourceFile.Name
+    Set-Content -LiteralPath $outputPath -Value $expandedContent
+}

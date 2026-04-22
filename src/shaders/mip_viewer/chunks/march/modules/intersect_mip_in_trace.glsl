@@ -5,7 +5,7 @@ mip.intersected = shouldIntersectMip(mip.value, trace.value);
 if (mip.intersected)
 {
     mip.distance = trace.distance;
-    mip.value = trace.value;
+    // mip.value = trace.value;
 
     #if DEBUG_ENABLED == 1
 
