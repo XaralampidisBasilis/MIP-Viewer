@@ -4,7 +4,7 @@
 vec4 debug_trace_terminated = to_color(trace.terminated);
 
 // distance
-vec4 debug_trace_distance = to_color(map(u_box.min_distance, u_box.max_distance, trace.distance));
+vec4 debug_trace_distance = to_color(turboBurn(map(u_box.min_distance, u_box.max_distance, trace.distance)));
 
 // position
 vec4 debug_trace_position = to_color(map(u_box.min_position, u_box.max_position, trace.position));

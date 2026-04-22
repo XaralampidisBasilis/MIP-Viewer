@@ -13,13 +13,13 @@ vec4 debug_ray_sign_direction = to_color(vec3(u_ray.sign_direction) * 0.5 + 0.5)
 vec4 debug_ray_step_distance = to_color(u_ray.step_distance);
 
 // start distance
-vec4 debug_ray_start_distance = to_color(map(u_box.min_distance, u_box.max_distance, ray.start_distance));
+vec4 debug_ray_start_distance = to_color(turboBurn(map(u_box.min_distance, u_box.max_distance, ray.start_distance)));
 
 // end distance
-vec4 debug_ray_end_distance = to_color(map(u_box.min_distance, u_box.max_distance, ray.end_distance));
+vec4 debug_ray_end_distance = to_color(turboBurn(map(u_box.min_distance, u_box.max_distance, ray.end_distance)));
 
 // span distance
-vec4 debug_ray_span_distance = to_color(map(0.0, u_box.span_distance, ray.span_distance));
+vec4 debug_ray_span_distance = to_color(turboBurn(map(0.0, u_box.span_distance, ray.span_distance)));
 
 // start position
 vec4 debug_ray_start_position = to_color(map(u_box.min_position, u_box.max_position, ray.start_position));
