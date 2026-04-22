@@ -85,7 +85,7 @@ function updateRayUniforms(uniforms)
         getSafeInverse(absZ),
     )
 
-    ray.step_distance = 1 / Math.max(absX + absY + absZ, 1e-8)
+    ray.step_distance = 1 / Math.max(absX + absY + absZ, 1e-6)
 
     const dominantAxis = argmax3(absX, absY, absZ)
     const dominantSign = ray.sign_direction.getComponent(dominantAxis)
@@ -93,7 +93,7 @@ function updateRayUniforms(uniforms)
     ray.dominant_axis = dominantAxis
     ray.quadrant_index = rayQuadrantIndex(ray.sign_direction, dominantAxis)
     ray.group_index = ray.quadrant_index + 4 * dominantAxis
-    ray.reverse = dominantSign < 0
+    ray.reverse = false
 }
 
 function updateTransformUniforms(uniforms, camera, renderer)
