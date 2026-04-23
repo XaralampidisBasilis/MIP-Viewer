@@ -1,7 +1,5 @@
 
 // START_BLOCK_IN_RAY
-
-// START_BLOCK
 block.coords = positionToBlockCoords(ray.start_position);
 
 block.exit_distance = ray.start_distance;
@@ -10,8 +8,6 @@ block.exit_step = ivec3(0);
 
 block.empty = false;
 block.prev_empty = false;
-
-// START_TRACE_IN_RAY  
 
 // START_TRACE_IN_RAY
 
@@ -35,8 +31,6 @@ trace.value = sampleVolume(trace.position);
 
 
 // START_MIP_IN_TRACE 
-
-// START_MIP_IN_TRACE
 mip.update = shouldUpdateMip(mip.value, trace.value);
 
 if (mip.update)
@@ -136,7 +130,6 @@ for (int k = 0; k < MAX_BLOCKS; k++)
     #endif
     #endif    
     
-
     // CONTINUE_OR_BREAK_MARCH_BLOCKS
     if (block.empty)
     {
