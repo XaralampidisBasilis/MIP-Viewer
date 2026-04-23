@@ -217,7 +217,7 @@ for (int j = 0; j < MAX_BLOCKS; j++)
         
         // Cull with Bernstein coefficients before the full cubic maximize step.
         cubic.bernstein_coeffs = cubic.values * CUBIC_INV_BERNSTEIN;
-        cubic.maximize = any(greaterThan(cubic.bernstein_coeffs, vec4(mip.value)));
+        cubic.maximize = shouldMaximizeCubic(cubic.bernstein_coeffs, mip.value);
         
         if (cubic.maximize)
         {

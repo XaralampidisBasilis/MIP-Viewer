@@ -23,4 +23,5 @@
 #include "./snapTraceDistance"
 #include "./shouldUpdateMip"
 #include "./shouldIntersectMip"
+#include "./shouldMaximizeCubic"
 
