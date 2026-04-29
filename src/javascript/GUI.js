@@ -261,11 +261,11 @@ export default class GUI
             maxBlocks: folder.add(uniforms, 'max_blocks').min(0).max(defines.MAX_BLOCKS).step(1),
             maxCells : folder.add(uniforms, 'max_cells').min(0).max(defines.MAX_CELLS).step(1),
             maxTraces : folder.add(uniforms, 'max_traces').min(0).max(defines.MAX_TRACES).step(1),
-            variable1 : folder.add(uniforms, 'variable1').min(0).max(1).step(1e-6),
-            variable2 : folder.add(uniforms, 'variable2').min(0).max(1).step(1e-6),
-            variable3 : folder.add(uniforms, 'variable3').min(0).max(1).step(1e-6),
-            variable4 : folder.add(uniforms, 'variable4').min(0).max(1).step(1e-6),
-            variable5 : folder.add(uniforms, 'variable5').min(0).max(1).step(1e-6),
+            // variable1 : folder.add(uniforms, 'variable1').min(0).max(1).step(1e-6),
+            // variable2 : folder.add(uniforms, 'variable2').min(0).max(1).step(1e-6),
+            // variable3 : folder.add(uniforms, 'variable3').min(0).max(1).step(1e-6),
+            // variable4 : folder.add(uniforms, 'variable4').min(0).max(1).step(1e-6),
+            // variable5 : folder.add(uniforms, 'variable5').min(0).max(1).step(1e-6),
         }
     }
     
