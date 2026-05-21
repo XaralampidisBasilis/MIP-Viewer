@@ -35,7 +35,7 @@ export default class Configs extends EventEmitter
         this.errorTolerance = 0.01
         this.blockSize = 2
         
-        this.distanceVariation = '1bit'
+        this.distanceVariation = '5bit'
         this.marchingMethod = 'cells'
         this.skippingMethod = 'distance'
         this.colormap = 'viridis'

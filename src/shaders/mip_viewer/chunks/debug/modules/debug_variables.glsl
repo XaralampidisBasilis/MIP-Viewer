@@ -4,6 +4,10 @@
 // debug.variable1 = to_color(turbo(ray.start_position.y / float(u_volume.dimensions.y)));
 // debug.variable2 = to_color(turbo(ray.start_position.z / float(u_volume.dimensions.z)));
 
+
+// debug.variable0 = to_color(hot(map(0.0, u_debug.variable1, abs(ref.value - mip.value))));
+// debug.variable1 = to_color(hot(map(0.0, u_debug.variable1, abs(ref.distance - mip.distance) / u_box.span_distance)));
+ 
 // PRINT DEBUG
 switch (u_debug.option - 1000)
 { 
