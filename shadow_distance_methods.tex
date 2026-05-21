@@ -1,0 +1,297 @@
+\section{Directional Shadow and Distance Maps}
+\label{sec:directional-shadow-distance-maps}
+
+We precompute directional acceleration maps for maximum intensity projection
+(MIP) ray traversal.  The input is a normalized scalar volume
+\(V:\mathbb{Z}^{3}\rightarrow[0,1]\), sampled on a regular grid and rendered
+with trilinear interpolation.  For MIP, a segment of a ray may be skipped when
+all samples inside that segment are guaranteed not to increase the current ray
+maximum by more than a prescribed tolerance \(\varepsilon\).  The proposed
+maps encode this guarantee as a set of directional binary fields, and then
+optionally transform these binary fields into bounded integer skip distances.
+
+\subsection{Ray Classes}
+
+Ray directions are grouped by dominant axis and octant.  A ray class is denoted
+by
+\[
+    g = (a,\sigma),
+    \qquad
+    a\in\{x,y,z\},
+    \qquad
+    \sigma\in\{+,-\}^{3},
+\]
+where \(a\) is the coordinate axis with largest absolute ray component and
+\(\sigma\) gives the signs of the ray direction.  The implementation stores
+twelve classes: four octant choices for each dominant axis.  Opposite classes
+are handled by bidirectional construction, so that the same class represents a
+pair of antipodal traversal directions.
+
+For each class \(g\), the volume coordinates are permuted and, if necessary,
+reversed so that the computation is performed in a canonical positive
+traversal order.  Let \(C_i\) be a cell in this canonical coordinate system,
+and let \(F_i^x,F_i^y,F_i^z\) be its three forward faces.  Since the trilinear
+interpolant is a convex combination of the eight cell-corner values, extrema
+on each face are attained at the four vertices of that face.
+
+\subsection{Extrema-Based Shadow Map}
+\label{subsec:extrema-shadow-map}
+
+The first construction explicitly propagates face extrema.  For each cell
+\(C_i\) and forward face \(F_i^k\), \(k\in\{x,y,z\}\), we compute the local
+face minimum and maximum
+\[
+    m_i^k = \min_{p\in F_i^k} V(p),
+    \qquad
+    M_i^k = \max_{p\in F_i^k} V(p).
+\]
+In practice, the minimization and maximization are over the four vertices of
+the face.
+
+The maxima \(M_i^k\) bound the strongest value that the current cell can
+contribute through each forward face.  The minima are propagated through the
+volume to form a conservative lower bound on the maximum value that any
+monotone ray prefix must have already encountered before entering the cell.
+Let \(L_i^k\) denote this propagated lower bound for face \(F_i^k\).  The
+propagation has the form
+\[
+    L_i^k =
+    \max\left(
+        m_i^k,\,
+        \min_{(j,\ell)\in\mathcal{P}(i,k)} L_j^\ell
+    \right),
+    \qquad k\in\{x,y,z\},
+\]
+where \(\mathcal{P}(i,k)\) is the set of predecessor faces that can reach
+\(F_i^k\) under the monotone traversal associated with \(g\).  The minimum over
+predecessors makes the test conservative across all admissible monotone paths,
+while the outer maximum incorporates the current face values into the running
+MIP lower bound.
+
+A cell is marked as shadowed for class \(g\) when its possible local maximum is
+already bounded by the propagated prefix value:
+\[
+    S_g(i)=1
+    \quad\Longleftrightarrow\quad
+    M_i^k - L_i^k < \varepsilon
+    \quad\forall k\in\{x,y,z\}.
+\]
+Thus, if \(S_g(i)=1\), no ray of class \(g\) can obtain a MIP update larger
+than \(\varepsilon\) by evaluating \(C_i\).  The cell may therefore be skipped
+without changing the image beyond the selected tolerance.
+
+\paragraph{Bidirectional construction.}
+For each stored ray class, a forward shadow map is computed first.  A reverse
+pass is then evaluated in the complementary direction.  During the reverse
+pass, cells that were already classified as shadowed by the forward pass are
+treated as hollow, so that previously skipped regions do not become artificial
+occluders for the opposite direction.  The final bidirectional shadow field is
+the logical union
+\[
+    S_g^{\mathrm{bi}}(i)
+    =
+    S_g^{\mathrm{fwd}}(i)
+    \lor
+    S_g^{\mathrm{bwd}}(i).
+\]
+
+\subsection{Difference-Based Shadow Map}
+\label{subsec:difference-shadow-map}
+
+The second construction computes the same kind of directional shadow
+classification in a difference domain, avoiding explicit storage of separate
+minimum and maximum maps.  For a canonical traversal direction, each grid
+position stores four differences between predecessor samples on the incoming
+face and the current sample:
+\[
+    \Delta_r(i) = V(i-r)-V(i),
+    \qquad r\in\mathcal{R},
+\]
+where \(\mathcal{R}\) indexes the four incoming-face offsets.  A positive
+difference means that the predecessor already contains an intensity at least
+as large as the current sample.
+
+The propagation accumulates the guaranteed positive margin available from
+predecessor states.  For a predecessor \(i-r\), let
+\[
+    q(i-r)=\min_{s\in\mathcal{R}}\Delta_s(i-r)
+\]
+be the worst guaranteed margin at that predecessor.  The propagated update is
+\[
+    \Delta_r(i)
+    \leftarrow
+    \Delta_r(i) + \max(q(i-r),0).
+\]
+This recurrence is the difference-domain analogue of propagating a lower
+bound on the already-seen ray maximum.  It accumulates only the part of the
+predecessor guarantee that is safely non-negative.
+
+After propagation, the current cell is shadowed when all relevant outgoing
+vertex differences remain non-negative within tolerance:
+\[
+    S_g(i)=1
+    \quad\Longleftrightarrow\quad
+    \min_{v\in F_i^+}\min_{r\in\mathcal{R}}\Delta_r(v)
+    >
+    -\varepsilon.
+\]
+Equivalently, every sample that the current cell could contribute is already
+dominated by an upstream sample, up to the tolerance \(\varepsilon\).
+
+The bidirectional difference-based method follows the same structure as the
+extrema-based method.  First, a forward shadow map is computed.  Then a set of
+gates is derived from this forward map and used in the reverse propagation.  A
+closed gate clamps the recurrence to positive margins, while an open gate lets
+the signed margin pass through.  This prevents the reverse pass from using
+regions already eliminated by the forward pass as invalid occluders.  The
+forward and reverse binary maps are finally merged with a logical union.
+
+\subsection{Block Shadow Maps}
+
+The directional maps may be reduced to block resolution.  Let \(B_b\) be the
+set of cells contained in block \(b\).  The block-level shadow value is
+computed by min-pooling the binary cell map:
+\[
+    \bar{S}_g(b)
+    =
+    \min_{i\in B_b} S_g(i).
+\]
+This operation is conservative: a block is marked shadowed only if every cell
+inside it is shadowed for the corresponding ray class.  The resulting block
+map has dimensions
+\[
+    \left\lceil \frac{N_x+1}{h} \right\rceil
+    \times
+    \left\lceil \frac{N_y+1}{h} \right\rceil
+    \times
+    \left\lceil \frac{N_z+1}{h} \right\rceil,
+\]
+where \(h\) is the block size and \(N_x,N_y,N_z\) are the volume dimensions.
+
+\subsection{Extended Anisotropic Directional Map}
+
+The complete acceleration representation consists of twelve directional
+fields.  We store four classes for dominant \(x\), four for dominant \(y\), and
+four for dominant \(z\):
+\[
+    \mathcal{G}
+    =
+    \mathcal{G}_x
+    \cup
+    \mathcal{G}_y
+    \cup
+    \mathcal{G}_z,
+    \qquad
+    |\mathcal{G}|=12.
+\]
+At render time, the ray dominant axis and octant select the corresponding
+field.  The maps can be bit-packed into compact integer textures, so one
+texture lookup returns the shadow information for all relevant directional
+groups at a block.
+
+\subsection{Shadow Distance Maps}
+\label{subsec:shadow-distance-maps}
+
+The binary shadow maps are further transformed into bounded distance maps.  A
+binary field only answers whether the current block can be skipped; a distance
+field estimates how many consecutive blocks can be skipped safely.
+
+For a directional block shadow map \(\bar{S}_g\), the initial distance field is
+\[
+    D_g^{0}(b)
+    =
+    \begin{cases}
+        R, & \bar{S}_g(b)=1,\\
+        0, & \bar{S}_g(b)=0,
+    \end{cases}
+\]
+where \(R\) is the maximum representable distance for the chosen texture
+format.  Non-shadowed blocks are obstacles with distance zero, and shadowed
+blocks are initialized to the largest possible skip length.
+
+\paragraph{Isotropic Chebyshev distance.}
+The isotropic variant computes a capped Chebyshev distance to the nearest
+non-shadowed block:
+\[
+    D_g(b)
+    =
+    \min\left(
+        R,\,
+        \min_{c:\bar{S}_g(c)=0}
+        \|b-c\|_{\infty}
+    \right).
+\]
+This is implemented by separable one-dimensional dynamic passes along
+\(x\), \(y\), and \(z\).  Along an axis \(a\), the update is
+\[
+    D'(b)
+    =
+    \min_{n}
+    \max\left(D(b+n e_a),\, |n|\right),
+\]
+with the search truncated by \(R\) and by the volume boundary.
+
+\paragraph{Extended anisotropic distance.}
+The anisotropic variant restricts the distance computation to the oriented
+cone associated with the current ray class.  Let the two non-dominant axes be
+\(u\) and \(v\), and let the dominant axis be \(a\).  The algorithm performs
+one-sided Chebyshev passes along \(u\) and \(v\) in the octant signs of
+\(\sigma\), followed by an extended one-sided pass along \(a\):
+\[
+    D^{u}(b)
+    =
+    \min_{n\geq 0}
+    \max\left(D^{0}(b+n\sigma_u e_u),\, n\right),
+\]
+\[
+    D^{v}(b)
+    =
+    \min_{n\geq 0}
+    \max\left(D^{u}(b+n\sigma_v e_v),\, n\right),
+\]
+and
+\[
+    D_g(b)
+    =
+    \min\left\{
+        n\geq 1:
+        D^{v}(b+n\sigma_a e_a) \leq n
+    \right\},
+\]
+clamped to \(R\) if no such \(n\) is found.  The first two passes enlarge the
+valid skip region transversely, while the final dominant-axis pass determines
+how far the ray may advance before it can encounter a non-shadowed block.
+
+A bidirectional anisotropic distance can also be formed by computing the same
+oriented distance in the opposite sign direction and taking the minimum:
+\[
+    D_g^{\mathrm{bi}}(b)
+    =
+    \min\left(D_g^{+}(b),D_g^{-}(b)\right).
+\]
+
+\subsection{Texture Packing And Runtime Use}
+
+The distance fields are uploaded as integer 3D textures.  Four storage variants
+are used:
+\[
+\begin{array}{c|c|c}
+\text{variant} & \text{texture format} & \text{stored information} \\
+\hline
+\text{1-bit}  & \mathrm{R16UI}    & 12 binary shadow flags \\
+\text{5-bit}  & \mathrm{RGBA16UI} & x,y,z distances packed per quadrant \\
+\text{8-bit}  & \mathrm{RGB32UI}  & four 8-bit distances per axis \\
+\text{10-bit} & \mathrm{RGBA32UI} & larger packed distances per quadrant
+\end{array}
+\]
+At runtime, the fragment shader determines the ray group \(g\), fetches the
+corresponding packed value, unpacks the skip distance \(D_g(b)\), and sets
+\[
+    \mathrm{empty}(b) = [D_g(b)>0].
+\]
+If \(D_g(b)=0\), the block is traversed normally.  If \(D_g(b)>0\), the ray is
+advanced across a block region of radius \(D_g(b)\).  Therefore, the distance
+map acts as a texture-resident wrapper around the directional shadow maps:
+the original binary visibility guarantee is preserved, while adjacent shadowed
+regions are compressed into larger skip operations.
+

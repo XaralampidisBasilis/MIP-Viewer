@@ -2,7 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import EventEmitter from '../Utils/EventEmitter'
 import Experience from '../Experience'
 import VolumeMap from './Maps/VolumeMap'
-import DistanceMap from './Maps/DistanceMapComparison'
+import DistanceMap from './Maps/DistanceMap'
 
 import { purgeGLFreeTexturePool } from './../Utils/GLUtils';
 
