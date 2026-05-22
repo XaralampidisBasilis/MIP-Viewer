@@ -12,7 +12,7 @@ void main()
 {
     #include "./chunks/structs/set_structs"
     #include "./chunks/raycast/compute_raycast"
-    #include "./chunks/march/compute_march_errors"
+    #include "./chunks/march/compute_march"
     #include "./chunks/shade/compute_shade"
 
     #if DEBUG_ENABLED == 1

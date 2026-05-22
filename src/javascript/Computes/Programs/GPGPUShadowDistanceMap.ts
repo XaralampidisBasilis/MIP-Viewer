@@ -2,7 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMap'
-import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapDifferences'
+import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapDifferencesDocumented'
 import {
     type Axis,
     type Octant,
