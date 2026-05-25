@@ -36,8 +36,8 @@
 import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
-import { stackPacked } from './stack_packed_keepDims_webgl'
-import { unstackPacked } from './unstack_packed_keepDims_webgl'
+import { stack3d } from './stack_keepDims_webgl'
+import { unstack3d } from './unstack_keepDims_webgl'
 import {
     type Axis,
     type Octant,
@@ -165,77 +165,6 @@ function sliceCoord(
 }
 
 /**
- * Initial margin pass: local paper-style difference construction.
- *
- * Computes local previous-z-face-minus-c111 margins before any long-range
- * propagation. The packed vec4 lanes are [c000, c010, c100, c110], matching
- * the four corners on the previous z face of the canonical trilinear cell.
- *
- * This corresponds to Delta_r(i) = V(i-r) - V(i) for the four incoming-face
- * offsets r. The original paper frames the skip test in terms of cell values
- * and ray order; this file keeps the same conservative meaning but represents
- * it as signed differences.
- */
-class InitialMarginsProgram implements GPGPUProgram
-{
-    variableNames = ['A']
-    outputShape: number[]
-    userCode: string
-    packedInputs = false
-    packedOutput = true
-
-    constructor(
-        shape: Shape3,
-        permute: Permute = [0, 1, 2],
-        reverse: Reverse = []
-    ) {
-        const [depth, height, width] = shape
-
-        this.outputShape = [depth, height, width, 2, 2]
-        this.userCode = `
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
-
-        bool insideVolume(ivec3 p)
-        {
-            return all(greaterThanEqual(p, minCoords)) && all(lessThanEqual(p, maxCoords));
-        }
-
-        ivec3 outCoords()
-        {
-            ivec5 p = getOutputCoords();
-            return ivec3(p.z, p.y, p.x);
-        }
-
-        float volumeAt(ivec3 p)
-        {
-            // Outside the volume is treated as empty intensity. This keeps the boundary stencil simple.
-            return insideVolume(p) ? getA(p.z, p.y, p.x) : 0.0;
-        }
-
-        void main()
-        {
-            ivec3 p = outCoords();
-
-            // p is v111 in canonical cell space. The other samples are the
-            // four corners on the previous z face of that cell.
-
-            float v111 = volumeAt(p + ivec3(${voxelOffset( 0,  0,  0, permute, reverse)}));
-            float v000 = volumeAt(p + ivec3(${voxelOffset(-1, -1, -1, permute, reverse)}));
-            float v010 = volumeAt(p + ivec3(${voxelOffset(-1,  0, -1, permute, reverse)}));
-            float v100 = volumeAt(p + ivec3(${voxelOffset( 0, -1, -1, permute, reverse)}));
-            float v110 = volumeAt(p + ivec3(${voxelOffset( 0,  0, -1, permute, reverse)}));
-
-            // Positive margin means that a previous-z-face corner can dominate
-            // v111 in a maximum-intensity projection ray.
-
-            setOutput(vec4(v000, v010, v100, v110) - v111);
-        }
-        `
-    }
-}
-
-/**
  * Dynamic-programming propagation pass.
  *
  * A and B are neighboring slices of the same margin volume. A provides the
@@ -251,7 +180,7 @@ class InitialMarginsProgram implements GPGPUProgram
  * that can enter the cell. The max with zero keeps only the guaranteed
  * non-negative part of the already-seen MIP prefix.
  */
-class PropagateMarginsProgram implements GPGPUProgram
+class PropagateMinmaxProgram implements GPGPUProgram
 {
     variableNames = ['A', 'B']
     outputShape: number[]
@@ -261,7 +190,7 @@ class PropagateMarginsProgram implements GPGPUProgram
     customUniforms = [{ name: 'slice', type: 'int' as const }]
 
     constructor(
-        shape: PackedShape3,
+        shape: Shape3,
         permute: Permute = [0, 1, 2],
         reverse: Reverse = []
     ) {
@@ -271,10 +200,10 @@ class PropagateMarginsProgram implements GPGPUProgram
         this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
-
-        float min4(vec4 v)
+       
+        float min4(float a, float b, float c, float d)
         {
-            return min(min(min(v.x, v.y), v.z), v.w);
+            return min(min(min(a, b), c), d);
         }
 
         ivec3 outCoords()
@@ -283,41 +212,36 @@ class PropagateMarginsProgram implements GPGPUProgram
             return ivec3(p.z, p.y, p.x);
         }
 
-        vec4 currSliceAt(ivec3 p)
+        float currentSliceAt(ivec3 p)
         {
-            // A is the current slice before propagation.
             p = clamp(p, minCoords, maxCoords);
-            return getA(p.z, p.y, p.x, 0, 0);
+            return getA(p.z, p.y, p.x);
         }
 
-        vec4 prevSliceAt(ivec3 p)
+        float previousSliceAt(ivec3 p)
         {
-            // B is the previous slice that was propagated earlier in the sweep.
             p = clamp(p, minCoords, maxCoords);
-            return getB(p.z, p.y, p.x, 0, 0);
+            return getB(p.z, p.y, p.x);
         }
 
         void main()
         {
             ivec3 p = outCoords();
 
-            vec4 m111 = currSliceAt(p + ivec3(${sliceOffset( 0,  0,  0, permute, reverse)}));
-            vec4 m110 = prevSliceAt(p + ivec3(${sliceOffset( 0,  0, -1, permute, reverse)}));
-            vec4 m100 = prevSliceAt(p + ivec3(${sliceOffset( 0, -1, -1, permute, reverse)}));
-            vec4 m010 = prevSliceAt(p + ivec3(${sliceOffset(-1,  0, -1, permute, reverse)}));
-            vec4 m000 = prevSliceAt(p + ivec3(${sliceOffset(-1, -1, -1, permute, reverse)}));
+            float v111 =  currentSliceAt(p + ivec3(${sliceOffset( 0,  0,  0, permute, reverse)}));
+            float v110 = previousSliceAt(p + ivec3(${sliceOffset( 0,  0, -1, permute, reverse)}));
+            float v100 = previousSliceAt(p + ivec3(${sliceOffset( 0, -1, -1, permute, reverse)}));
+            float v010 = previousSliceAt(p + ivec3(${sliceOffset(-1,  0, -1, permute, reverse)}));
+            float v000 = previousSliceAt(p + ivec3(${sliceOffset(-1, -1, -1, permute, reverse)}));
 
-            m111.x += max(min4(m000), 0.0);
-            m111.y += max(min4(m010), 0.0);
-            m111.z += max(min4(m100), 0.0);
-            m111.w += max(min4(m110), 0.0);
-            
-            setOutput(m111);
+            float bottleneck = min4(v000, v010, v100, v110);
+            float minmax = max(v111, bottleneck);
+
+            setOutput(minmax);
         }
         `
     }
 }
-
 
 /**
  * Converts propagated vertex margins into a binary cell mask.
@@ -331,10 +255,10 @@ class PropagateMarginsProgram implements GPGPUProgram
  */
 class ClassifyShadowsProgram implements GPGPUProgram
 {
-    variableNames = ['A']
+    variableNames = ['A', 'B']
     outputShape: number[]
     userCode: string
-    packedInputs = true
+    packedInputs = false
     packedOutput = false
     customUniforms = [{ name: 'tolerance', type: 'float' as const }]
 
@@ -356,40 +280,41 @@ class ClassifyShadowsProgram implements GPGPUProgram
             return ivec3(p.z, p.y, p.x);
         }
 
-        vec4 margins(ivec3 p)
+        float volumeAt(ivec3 p)
         {
             p = clamp(p, minCoords, maxCoords);
-            return getA(p.z, p.y, p.x, 0, 0);
+            return getA(p.z, p.y, p.x);
         }
 
-        bool positive(vec4 m)
+        float minmaxAt(ivec3 p)
         {
-            return all(greaterThan(m + tolerance, vec4(0.0)));
+            p = clamp(p, minCoords, maxCoords);
+            return getB(p.z, p.y, p.x);
         }
 
-        bool shadows(ivec3 cellCoords)
+        bool shadowAt(ivec3 p)
         {
-            ivec3 baseCoords = cellCoords - 1;
+            return (minmaxAt(p) - volumeAt(p) > -tolerance);
+        }
 
-            // z=1 face of the 2x2x2 cell in canonical sweep
-            // space. These are the four propagated margin entries that can
-            // shadow the current cell.
+        bool shadowed(ivec3 coords)
+        {
+            ivec3 base = coords - 1;
 
             return
-                positive(margins(baseCoords + ivec3(${cellOffset(1, 1, 1, permute, reverse)}))) &&
-                positive(margins(baseCoords + ivec3(${cellOffset(1, 0, 1, permute, reverse)}))) &&
-                positive(margins(baseCoords + ivec3(${cellOffset(0, 1, 1, permute, reverse)}))) &&
-                positive(margins(baseCoords + ivec3(${cellOffset(0, 0, 1, permute, reverse)})));
+                shadowAt(base + ivec3(${cellOffset(1, 1, 1, permute, reverse)})) &&
+                shadowAt(base + ivec3(${cellOffset(1, 0, 1, permute, reverse)})) &&
+                shadowAt(base + ivec3(${cellOffset(0, 1, 1, permute, reverse)})) &&
+                shadowAt(base + ivec3(${cellOffset(0, 0, 1, permute, reverse)}));
         }
 
         void main()
         {
-            setOutput(float(shadows(outCoords())));
+            setOutput(float(shadowed(outCoords())));
         }
         `
     }
 }
-
 
 /**
  * Builds the reverse-pass gate tensor from the forward cell mask.
@@ -770,7 +695,7 @@ class UnpackExtendedProgram implements GPGPUProgram
  * 2.2: every entry says whether the corresponding trilinear cell can be
  * skipped for rays in that class.
  */
-function computeMargins(
+function propagateMinmax(
     volume: tf.Tensor3D,
     permute: Permute,
     reverse: Reverse,
@@ -780,22 +705,17 @@ function computeMargins(
     const axis = permute[0]
     const backwards = reverse.includes(axis)
 
-    const initialMarginsProgram = new InitialMarginsProgram(volume.shape as Shape3, permute, reverse)
-    let margins = runWebGLProgram(initialMarginsProgram, [volume], 'float32', [], true) as tf.Tensor5D
-    if (verbose) logMean('initialMargins', margins)
+    const slices = unstack3d(volume, axis)
 
-    const slices = unstackPacked(margins, axis)
-    tf.dispose(margins)
-
-    const shape = slices[0].shape as PackedShape3
-    const propagate = new PropagateMarginsProgram(shape, permute, reverse)
+    const shape = slices[0].shape as Shape3
+    const propagate = new PropagateMinmaxProgram(shape, permute, reverse)
 
     const start = backwards ? slices.length - 2 : 1
     const end = backwards ? -1 : slices.length
     const step = backwards ? -1 : 1
 
     // March in the direction implied by reverse. The first slice already has
-    // its local vertex margins; every following slice consumes the prior
+    // its local vertex minmax; every following slice consumes the prior
     // propagated slice.
     for (let i = start; i !== end; i += step)
     {
@@ -805,15 +725,15 @@ function computeMargins(
         slices[i] = next
     }
 
-    margins = stackPacked(slices, axis) as tf.Tensor5D
+    const minmax = stack3d(slices, axis) as tf.Tensor5D
     tf.dispose(slices)
-    if (verbose) logMean('margins', margins)
+    if (verbose) logMean('minmax', minmax)
 
-    return margins
+    return minmax
 }
 
 /**
- * Reverse-sweep version of computeMargins. It uses the forward-pass gates to
+ * Reverse-sweep version of propagateMinmax. It uses the forward-pass gates to
  * decide whether a route should extend only positive rejection margins or pass
  * signed margins through unchanged.
  */

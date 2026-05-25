@@ -24,7 +24,7 @@ export class Unstack3dProgram implements GPGPUProgram
     userCode: string
     enableShapeUniforms: boolean
 
-    constructor(outputShape: number[], axis: Axis3) 
+    constructor(outputShape: number[], axis: Axis3)
     {
         // outputShape must be rank-3: [D', H', W'] where one of D'|H'|W' is 1
         this.outputShape = outputShape
@@ -62,8 +62,8 @@ export function unstack3d(tensor: tf.Tensor, axis: Axis3 = 0): tf.Tensor[]
 {
     assertAxis3(axis)
     assertTensor3d(tensor)
-    
-    const [D, H, W] = tensor.shape as unknown as [number, number, number]
+
+    const [D, H, W] = tensor.shape as [number, number, number]
     const sliceCount = [D, H, W][axis]
 
     // Keep the chosen axis as 1 instead of removing it.
