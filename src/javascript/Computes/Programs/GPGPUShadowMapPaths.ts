@@ -206,7 +206,7 @@ class PropagateMinmaxProgram implements GPGPUProgram
             return min(min(min(a, b), c), d);
         }
 
-        ivec3 outCoords()
+        ivec3 outputCoords()
         {
             ivec5 p = getOutputCoords();
             return ivec3(p.z, p.y, p.x);
@@ -226,7 +226,7 @@ class PropagateMinmaxProgram implements GPGPUProgram
 
         void main()
         {
-            ivec3 p = outCoords();
+            ivec3 p = outputCoords();
 
             float v111 =  currentSliceAt(p + ivec3(${sliceOffset( 0,  0,  0, permute, reverse)}));
             float v110 = previousSliceAt(p + ivec3(${sliceOffset( 0,  0, -1, permute, reverse)}));
@@ -244,16 +244,17 @@ class PropagateMinmaxProgram implements GPGPUProgram
 }
 
 /**
- * Converts propagated vertex margins into a binary cell mask.
+ * Builds the reverse-pass gate tensor from the forward cell mask.
  *
- * The margin tensor stores vec4 margins to the four relevant cell vertices.
- * The output mask stores one binary value per cell-mask entry: 1 means that
- * the cell is conservatively rejected for this ray class.
+ * Each lane is 1 when the corresponding forward corner is not rejected. The
+ * reverse propagation shader reads this as "the reverse rejection is allowed
+ * to grow through this lane".
  *
- * This is the conservative rejection predicate: every trilinear corner sample
- * the cell can expose to the ray class is already dominated, up to tolerance.
+ * In the paper terminology, this is the "hollow" handling for the second pass:
+ * cells rejected by the first directional test should not act as solid
+ * occluders for the opposite direction.
  */
-class ClassifyShadowsProgram implements GPGPUProgram
+class ShadowVerticesProgram implements GPGPUProgram
 {
     variableNames = ['A', 'B']
     outputShape: number[]
@@ -268,13 +269,13 @@ class ClassifyShadowsProgram implements GPGPUProgram
         reverse: Reverse = []
     ) {
         const [depth, height, width] = shape
-        this.outputShape = shape.map((n) => n + 1)
-
+    
+        this.outputShape = shape
         this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
-        ivec3 outCoords()
+        ivec3 outputCoords()
         {
             ivec3 p = getOutputCoords();
             return ivec3(p.z, p.y, p.x);
@@ -292,48 +293,44 @@ class ClassifyShadowsProgram implements GPGPUProgram
             return getB(p.z, p.y, p.x);
         }
 
-        bool shadowAt(ivec3 p)
+        bool shadowVertex(ivec3 p)
         {
-            return (minmaxAt(p) - volumeAt(p) > -tolerance);
-        }
+            float v111 = volumeAt(p + ivec3(${voxelOffset( 0,  0,  0, permute, reverse)}));
+            float v110 = minmaxAt(p + ivec3(${voxelOffset( 0,  0, -1, permute, reverse)}));
+            float v100 = minmaxAt(p + ivec3(${voxelOffset( 0, -1, -1, permute, reverse)}));
+            float v010 = minmaxAt(p + ivec3(${voxelOffset(-1,  0, -1, permute, reverse)}));
+            float v000 = minmaxAt(p + ivec3(${voxelOffset(-1, -1, -1, permute, reverse)}));
 
-        bool shadowed(ivec3 coords)
-        {
-            ivec3 base = coords - 1;
+            float bottleneck = min4(v000, v010, v100, v110) + tolerance;
 
-            return
-                shadowAt(base + ivec3(${cellOffset(1, 1, 1, permute, reverse)})) &&
-                shadowAt(base + ivec3(${cellOffset(1, 0, 1, permute, reverse)})) &&
-                shadowAt(base + ivec3(${cellOffset(0, 1, 1, permute, reverse)})) &&
-                shadowAt(base + ivec3(${cellOffset(0, 0, 1, permute, reverse)}));
+            return (bottleneck >= v111);
         }
 
         void main()
         {
-            setOutput(float(shadowed(outCoords())));
+            setOutput(float(shadowVertex(outputCoords())));
         }
         `
     }
 }
 
 /**
- * Builds the reverse-pass gate tensor from the forward cell mask.
+ * Converts propagated vertex margins into a binary cell mask.
  *
- * Each lane is 1 when the corresponding forward corner is not rejected. The
- * reverse propagation shader reads this as "the reverse rejection is allowed
- * to grow through this lane".
+ * The margin tensor stores vec4 margins to the four relevant cell vertices.
+ * The output mask stores one binary value per cell-mask entry: 1 means that
+ * the cell is conservatively rejected for this ray class.
  *
- * In the paper terminology, this is the "hollow" handling for the second pass:
- * cells rejected by the first directional test should not act as solid
- * occluders for the opposite direction.
+ * This is the conservative rejection predicate: every trilinear corner sample
+ * the cell can expose to the ray class is already dominated, up to tolerance.
  */
-class BackwardGateProgram implements GPGPUProgram
+class ShadowCellsProgram implements GPGPUProgram
 {
     variableNames = ['A']
     outputShape: number[]
     userCode: string
     packedInputs = false
-    packedOutput = true
+    packedOutput = false
 
     constructor(
         shape: Shape3,
@@ -341,19 +338,77 @@ class BackwardGateProgram implements GPGPUProgram
         reverse: Reverse = []
     ) {
         const [depth, height, width] = shape
-        this.outputShape = shape.map((n) => n - 1).concat([2, 2]) as PackedShape3
+        this.outputShape = shape.map((n) => n + 1)
 
         this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
-        ivec3 outCoords()
+        ivec3 outputCoords()
         {
-            ivec5 p = getOutputCoords();
+            ivec3 p = getOutputCoords();
             return ivec3(p.z, p.y, p.x);
         }
 
-        float shadowAt(ivec3 p)
+        bool shadowVertex(ivec3 p)
+        {
+            p = clamp(p, minCoords, maxCoords);
+            return getB(p.z, p.y, p.x) > 0.5;
+        }
+
+        bool shadowCell(ivec3 coords)
+        {
+            ivec3 base = coords - 1;
+
+            // Consider a cell shadowed if all four of its relevant face vertices are shadowed. 
+            return
+                shadowVertex(base + ivec3(${cellOffset(1, 1, 1, permute, reverse)})) &&
+                shadowVertex(base + ivec3(${cellOffset(1, 0, 1, permute, reverse)})) &&
+                shadowVertex(base + ivec3(${cellOffset(0, 1, 1, permute, reverse)})) &&
+                shadowVertex(base + ivec3(${cellOffset(0, 0, 1, permute, reverse)}));
+        }
+
+        void main()
+        {
+            setOutput(float(shadowCell(outputCoords())));
+        }
+        `
+    }
+}
+
+class BackwardVolumeProgram implements GPGPUProgram
+{
+    variableNames = ['A', 'B']
+    outputShape: number[]
+    userCode: string
+    packedInputs = false
+    packedOutput = false
+
+    constructor(
+        shape: Shape3,
+        permute: Permute = [0, 1, 2],
+        reverse: Reverse = []
+    ) {
+        const [depth, height, width] = shape
+        this.outputShape = shape.map((n) => n - 1)
+
+        this.userCode = `
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
+
+        ivec3 outputCoords()
+        {
+            ivec3 p = getOutputCoords();
+            return ivec3(p.z, p.y, p.x);
+        }
+
+        float volumeAt(ivec3 p)
+        {
+            p = clamp(p, minCoords, maxCoords);
+            return getA(p.z, p.y, p.x);
+        }
+
+        float shadowCell(ivec3 p)
         {
             p = clamp(p, minCoords, maxCoords);
             return getA(p.z, p.y, p.x);
@@ -361,117 +416,12 @@ class BackwardGateProgram implements GPGPUProgram
 
         void main()
         {
-            ivec3 p = outCoords();
-
-            // Sample the same four canonical lanes used by the margin tensor.
-            float s000 = shadowAt(p + ivec3(${cellOffset(-1, -1, -1, permute, reverse)}));
-            float s010 = shadowAt(p + ivec3(${cellOffset(-1,  0, -1, permute, reverse)}));
-            float s100 = shadowAt(p + ivec3(${cellOffset( 0, -1, -1, permute, reverse)}));
-            float s110 = shadowAt(p + ivec3(${cellOffset( 0,  0, -1, permute, reverse)}));
-
-            // Cell-mask values are 0/1. Invert them to get open/closed gates.
-            setOutput(1.0 - vec4(s000, s010, s100, s110));
+            setOutput(float(shadowVertex(outputCoords())));
         }
         `
     }
 }
 
-/**
- * Gated propagation pass for the reverse sweep.
- *
- * During bidirectional construction, the forward cell mask becomes the gate for
- * the reverse pass. Open gates behave like normal propagation. Closed gates
- * let the raw limiting margin through so the reverse pass does not double-count
- * blockers through a region already rejected by the forward pass.
- *
- * This implements the paper's bidirectional idea in difference space: compute
- * one directional cell mask, then evaluate the complementary direction while
- * preventing already-discarded cells from becoming artificial occluders.
- */
-class PropagateGatedMarginsProgram implements GPGPUProgram
-{
-    variableNames = ['A', 'B', 'C']
-    outputShape: number[]
-    userCode: string
-    packedInputs = true
-    packedOutput = true
-    customUniforms = [{ name: 'slice', type: 'int' as const }]
-
-    constructor(
-        shape: PackedShape3,
-        permute: Permute = [0, 1, 2],
-        reverse: Reverse = []
-    ) {
-        const [depth, height, width] = shape.slice(0, 3)
-
-        this.outputShape = shape
-        this.userCode = `
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
-
-        float min4(vec4 v)
-        {
-            return min(min(min(v.x, v.y), v.z), v.w);
-        }
-
-        ivec3 outCoords()
-        {
-            ivec5 p = getOutputCoords();
-            return ivec3(p.z, p.y, p.x);
-        }
-
-        vec4 currSliceAt(ivec3 p)
-        {
-            p = clamp(p, minCoords, maxCoords);
-            return getA(p.z, p.y, p.x, 0, 0);
-        }
-
-        vec4 prevSliceAt(ivec3 p)
-        {
-            p = clamp(p, minCoords, maxCoords);
-            return getB(p.z, p.y, p.x, 0, 0);
-        }
-
-        bvec4 gateAt(ivec3 p)
-        {
-            // The gate is indexed in the full 3D tensor. Replace the current
-            // sweep-axis coordinate with the explicit slice being processed.
-            p = ivec3(${sliceCoord('p.x', 'p.y', 'p.z', permute)});
-            vec4 c = getC(p.z, p.y, p.x, 0, 0);
-            return greaterThan(c, vec4(0.5));
-        }
-
-        void main()
-        {
-            ivec3 p = outCoords();
-            bvec4 open = gateAt(p);
-
-            vec4 m111 = currSliceAt(p + ivec3(${sliceOffset( 0,  0,  0, permute, reverse)}));
-            vec4 m110 = prevSliceAt(p + ivec3(${sliceOffset( 0,  0, -1, permute, reverse)}));
-            vec4 m100 = prevSliceAt(p + ivec3(${sliceOffset( 0, -1, -1, permute, reverse)}));
-            vec4 m010 = prevSliceAt(p + ivec3(${sliceOffset(-1,  0, -1, permute, reverse)}));
-            vec4 m000 = prevSliceAt(p + ivec3(${sliceOffset(-1, -1, -1, permute, reverse)}));
-
-            vec4 n111 = vec4(
-                min4(m000), 
-                min4(m010), 
-                min4(m100), 
-                min4(m110)
-            );
-
-            // open lane: clamp to positive, same as the forward pass.
-            // closed lane: keep signed margins to prevent false reverse rejections.
-
-            m111.x += open.x ? max(n111.x, 0.0) : n111.x;
-            m111.y += open.y ? max(n111.y, 0.0) : n111.y;
-            m111.z += open.z ? max(n111.z, 0.0) : n111.z;
-            m111.w += open.w ? max(n111.w, 0.0) : n111.w;
-
-            setOutput(m111);
-        }
-        `
-    }
-}
 
 /**
  * Binary OR of two 0/1 cell masks. Used to merge forward and reverse passes
@@ -494,7 +444,7 @@ class OrShadowsProgram implements GPGPUProgram
             return uvec4(round(v)) & 1u;
         }
 
-        ivec3 outCoords()
+        ivec3 outputCoords()
         {
             ivec3 p = getOutputCoords();
             return ivec3(p.z, p.y, p.x);
@@ -502,7 +452,7 @@ class OrShadowsProgram implements GPGPUProgram
 
         void main()
         {
-            ivec3 p = outCoords();
+            ivec3 p = outputCoords();
             setOutput(vec4(bits(getA(p.z, p.y, p.x)) | bits(getB(p.z, p.y, p.x))));
         }
         `
@@ -531,7 +481,7 @@ class PackAxisProgram implements GPGPUProgram
             return uvec4(round(v)) & 1u;
         }
 
-        ivec3 outCoords()
+        ivec3 outputCoords()
         {
             ivec3 p = getOutputCoords();
             return ivec3(p.z, p.y, p.x);
@@ -545,7 +495,7 @@ class PackAxisProgram implements GPGPUProgram
 
         void main()
         {
-            ivec3 p = outCoords();
+            ivec3 p = outputCoords();
 
             uvec4 a = bit(getA(p.z, p.y, p.x));
             uvec4 b = bit(getB(p.z, p.y, p.x));
@@ -584,7 +534,7 @@ class PackExtendedProgram implements GPGPUProgram
             return uvec4(round(v)) & 15u;
         }
 
-        ivec3 outCoords()
+        ivec3 outputCoords()
         {
             ivec3 p = getOutputCoords();
             return ivec3(p.z, p.y, p.x);
@@ -598,7 +548,7 @@ class PackExtendedProgram implements GPGPUProgram
 
         void main()
         {
-            ivec3 p = outCoords();
+            ivec3 p = outputCoords();
 
             uvec4 x = nibble(getA(p.z, p.y, p.x));
             uvec4 y = nibble(getB(p.z, p.y, p.x));
@@ -631,7 +581,7 @@ class UnpackAxisProgram implements GPGPUProgram
             return uvec4(round(v)) & 15u;
         }
 
-        ivec3 outCoords()
+        ivec3 outputCoords()
         {
             ivec3 p = getOutputCoords();
             return ivec3(p.z, p.y, p.x);
@@ -639,7 +589,7 @@ class UnpackAxisProgram implements GPGPUProgram
 
         void main()
         {
-            ivec3 p = outCoords();
+            ivec3 p = outputCoords();
             uvec4 packed = nibble(getA(p.z, p.y, p.x));
             setOutput(vec4((packed >> maskBit) & 1u));
         }
@@ -668,7 +618,7 @@ class UnpackExtendedProgram implements GPGPUProgram
             return clamp(ivec4(round(v)), -2048, 2047);
         }
 
-        ivec3 outCoords()
+        ivec3 outputCoords()
         {
             ivec3 p = getOutputCoords();
             return ivec3(p.z, p.y, p.x);
@@ -676,7 +626,7 @@ class UnpackExtendedProgram implements GPGPUProgram
 
         void main()
         {
-            ivec3 p = outCoords();
+            ivec3 p = outputCoords();
             uvec4 packed = uvec4(stored(getA(p.z, p.y, p.x)) + ivec4(2048));
             setOutput(vec4((packed >> maskBit) & 1u));
         }
@@ -791,7 +741,7 @@ function classifyShadowsMask(
 ): tf.Tensor3D
 {
     const shape = margins.shape.slice(0, 3) as Shape3
-    const program = new ClassifyShadowsProgram(shape, permute, reverse)
+    const program = new ShadowCellsProgram(shape, permute, reverse)
 
     const shadowsMask = runWebGLProgram(program, [margins], 'float32', [[tolerance]], true) as tf.Tensor3D
     if (verbose) logMean('shadowsMask', shadowsMask)

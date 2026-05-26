@@ -511,6 +511,7 @@ class PropagateGatedMarginsProgram implements GPGPUProgram
         {
             // The gate is indexed in the full 3D tensor. Replace the current
             // sweep-axis coordinate with the explicit slice being processed.
+
             p = ivec3(${sliceCoord('p.x', 'p.y', 'p.z', permute)});
             vec4 c = getC(p.z, p.y, p.x, 0, 0);
             return greaterThan(c, vec4(0.5));
