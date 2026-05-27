@@ -27,15 +27,15 @@ export default class Configs extends EventEmitter
     {
         super()
 
-        this.adaptivePixelRatioEnabled = true
+        this.adaptivePixelRatioEnabled = false
         
-        this.downscaleEnabled = false
+        this.downscaleEnabled = true
         this.downscaleFactor = 0.8
 
         this.errorTolerance = 0.01
-        this.blockSize = 2
+        this.blockSize = 1
         
-        this.distanceVariation = '5bit'
+        this.distanceVariation = '1bit'
         this.marchingMethod = 'cells'
         this.skippingMethod = 'distance'
         this.colormap = 'viridis'

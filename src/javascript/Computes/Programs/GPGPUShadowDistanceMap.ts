@@ -2,7 +2,9 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMap'
-import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapDifferencesDocumented'
+// import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapDifferences'
+// import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapDifferencesDocumented'
+import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapPaths'
 import {
     type Axis,
     type Octant,
@@ -10,7 +12,7 @@ import {
     type Tuple,
     axisIndex,
     reverseSign,
-    signFromOctant,
+    octantAxisToSign,
 } from '../../Utils/ShadowMapUtils'
 
 class ShadowChebyshevDistancePass implements GPGPUProgram 
@@ -297,6 +299,7 @@ function runWebGLProgram(
     return tf.engine().makeTensorFromTensorInfo(info) 
 }
 
+
 function packToR16UIArray(maps: Tuple<Int32Array, 12>): Uint16Array 
 {
     const voxels = maps[0].length
@@ -486,6 +489,7 @@ function packToRGBA32UIArray(maps: Tuple<Int32Array, 12>): Uint32Array
     return packed
 }
 
+
 function isotropicDistanceMapInt32Array(
     volume: tf.Tensor3D,
     dominantAxis: Axis,
@@ -538,10 +542,10 @@ function extendedAnisotropicUnidirectionalDistanceMapInt32Array(
     if (verbose) logTensor('shadows', shadows)
 
     const axes = ['x', 'y', 'z'] as [Axis, Axis, Axis]
-    const dominantSign = signFromOctant(octant, axisIndex(dominantAxis))
+    const dominantSign = octantAxisToSign(octant, axisIndex(dominantAxis))
 
     const otherAxes = axes.filter(a => a !== dominantAxis) as [Axis, Axis]
-    const otherSigns = otherAxes.map(a => signFromOctant(octant, axisIndex(a))) as [Sign, Sign]
+    const otherSigns = otherAxes.map(a => octantAxisToSign(octant, axisIndex(a))) as [Sign, Sign]
 
     const inAxes = [...otherAxes, dominantAxis] as [Axis, Axis, Axis]
     const inSigns = [...otherSigns, dominantSign] as [Sign, Sign, Sign]
@@ -583,10 +587,10 @@ function extendedAnisotropicBidirectionalDistanceMapInt32Array(
     if (verbose) logTensor('shadows', shadows)
 
     const axes = ['x', 'y', 'z'] as [Axis, Axis, Axis]
-    const dominantSign = signFromOctant(octant, axisIndex(dominantAxis))
+    const dominantSign = octantAxisToSign(octant, axisIndex(dominantAxis))
 
     const otherAxes = axes.filter(a => a !== dominantAxis) as [Axis, Axis]
-    const otherSigns = otherAxes.map(a => signFromOctant(octant, axisIndex(a))) as [Sign, Sign]
+    const otherSigns = otherAxes.map(a => octantAxisToSign(octant, axisIndex(a))) as [Sign, Sign]
 
     const inAxes = [...otherAxes, dominantAxis] as [Axis, Axis, Axis]
     const inSigns = [...otherSigns, dominantSign] as [Sign, Sign, Sign]
@@ -632,6 +636,7 @@ function extendedAnisotropicBidirectionalDistanceMapInt32Array(
 
     return d as Int32Array
 }
+
 
 export function computeIsotropicDistanceMap1bit(volume: tf.Tensor3D, tolerance: number, blockSize: number, verbose: boolean = false) : Uint16Array
 {
@@ -713,6 +718,7 @@ export function computeIsotropicDistanceMap10bit(volume: tf.Tensor3D, tolerance:
     return packToRGBA32UIArray(maps as Tuple<Int32Array, 12>) 
 }
 
+
 export function computeExtendedAnisotropicUnidirectionalDistanceMap1bit(volume: tf.Tensor3D, tolerance: number, blockSize: number, verbose: boolean = false) : Uint16Array
 {
     const maps = new Array(12) 
@@ -792,6 +798,7 @@ export function computeExtendedAnisotropicUnidirectionalDistanceMap10bit(volume:
 
     return packToRGBA32UIArray(maps as Tuple<Int32Array, 12>) 
 }
+
 
 export function computeExtendedAnisotropicBidirectionalDistanceMap1bit(volume: tf.Tensor3D, tolerance: number, blockSize: number, verbose: boolean = false) : Uint16Array
 {

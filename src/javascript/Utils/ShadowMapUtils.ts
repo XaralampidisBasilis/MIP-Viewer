@@ -177,17 +177,17 @@ export function reverseSign(sign: Sign): Sign
     return sign === '+' ? '-' : '+'
 }
 
-export function signFromOctant(octant: Octant, axis: Dimension): Sign
+export function octantAxisToSign(octant: Octant, axis: Dimension): Sign
 {
     return octant[axis] as Sign
 }
 
 export function reverseOctant(octant: Octant): Octant
 {
-    return `${reverseSign(signFromOctant(octant, 0))}${reverseSign(signFromOctant(octant, 1))}${reverseSign(signFromOctant(octant, 2))}`
+    return `${reverseSign(octantAxisToSign(octant, 0))}${reverseSign(octantAxisToSign(octant, 1))}${reverseSign(octantAxisToSign(octant, 2))}`
 }
 
-export function mapFromPermuteReverse(permute: Permute, reverse: Reverse): number
+export function permuteReverseToMap(permute: Permute, reverse: Reverse): number
 {
     const key = `${permute.join(",")}|${reverse.join(",")}`
     const map = MAP_FROM_PERMUTE_REVERSE[key]
@@ -200,7 +200,7 @@ export function mapFromPermuteReverse(permute: Permute, reverse: Reverse): numbe
     return map
 }
 
-export function mapFromDominantAxisOctant(dominantAxis: Axis, octant: Octant): number
+export function dominantAxisOctantToMap(dominantAxis: Axis, octant: Octant): number
 {
     const key = `${dominantAxis}|${octant}`
     const map = MAP_FROM_DOMINANT_AXIS_OCTANT[key]
@@ -213,7 +213,7 @@ export function mapFromDominantAxisOctant(dominantAxis: Axis, octant: Octant): n
     return map
 }
 
-export function permuteReverseFromDominantAxisOctant(dominantAxis: Axis, octant: Octant): { permute: Permute, reverse: Reverse }
+export function dominantAxisOctantToPermuteReverse(dominantAxis: Axis, octant: Octant): { permute: Permute, reverse: Reverse }
 {
     const key = `${dominantAxis}|${octant}`
     const v = PERMUTE_REVERSE_FROM_DOMINANT_AXIS_OCTANT[key]
@@ -226,7 +226,7 @@ export function permuteReverseFromDominantAxisOctant(dominantAxis: Axis, octant:
     return { permute: [...v.permute] as Permute, reverse: [...v.reverse] as Reverse }
 }
 
-export function dominantAxisOctantFromPermuteReverse(permute: Permute, reverse: Reverse): { dominantAxis: Axis, octant: Octant }
+export function permuteReverseToDominantAxisOctant(permute: Permute, reverse: Reverse): { dominantAxis: Axis, octant: Octant }
 {
     const key = `${permute.join(",")}|${reverse.join(",")}`
     const v = DOMINANT_AXIS_OCTANT_FROM_PERMUTE_REVERSE[key]

@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import * as GPGPU from '../Programs/GPGPUShadowDistanceMap'
-// import * as GPGPU from '../Programs/GPGPUShadowDistanceMapExperiment'
+// import * as GPGPU from '../Programs/GPGPUShadowDistanceMapComparison'
 
 export default class DistanceMap 
 {
@@ -18,19 +18,19 @@ export default class DistanceMap
 
     computeTexture()
     {
-        if (this.distanceVariation ===  '1bit') this.computeR16UITexture()
-        if (this.distanceVariation ===  '5bit') this.computeRGBA16UITexture()
-        if (this.distanceVariation ===  '8bit') this.computeRGB32UITexture()
-        if (this.distanceVariation === '10bit') this.computeRGBA32UITexture()
+        if (this.distanceVariation ===  '1bit') this.compute1BitDistanceTexture()
+        if (this.distanceVariation ===  '5bit') this.compute5BitDistanceTexture()
+        if (this.distanceVariation ===  '8bit') this.compute8BitDistanceTexture()
+        if (this.distanceVariation === '10bit') this.compute10BitDistanceTexture()
     }
  
-    computeR16UITexture()
+    compute1BitDistanceTexture()
     {
         console.time('computeR16UITexture') 
         
         const volumeTensor = this.computes.volumeMap.tensor
-        const blockShape = volumeTensor.shape.map(X => Math.ceil((X + 1) / this.blockSize))
-        
+        const blockShape = volumeTensor.shape.map(x => Math.ceil((x + 1) / this.blockSize))
+
         this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
         this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap1bit(volumeTensor, this.errorTolerance, this.blockSize, true)
 
@@ -47,12 +47,12 @@ export default class DistanceMap
         console.timeEnd('computeR16UITexture') 
     }   
 
-    computeRGBA16UITexture()
+    compute5BitDistanceTexture()
     {
         console.time('computeRGBA16UITexture') 
 
         const volumeTensor = this.computes.volumeMap.tensor
-        const blockShape = volumeTensor.shape.map(X => Math.ceil((X + 1) / this.blockSize))
+        const blockShape = volumeTensor.shape.map(x => Math.ceil((x + 1) / this.blockSize))
 
         this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
         this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap5bit(volumeTensor, this.errorTolerance, this.blockSize, true)
@@ -70,12 +70,12 @@ export default class DistanceMap
         console.timeEnd('computeRGBA16UITexture') 
     }   
 
-    computeRGB32UITexture()
+    compute8BitDistanceTexture()
     {
         console.time('computeRGB32UITexture') 
 
         const volumeTensor = this.computes.volumeMap.tensor
-        const blockShape = volumeTensor.shape.map(X => Math.ceil((X + 1) / this.blockSize))
+        const blockShape = volumeTensor.shape.map(x => Math.ceil((x + 1) / this.blockSize))
 
         this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
         this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap8bit(volumeTensor, this.errorTolerance, this.blockSize, true)
@@ -95,12 +95,12 @@ export default class DistanceMap
         console.timeEnd('computeRGB32UITexture') 
     }   
 
-    computeRGBA32UITexture()
+    compute10BitDistanceTexture()
     {
         console.time('computeRGBA32UITexture') 
 
         const volumeTensor = this.computes.volumeMap.tensor
-        const blockShape = volumeTensor.shape.map(X => Math.ceil((X + 1) / this.blockSize))
+        const blockShape = volumeTensor.shape.map(x => Math.ceil((x + 1) / this.blockSize))
 
         this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
         this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap10bit(volumeTensor, this.errorTolerance, this.blockSize, true)

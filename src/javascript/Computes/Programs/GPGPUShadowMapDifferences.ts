@@ -11,7 +11,7 @@ import {
     applyPermutation,
     complementReverse,
     inversePermutation,
-    permuteReverseFromDominantAxisOctant,
+    dominantAxisOctantToPermuteReverse,
     reverseOctant,
 } from '../../Utils/ShadowMapUtils'
 import { maxPool3d, minPool3d, avgPool3d } from './pool3d'
@@ -863,7 +863,7 @@ export function computeUnidirectionalShadowMap(
     verbose: boolean = false
 ) : tf.Tensor3D
 {
-    const { permute, reverse } = permuteReverseFromDominantAxisOctant(dominantAxis, octant)
+    const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
 
     const differences = unidirectionalDifferences(volume, permute, reverse) as tf.Tensor5D
     if (verbose) logTensor('differencesPropagated', differences)
@@ -884,7 +884,7 @@ export function computeBidirectionalShadowMap(
     verbose: boolean = false
 ) : tf.Tensor3D
 {
-    const { permute, reverse } = permuteReverseFromDominantAxisOctant(dominantAxis, octant)
+    const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
 
     const forwardShadowMap = computeUnidirectionalShadowMap(volume, dominantAxis, octant, tolerance)
     if (verbose) logTensor('forwardShadowMap', forwardShadowMap)
@@ -1017,7 +1017,7 @@ export function computeBidirectionalBlockShadowMap(
     verbose: boolean = false
 ) : tf.Tensor3D
 {
-    const { permute, reverse } = permuteReverseFromDominantAxisOctant(dominantAxis, octant)
+    const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
 
     const forwardShadowMap = computeUnidirectionalShadowMap(volume, dominantAxis, octant, tolerance)
     if (verbose) logTensor('forwardShadowMap', forwardShadowMap)
@@ -1100,7 +1100,7 @@ export function computeUnidirectionalShadowMapReference(
     verbose: boolean = false
 ) : tf.Tensor3D
 {
-    const { permute, reverse } = permuteReverseFromDominantAxisOctant(dominantAxis, octant)
+    const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
 
     const reversed = volume.reverse(reverse) as tf.Tensor3D
     const transposed = reversed.transpose(permute) as tf.Tensor3D

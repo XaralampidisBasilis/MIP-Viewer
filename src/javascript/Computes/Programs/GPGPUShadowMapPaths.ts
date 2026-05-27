@@ -45,34 +45,12 @@ import {
     type Reverse,
     applyPermutation,
     complementReverse,
-    inversePermutation,
-    permuteReverseFromDominantAxisOctant,
-    reverseOctant,
+    dominantAxisOctantToPermuteReverse,
 } from '../../Utils/ShadowMapUtils'
 import { minPool3d } from './pool3d'
 
 type Shape3 = [number, number, number]
-type PackedShape3 = [number, number, number, 2, 2]
-type Triple<T> = [T, T, T]
-type Quad<T> = [T, T, T, T]
 type CoordExpr = number | string
-
-// In the comments below, a "ray class" means a dominant-axis/octant group.
-// The renderer can select a class from the view ray without changing the
-// precomputed texture layout.
-const AXES: Triple<Axis> = ['x', 'y', 'z']
-
-/**
- * A bidirectional sweep covers both signs along the dominant axis. That leaves
- * four representative octants per dominant axis, which together form the 12
- * cell masks packed by computeExtendedAnisotropicBidirectionalShadowMap.
- */
-const OCTANTS: Record<Axis, Quad<Octant>> =
-{
-    x: ['+++', '+-+', '++-', '+--'],
-    y: ['+++', '-++', '++-', '-+-'],
-    z: ['+++', '+-+', '-++', '--+'],
-}
 
 /**
  * Convert a canonical sweep-space offset into the physical tensor orientation.
@@ -147,24 +125,6 @@ function cellOffset(
 }
 
 /**
- * GLSL coordinate expression used by gated propagation. The gate tensor is the
- * full volume, while the shader updates one slice, so the sweep-axis coordinate
- * is substituted with the slice uniform.
- */
-function sliceCoord(
-    x: string,
-    y: string,
-    z: string,
-    permute: Permute
-): string
-{
-    const coord: [string, string, string] = [z, y, x]
-    coord[permute[0]] = 'slice'
-
-    return xyz(coord)
-}
-
-/**
  * Dynamic-programming propagation pass.
  *
  * A and B are neighboring slices of the same margin volume. A provides the
@@ -180,13 +140,13 @@ function sliceCoord(
  * that can enter the cell. The max with zero keeps only the guaranteed
  * non-negative part of the already-seen MIP prefix.
  */
-class PropagateMinmaxProgram implements GPGPUProgram
+class PropagateVertexMinmaxProgram implements GPGPUProgram
 {
     variableNames = ['A', 'B']
     outputShape: number[]
     userCode: string
-    packedInputs = true
-    packedOutput = true
+    packedInputs = false
+    packedOutput = false
     customUniforms = [{ name: 'slice', type: 'int' as const }]
 
     constructor(
@@ -206,22 +166,25 @@ class PropagateMinmaxProgram implements GPGPUProgram
             return min(min(min(a, b), c), d);
         }
 
+        bool insideVolume(ivec3 p)
+        {
+            return all(greaterThanEqual(p, minCoords)) && all(lessThanEqual(p, maxCoords));
+        }
+
         ivec3 outputCoords()
         {
-            ivec5 p = getOutputCoords();
+            ivec3 p = getOutputCoords();
             return ivec3(p.z, p.y, p.x);
         }
 
         float currentSliceAt(ivec3 p)
         {
-            p = clamp(p, minCoords, maxCoords);
             return getA(p.z, p.y, p.x);
         }
 
         float previousSliceAt(ivec3 p)
         {
-            p = clamp(p, minCoords, maxCoords);
-            return getB(p.z, p.y, p.x);
+            return insideVolume(p) ? getB(p.z, p.y, p.x) : 0.0;
         }
 
         void main()
@@ -254,7 +217,7 @@ class PropagateMinmaxProgram implements GPGPUProgram
  * cells rejected by the first directional test should not act as solid
  * occluders for the opposite direction.
  */
-class ShadowVerticesProgram implements GPGPUProgram
+class ComputeVertexShadowsProgram implements GPGPUProgram
 {
     variableNames = ['A', 'B']
     outputShape: number[]
@@ -275,6 +238,16 @@ class ShadowVerticesProgram implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
+        float min4(float a, float b, float c, float d)
+        {
+            return min(min(min(a, b), c), d);
+        }
+
+        bool insideVolume(ivec3 p)
+        {
+            return all(greaterThanEqual(p, minCoords)) && all(lessThanEqual(p, maxCoords));
+        }
+
         ivec3 outputCoords()
         {
             ivec3 p = getOutputCoords();
@@ -283,17 +256,15 @@ class ShadowVerticesProgram implements GPGPUProgram
 
         float volumeAt(ivec3 p)
         {
-            p = clamp(p, minCoords, maxCoords);
             return getA(p.z, p.y, p.x);
         }
 
         float minmaxAt(ivec3 p)
         {
-            p = clamp(p, minCoords, maxCoords);
-            return getB(p.z, p.y, p.x);
+            return insideVolume(p) ? getB(p.z, p.y, p.x) : 0.0;
         }
 
-        bool shadowVertex(ivec3 p)
+        bool vertexShadow(ivec3 p)
         {
             float v111 = volumeAt(p + ivec3(${voxelOffset( 0,  0,  0, permute, reverse)}));
             float v110 = minmaxAt(p + ivec3(${voxelOffset( 0,  0, -1, permute, reverse)}));
@@ -301,14 +272,15 @@ class ShadowVerticesProgram implements GPGPUProgram
             float v010 = minmaxAt(p + ivec3(${voxelOffset(-1,  0, -1, permute, reverse)}));
             float v000 = minmaxAt(p + ivec3(${voxelOffset(-1, -1, -1, permute, reverse)}));
 
-            float bottleneck = min4(v000, v010, v100, v110) + tolerance;
+            float bottleneck = min4(v000, v010, v100, v110);
+            float margin = v111 - bottleneck;
 
-            return (bottleneck >= v111);
+            return margin < tolerance;
         }
 
         void main()
         {
-            setOutput(float(shadowVertex(outputCoords())));
+            setOutput(float(vertexShadow(outputCoords())));
         }
         `
     }
@@ -324,7 +296,7 @@ class ShadowVerticesProgram implements GPGPUProgram
  * This is the conservative rejection predicate: every trilinear corner sample
  * the cell can expose to the ray class is already dominated, up to tolerance.
  */
-class ShadowCellsProgram implements GPGPUProgram
+class ComputeCellShadowsProgram implements GPGPUProgram
 {
     variableNames = ['A']
     outputShape: number[]
@@ -338,297 +310,43 @@ class ShadowCellsProgram implements GPGPUProgram
         reverse: Reverse = []
     ) {
         const [depth, height, width] = shape
-        this.outputShape = shape.map((n) => n + 1)
 
+        this.outputShape = shape.map((n) => n + 1)
         this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
+        bool insideVolume(ivec3 p)
+        {
+            return all(greaterThanEqual(p, minCoords)) && all(lessThanEqual(p, maxCoords));
+        }
+            
         ivec3 outputCoords()
         {
             ivec3 p = getOutputCoords();
             return ivec3(p.z, p.y, p.x);
         }
 
-        bool shadowVertex(ivec3 p)
+        bool vertexShadow(ivec3 p)
         {
-            p = clamp(p, minCoords, maxCoords);
-            return getB(p.z, p.y, p.x) > 0.5;
+            return insideVolume(p) ? getA(p.z, p.y, p.x) > 0.5 : false;
         }
 
-        bool shadowCell(ivec3 coords)
+        bool cellShadow(ivec3 coords)
         {
             ivec3 base = coords - 1;
 
             // Consider a cell shadowed if all four of its relevant face vertices are shadowed. 
             return
-                shadowVertex(base + ivec3(${cellOffset(1, 1, 1, permute, reverse)})) &&
-                shadowVertex(base + ivec3(${cellOffset(1, 0, 1, permute, reverse)})) &&
-                shadowVertex(base + ivec3(${cellOffset(0, 1, 1, permute, reverse)})) &&
-                shadowVertex(base + ivec3(${cellOffset(0, 0, 1, permute, reverse)}));
+                vertexShadow(base + ivec3(${cellOffset(1, 1, 1, permute, reverse)})) &&
+                vertexShadow(base + ivec3(${cellOffset(1, 0, 1, permute, reverse)})) &&
+                vertexShadow(base + ivec3(${cellOffset(0, 1, 1, permute, reverse)})) &&
+                vertexShadow(base + ivec3(${cellOffset(0, 0, 1, permute, reverse)}));
         }
 
         void main()
         {
-            setOutput(float(shadowCell(outputCoords())));
-        }
-        `
-    }
-}
-
-class BackwardVolumeProgram implements GPGPUProgram
-{
-    variableNames = ['A', 'B']
-    outputShape: number[]
-    userCode: string
-    packedInputs = false
-    packedOutput = false
-
-    constructor(
-        shape: Shape3,
-        permute: Permute = [0, 1, 2],
-        reverse: Reverse = []
-    ) {
-        const [depth, height, width] = shape
-        this.outputShape = shape.map((n) => n - 1)
-
-        this.userCode = `
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
-
-        ivec3 outputCoords()
-        {
-            ivec3 p = getOutputCoords();
-            return ivec3(p.z, p.y, p.x);
-        }
-
-        float volumeAt(ivec3 p)
-        {
-            p = clamp(p, minCoords, maxCoords);
-            return getA(p.z, p.y, p.x);
-        }
-
-        float shadowCell(ivec3 p)
-        {
-            p = clamp(p, minCoords, maxCoords);
-            return getA(p.z, p.y, p.x);
-        }
-
-        void main()
-        {
-            setOutput(float(shadowVertex(outputCoords())));
-        }
-        `
-    }
-}
-
-
-/**
- * Binary OR of two 0/1 cell masks. Used to merge forward and reverse passes
- * into one bidirectional mask.
- */
-class OrShadowsProgram implements GPGPUProgram
-{
-    variableNames = ['A', 'B']
-    outputShape: number[]
-    userCode: string
-    packedInputs = true
-    packedOutput = true
-
-    constructor(shape: Shape3)
-    {
-        this.outputShape = shape
-        this.userCode = `
-        uvec4 bits(vec4 v)
-        {
-            return uvec4(round(v)) & 1u;
-        }
-
-        ivec3 outputCoords()
-        {
-            ivec3 p = getOutputCoords();
-            return ivec3(p.z, p.y, p.x);
-        }
-
-        void main()
-        {
-            ivec3 p = outputCoords();
-            setOutput(vec4(bits(getA(p.z, p.y, p.x)) | bits(getB(p.z, p.y, p.x))));
-        }
-        `
-    }
-}
-
-/**
- * Packs four ray classes for a single dominant axis into a 4-bit value per
- * packed lane. The output still has a 3D shape; only the value encoding
- * changes.
- */
-class PackAxisProgram implements GPGPUProgram
-{
-    variableNames = ['A', 'B', 'C', 'D']
-    outputShape: number[]
-    userCode: string
-    packedInputs = true
-    packedOutput = true
-
-    constructor(shape: Shape3)
-    {
-        this.outputShape = shape
-        this.userCode = `
-        uvec4 bit(vec4 v)
-        {
-            return uvec4(round(v)) & 1u;
-        }
-
-        ivec3 outputCoords()
-        {
-            ivec3 p = getOutputCoords();
-            return ivec3(p.z, p.y, p.x);
-        }
-
-        uvec4 pack4(uvec4 a, uvec4 b, uvec4 c, uvec4 d)
-        {
-            // Four representative octants for one dominant axis.
-            return (a << 0u) | (b << 1u) | (c << 2u) | (d << 3u);
-        }
-
-        void main()
-        {
-            ivec3 p = outputCoords();
-
-            uvec4 a = bit(getA(p.z, p.y, p.x));
-            uvec4 b = bit(getB(p.z, p.y, p.x));
-            uvec4 c = bit(getC(p.z, p.y, p.x));
-            uvec4 d = bit(getD(p.z, p.y, p.x));
-
-            setOutput(vec4(pack4(a, b, c, d)));
-        }
-        `
-    }
-}
-
-/**
- * Packs three dominant-axis nibbles into one 12-bit value per packed lane.
- * This is the texture-resident form of the anisotropic directional fields: one
- * lookup can recover the precomputed skip/reject information for the relevant
- * ray class.
- *
- * Half-float textures exactly cover integers in [-2048, 2048], so the unsigned
- * 0..4095 packed value is shifted down before storage.
- */
-class PackExtendedProgram implements GPGPUProgram
-{
-    variableNames = ['A', 'B', 'C']
-    outputShape: number[]
-    userCode: string
-    packedInputs = true
-    packedOutput = true
-
-    constructor(shape: Shape3)
-    {
-        this.outputShape = shape
-        this.userCode = `
-        uvec4 nibble(vec4 v)
-        {
-            return uvec4(round(v)) & 15u;
-        }
-
-        ivec3 outputCoords()
-        {
-            ivec3 p = getOutputCoords();
-            return ivec3(p.z, p.y, p.x);
-        }
-
-        ivec4 pack12(uvec4 x, uvec4 y, uvec4 z)
-        {
-            uvec4 p = (x << 0u) | (y << 4u) | (z << 8u);
-            return ivec4(p) - ivec4(2048);
-        }
-
-        void main()
-        {
-            ivec3 p = outputCoords();
-
-            uvec4 x = nibble(getA(p.z, p.y, p.x));
-            uvec4 y = nibble(getB(p.z, p.y, p.x));
-            uvec4 z = nibble(getC(p.z, p.y, p.x));
-
-            setOutput(vec4(pack12(x, y, z)));
-        }
-        `
-    }
-}
-
-/**
- * Debug helper program: extracts one bit from a packed single-axis cell mask.
- */
-class UnpackAxisProgram implements GPGPUProgram
-{
-    variableNames = ['A']
-    outputShape: number[]
-    userCode: string
-    packedInputs = true
-    packedOutput = true
-    customUniforms = [{ name: 'maskBit', type: 'int' as const }]
-
-    constructor(shape: Shape3)
-    {
-        this.outputShape = shape
-        this.userCode = `
-        uvec4 nibble(vec4 v)
-        {
-            return uvec4(round(v)) & 15u;
-        }
-
-        ivec3 outputCoords()
-        {
-            ivec3 p = getOutputCoords();
-            return ivec3(p.z, p.y, p.x);
-        }
-
-        void main()
-        {
-            ivec3 p = outputCoords();
-            uvec4 packed = nibble(getA(p.z, p.y, p.x));
-            setOutput(vec4((packed >> maskBit) & 1u));
-        }
-        `
-    }
-}
-
-/**
- * Debug helper program: extracts one bit from the final 12-bit packed mask.
- */
-class UnpackExtendedProgram implements GPGPUProgram
-{
-    variableNames = ['A']
-    outputShape: number[]
-    userCode: string
-    packedInputs = true
-    packedOutput = true
-    customUniforms = [{ name: 'maskBit', type: 'int' as const }]
-
-    constructor(shape: Shape3)
-    {
-        this.outputShape = shape
-        this.userCode = `
-        ivec4 stored(vec4 v)
-        {
-            return clamp(ivec4(round(v)), -2048, 2047);
-        }
-
-        ivec3 outputCoords()
-        {
-            ivec3 p = getOutputCoords();
-            return ivec3(p.z, p.y, p.x);
-        }
-
-        void main()
-        {
-            ivec3 p = outputCoords();
-            uvec4 packed = uvec4(stored(getA(p.z, p.y, p.x)) + ivec4(2048));
-            setOutput(vec4((packed >> maskBit) & 1u));
+            setOutput(float(cellShadow(outputCoords())));
         }
         `
     }
@@ -645,37 +363,32 @@ class UnpackExtendedProgram implements GPGPUProgram
  * 2.2: every entry says whether the corresponding trilinear cell can be
  * skipped for rays in that class.
  */
-function propagateMinmax(
+function propagateVertexMinmax(
     volume: tf.Tensor3D,
     permute: Permute,
     reverse: Reverse,
     verbose: boolean = false
-): tf.Tensor5D
+): tf.Tensor3D
 {
     const axis = permute[0]
     const backwards = reverse.includes(axis)
 
     const slices = unstack3d(volume, axis)
-
     const shape = slices[0].shape as Shape3
-    const propagate = new PropagateMinmaxProgram(shape, permute, reverse)
+    const propagate = new PropagateVertexMinmaxProgram(shape, permute, reverse)
 
     const start = backwards ? slices.length - 2 : 1
     const end = backwards ? -1 : slices.length
     const step = backwards ? -1 : 1
 
-    // March in the direction implied by reverse. The first slice already has
-    // its local vertex minmax; every following slice consumes the prior
-    // propagated slice.
     for (let i = start; i !== end; i += step)
     {
-        const next = runWebGLProgram( propagate, [slices[i], slices[i - step]], 'float32', [[i]], true)
-
+        const next = runWebGLProgram( propagate, [slices[i], slices[i-step]], 'float32', [[i]], true)
         tf.dispose(slices[i])
         slices[i] = next
     }
 
-    const minmax = stack3d(slices, axis) as tf.Tensor5D
+    const minmax = stack3d(slices, axis) as tf.Tensor3D
     tf.dispose(slices)
     if (verbose) logMean('minmax', minmax)
 
@@ -683,192 +396,41 @@ function propagateMinmax(
 }
 
 /**
- * Reverse-sweep version of propagateMinmax. It uses the forward-pass gates to
- * decide whether a route should extend only positive rejection margins or pass
- * signed margins through unchanged.
- */
-function computeGatedMargins(
-    volume: tf.Tensor3D,
-    gates: tf.Tensor5D,
-    permute: Permute,
-    reverse: Reverse,
-    verbose: boolean = false
-): tf.Tensor5D
-{
-    const axis = permute[0]
-    const backwards = reverse.includes(axis)
-
-    const initialMarginsProgram = new InitialMarginsProgram(volume.shape as Shape3, permute, reverse)
-    let margins = runWebGLProgram(initialMarginsProgram, [volume], 'float32', [], true) as tf.Tensor5D
-    if (verbose) logMean('initialMargins', margins)
-
-    const slices = unstackPacked(margins, axis)
-    tf.dispose(margins)
-
-    const shape = slices[0].shape as PackedShape3
-    const propagate = new PropagateGatedMarginsProgram(shape, permute, reverse)
-
-    const start = backwards ? slices.length - 2 : 1
-    const end = backwards ? -1 : slices.length
-    const step = backwards ? -1 : 1
-
-    // Same dependency pattern as computeMargins, with the gate tensor supplied
-    // to every slice update.
-    for (let i = start; i !== end; i += step)
-    {
-        const next = runWebGLProgram( propagate, [slices[i], slices[i - step], gates], 'float32', [[i]], true)
-
-        tf.dispose(slices[i])
-        slices[i] = next
-    }
-
-    margins = stackPacked(slices, axis) as tf.Tensor5D
-    tf.dispose(slices)
-    if (verbose) logMean('gatedMargins', margins)
-
-    return margins
-}
-
-/**
  * Converts propagated vertex margins into a binary 3D cell mask.
  */
-function classifyShadowsMask(
-    margins: tf.Tensor5D,
+function computeVertexShadows(
+    volume: tf.Tensor3D,
+    minmax: tf.Tensor3D,
     permute: Permute,
     reverse: Reverse,
     tolerance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const shape = margins.shape.slice(0, 3) as Shape3
-    const program = new ShadowCellsProgram(shape, permute, reverse)
+    const program = new ComputeVertexShadowsProgram(volume.shape, permute, reverse)
+    const vertexShadows = runWebGLProgram(program, [volume, minmax], 'bool', [[tolerance]], true) as tf.Tensor3D
+    if (verbose) logMean('vertexShadows', vertexShadows)
 
-    const shadowsMask = runWebGLProgram(program, [margins], 'float32', [[tolerance]], true) as tf.Tensor3D
-    if (verbose) logMean('shadowsMask', shadowsMask)
-
-    return shadowsMask
+    return vertexShadows
 }
 
 /**
- * Creates the per-lane open/closed mask used by reverse propagation.
+ * Converts propagated vertex margins into a binary 3D cell mask.
  */
-function computeBackwardGates(
-    forwardMask: tf.Tensor3D,
+function computeCellShadows(
+    vertexShadows: tf.Tensor3D,
     permute: Permute,
     reverse: Reverse,
     verbose: boolean = false
-): tf.Tensor5D
-{
-    const program = new BackwardGateProgram(forwardMask.shape as Shape3, permute, reverse)
-    const gates = runWebGLProgram(program, [forwardMask], 'float32', [], true) as tf.Tensor5D
-
-    if (verbose) logMean('gates', gates)
-
-    return gates
-}
-
-/**
- * Merges forward and backward cell masks using a lane-wise binary OR.
- */
-function orShadowsMask(
-    a: tf.Tensor3D,
-    b: tf.Tensor3D,
-    verbose: boolean = false
 ): tf.Tensor3D
 {
-    const program = new OrShadowsProgram(a.shape as Shape3)
-    const shadowsMask = runWebGLProgram(program, [a, b], 'float32', [], true) as tf.Tensor3D
+    const program = new ComputeCellShadowsProgram(vertexShadows.shape, permute, reverse)
+    const cellShadows = runWebGLProgram(program, [vertexShadows], 'bool', [], true) as tf.Tensor3D
+    if (verbose) logMean('cellShadows', cellShadows)
 
-    if (verbose) logMean('bidirectionalShadowsMask', shadowsMask)
-
-    return shadowsMask
+    return cellShadows
 }
 
-/**
- * Packs four directional cell masks belonging to one dominant axis.
- */
-function packAxisMasks(
-    masks: Quad<tf.Tensor3D>,
-    verbose: boolean = false
-): tf.Tensor3D
-{
-    const program = new PackAxisProgram(masks[0].shape as Shape3)
-    const packed = runWebGLProgram(program, masks, 'float32', [], true) as tf.Tensor3D
-
-    if (verbose) logMean('axisPack', packed)
-
-    return packed
-}
-
-/**
- * Packs the x/y/z dominant-axis mask groups into the final anisotropic texture.
- */
-function packExtendedMasks(
-    masks: Triple<tf.Tensor3D>,
-    verbose: boolean = false
-): tf.Tensor3D
-{
-    const program = new PackExtendedProgram(masks[0].shape as Shape3)
-    const packed = runWebGLProgram(program, masks, 'float32', [], true) as tf.Tensor3D
-
-    if (verbose) logMean('extendedPack', packed)
-
-    return packed
-}
-
-/**
- * Computes the four representative octants for one dominant axis and packs
- * them into a single axis mask group.
- */
-function computeAxisPack(
-    axis: Axis,
-    computeMask: (octant: Octant) => tf.Tensor3D
-): tf.Tensor3D
-{
-    const masks: tf.Tensor3D[] = []
-
-    try
-    {
-        for (const octant of OCTANTS[axis])
-        {
-            masks.push(computeMask(octant))
-        }
-
-        return packAxisMasks(masks as Quad<tf.Tensor3D>)
-    }
-    finally
-    {
-        tf.dispose(masks)
-    }
-}
-
-/**
- * Computes and packs the three dominant-axis groups.
- */
-function computeExtendedPack(
-    computeMask: (axis: Axis) => tf.Tensor3D,
-    verbose: boolean
-): tf.Tensor3D
-{
-    const masks: tf.Tensor3D[] = []
-
-    try
-    {
-        for (const axis of AXES)
-        {
-            masks.push(computeMask(axis))
-        }
-
-        const packed = packExtendedMasks(masks as Triple<tf.Tensor3D>)
-        if (verbose) logExtendedMaps(packed)
-
-        return packed
-    }
-    finally
-    {
-        tf.dispose(masks)
-    }
-}
 
 /**
  * Computes one directed cell mask for one dominant axis and octant.
@@ -884,13 +446,16 @@ export function computeUnidirectionalShadowMap(
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const { permute, reverse } = permuteReverseFromDominantAxisOctant(dominantAxis, octant)
+    const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
 
-    const margins = computeMargins(volume, permute, reverse, verbose)
-    const shadowsMask = classifyShadowsMask(margins, permute, reverse, tolerance, verbose)
-    tf.dispose(margins)
+    const vertexMinmax = propagateVertexMinmax(volume, permute, reverse, verbose)
+    const vertexShadows = computeVertexShadows(volume, vertexMinmax, permute, reverse, tolerance, verbose)
+    tf.dispose(vertexMinmax)
 
-    return shadowsMask
+    const cellShadows = computeCellShadows(vertexShadows, permute, reverse, verbose)
+    tf.dispose(vertexShadows)
+
+    return cellShadows
 }
 
 /**
@@ -910,72 +475,31 @@ export function computeBidirectionalShadowMap(
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const { permute, reverse } = permuteReverseFromDominantAxisOctant(dominantAxis, octant)
-
-    const forwardMask = computeUnidirectionalShadowMap(volume, dominantAxis, octant, tolerance, verbose)
+    const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
     const backwardReverse = complementReverse(reverse)
-    const gates = computeBackwardGates(forwardMask, permute, backwardReverse, verbose)
-    const backwardMargins = computeGatedMargins(volume, gates, permute, backwardReverse, verbose)
-    const backwardMask = classifyShadowsMask(backwardMargins, permute, backwardReverse, tolerance, verbose)
-    const shadowsMask = orShadowsMask(forwardMask, backwardMask, verbose)
 
-    tf.dispose([gates, backwardMargins, forwardMask, backwardMask])
+    const forwardMinmax = propagateVertexMinmax(volume, permute, reverse, verbose)
+    const forwardVertexShadows = computeVertexShadows(volume, forwardMinmax, permute, reverse, tolerance, verbose)
+    tf.dispose(forwardMinmax)
 
-    return shadowsMask
-}
+    const hollowVolume = tf.where(forwardVertexShadows, tf.zerosLike(volume), volume)
+    const forwardCellShadows = computeCellShadows(forwardVertexShadows, permute, reverse, verbose)
+    tf.dispose(forwardVertexShadows)
 
-/**
- * Convenience wrapper for querying the opposite octant.
- */
-export function computeBidirectionalShadowMapReverse(
-    volume: tf.Tensor3D,
-    dominantAxis: Axis,
-    octant: Octant,
-    tolerance: number,
-    verbose: boolean = false
-): tf.Tensor3D
-{
-    return computeBidirectionalShadowMap(volume, dominantAxis, reverseOctant(octant), tolerance, verbose)
-}
+    const backwardMinmax = propagateVertexMinmax(hollowVolume, permute, backwardReverse, verbose)
+    tf.dispose(hollowVolume)
+    
+    const backwardVertexShadows = computeVertexShadows(volume, backwardMinmax, permute, backwardReverse, tolerance, verbose)
+    tf.dispose(backwardMinmax)
 
-/**
- * Computes the 12-direction extended texture using forward-only cell masks.
- */
-export function computeExtendedAnisotropicUnidirectionalShadowMap(
-    volume: tf.Tensor3D,
-    tolerance: number,
-    verbose: boolean = false
-): tf.Tensor3D
-{
-    return computeExtendedPack(
-        (axis) => computeAxisPack(
-            axis,
-            (octant) => computeUnidirectionalShadowMap(volume, axis, octant, tolerance)
-        ),
-        verbose
-    )
-}
+    const backwardCellShadows = computeCellShadows(backwardVertexShadows, permute, backwardReverse, verbose)
+    tf.dispose(backwardVertexShadows)
 
-/**
- * Computes the full 12-direction extended anisotropic bidirectional texture.
- *
- * For each dominant axis, four representative octants are computed and packed.
- * Because each representative mask is bidirectional, the opposing octants are
- * included implicitly.
- */
-export function computeExtendedAnisotropicBidirectionalShadowMap(
-    volume: tf.Tensor3D,
-    tolerance: number,
-    verbose: boolean = false
-): tf.Tensor3D
-{
-    return computeExtendedPack(
-        (axis) => computeAxisPack(
-            axis,
-            (octant) => computeBidirectionalShadowMap(volume, axis, octant, tolerance)
-        ),
-        verbose
-    )
+    const cellShadows = tf.logicalOr(forwardCellShadows, backwardCellShadows) as tf.Tensor3D
+    tf.dispose([forwardCellShadows, backwardCellShadows]) 
+    if (verbose) logMean('bidirectionalCellShadows', cellShadows)
+
+    return cellShadows
 }
 
 /**
@@ -993,135 +517,14 @@ export function computeBidirectionalBlockShadowMap(
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const shadowsMask = computeBidirectionalShadowMap(volume, dominantAxis, octant, tolerance, verbose)
+    const shadowMap = computeUnidirectionalShadowMap(volume, dominantAxis, octant, tolerance, verbose)
+    if (blockSize === 1) return shadowMap
 
-    if (blockSize === 1) return shadowsMask
+    const blockShadowMap = minPool3d(shadowMap, blockSize, blockSize, 'same') as tf.Tensor3D
+    tf.dispose(shadowMap)
+    if (verbose) logMean('blockShadowMap', blockShadowMap)
 
-    const blocks = minPool3d(shadowsMask, blockSize, blockSize, 'same') as tf.Tensor3D
-    if (verbose) logMean('blockShadowsMask', blocks)
-
-    tf.dispose(shadowsMask)
-
-    return blocks
-}
-
-/**
- * Computes the extended anisotropic bidirectional mask after block reduction of
- * each component mask.
- */
-export function computeExtendedAnisotropicBidirectionalBlockShadowMap(
-    volume: tf.Tensor3D,
-    tolerance: number,
-    blockSize: number,
-    verbose: boolean = false
-): tf.Tensor3D
-{
-    return computeExtendedPack(
-        (axis) => computeAxisPack(
-            axis,
-            (octant) => computeBidirectionalBlockShadowMap(volume, axis, octant, tolerance, blockSize)
-        ),
-        verbose
-    )
-}
-
-/**
- * Reference path for a unidirectional cell mask.
- *
- * This physically transforms the volume into canonical sweep orientation,
- * runs the same canonical implementation, then transforms the result back. It
- * is useful for checking the offset-injection path used by the fast version.
- */
-export function computeUnidirectionalShadowMapReference(
-    volume: tf.Tensor3D,
-    dominantAxis: Axis,
-    octant: Octant,
-    tolerance: number,
-    verbose: boolean = false
-): tf.Tensor3D
-{
-    const { permute, reverse } = permuteReverseFromDominantAxisOctant(dominantAxis, octant)
-
-    const reversed = volume.reverse(reverse) as tf.Tensor3D
-    const canonicalVolume = reversed.transpose(permute) as tf.Tensor3D
-    tf.dispose(reversed)
-
-    const margins = computeMargins(canonicalVolume, [0, 1, 2], [], verbose)
-    const canonicalMask = classifyShadowsMask(margins, [0, 1, 2], [], tolerance, verbose)
-    tf.dispose([margins, canonicalVolume])
-
-    const unpermuted = canonicalMask.transpose(inversePermutation(permute)) as tf.Tensor3D
-    tf.dispose(canonicalMask)
-
-    const shadowsMask = unpermuted.reverse(reverse) as tf.Tensor3D
-    tf.dispose(unpermuted)
-
-    return shadowsMask
-}
-
-/**
- * Reference path for the forward-only extended anisotropic cell-mask texture.
- */
-export function computeExtendedAnisotropicUnidirectionalShadowMapReference(
-    volume: tf.Tensor3D,
-    tolerance: number,
-    verbose: boolean = false
-): tf.Tensor3D
-{
-    return computeExtendedPack(
-        (axis) => computeAxisPack(
-            axis,
-            (octant) => computeUnidirectionalShadowMapReference(volume, axis, octant, tolerance)
-        ),
-        verbose
-    )
-}
-
-/**
- * Debug view that keeps one real z/+++ mask and fills the rest with ones. This
- * is useful when validating final packing/unpacking or visualizing one channel
- * through the renderer.
- */
-export function computeExtendedAnisotropicBidirectionalShadowMapSingular(
-    volume: tf.Tensor3D,
-    tolerance: number,
-    verbose: boolean = false
-): tf.Tensor3D
-{
-    const zMask = computeUnidirectionalShadowMap(volume, 'z', '+++', tolerance)
-    const masks: tf.Tensor3D[] = []
-
-    try
-    {
-        masks.push(packSyntheticAxis([tf.onesLike(zMask), tf.onesLike(zMask), tf.onesLike(zMask), tf.onesLike(zMask)]))
-        masks.push(packSyntheticAxis([tf.onesLike(zMask), tf.onesLike(zMask), tf.onesLike(zMask), tf.onesLike(zMask)]))
-        masks.push(packSyntheticAxis([tf.clone(zMask), tf.onesLike(zMask), tf.onesLike(zMask), tf.onesLike(zMask)]))
-
-        const packed = packExtendedMasks(masks as Triple<tf.Tensor3D>)
-        if (verbose) logExtendedMaps(packed)
-
-        return packed
-    }
-    finally
-    {
-        tf.dispose(masks)
-        tf.dispose(zMask)
-    }
-}
-
-/**
- * Packs synthetic/debug component masks and disposes them after packing.
- */
-function packSyntheticAxis(masks: Quad<tf.Tensor3D>): tf.Tensor3D
-{
-    try
-    {
-        return packAxisMasks(masks)
-    }
-    finally
-    {
-        tf.dispose(masks)
-    }
+    return blockShadowMap
 }
 
 /**
@@ -1132,52 +535,6 @@ function packSyntheticAxis(masks: Quad<tf.Tensor3D>): tf.Tensor3D
 function logMean(name: string, tensor: tf.Tensor): void
 {
     console.log(name, tf.tidy(() => tensor.mean([0, 1, 2]).dataSync()))
-}
-
-/**
- * Logs each unpacked bit from a single-axis packed mask.
- */
-function logAxisMaps(mask: tf.Tensor3D): void
-{
-    const unpack = new UnpackAxisProgram(mask.shape as Shape3)
-
-    for (let maskBit = 0; maskBit < 4; maskBit++)
-    {
-        console.log(
-            `shadowsMask${maskBit}`,
-            tf.tidy(() => runWebGLProgram(unpack, [mask], 'float32', [[maskBit]]).mean([0, 1, 2]).dataSync())
-        )
-    }
-}
-
-/**
- * Logs all 12 unpacked bits from the extended anisotropic mask.
- */
-function logExtendedMaps(mask: tf.Tensor3D): void
-{
-    const unpack = new UnpackExtendedProgram(mask.shape as Shape3)
-    const labels = [
-        'shadowsMaskX0',
-        'shadowsMaskX1',
-        'shadowsMaskX2',
-        'shadowsMaskX3',
-        'shadowsMaskY0',
-        'shadowsMaskY1',
-        'shadowsMaskY2',
-        'shadowsMaskY3',
-        'shadowsMaskZ0',
-        'shadowsMaskZ1',
-        'shadowsMaskZ2',
-        'shadowsMaskZ3',
-    ]
-
-    for (let maskBit = 0; maskBit < labels.length; maskBit++)
-    {
-        console.log(
-            labels[maskBit],
-            tf.tidy(() => runWebGLProgram(unpack, [mask], 'float32', [[maskBit]]).mean([0, 1, 2]).dataSync())
-        )
-    }
 }
 
 /**

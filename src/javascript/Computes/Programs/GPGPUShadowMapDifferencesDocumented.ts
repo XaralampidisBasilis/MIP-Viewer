@@ -46,7 +46,7 @@ import {
     applyPermutation,
     complementReverse,
     inversePermutation,
-    permuteReverseFromDominantAxisOctant,
+    dominantAxisOctantToPermuteReverse,
     reverseOctant,
 } from '../../Utils/ShadowMapUtils'
 import { minPool3d } from './pool3d'
@@ -1015,7 +1015,7 @@ export function computeUnidirectionalShadowMap(
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const { permute, reverse } = permuteReverseFromDominantAxisOctant(dominantAxis, octant)
+    const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
 
     const margins = computeMargins(volume, permute, reverse, verbose)
     const shadowsMask = classifyShadowsMask(margins, permute, reverse, tolerance, verbose)
@@ -1041,7 +1041,7 @@ export function computeBidirectionalShadowMap(
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const { permute, reverse } = permuteReverseFromDominantAxisOctant(dominantAxis, octant)
+    const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
 
     const forwardMask = computeUnidirectionalShadowMap(volume, dominantAxis, octant, tolerance, verbose)
     const backwardReverse = complementReverse(reverse)
@@ -1171,7 +1171,7 @@ export function computeUnidirectionalShadowMapReference(
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const { permute, reverse } = permuteReverseFromDominantAxisOctant(dominantAxis, octant)
+    const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
 
     const reversed = volume.reverse(reverse) as tf.Tensor3D
     const canonicalVolume = reversed.transpose(permute) as tf.Tensor3D
