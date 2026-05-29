@@ -2,7 +2,9 @@ import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import * as GPGPU from '../Programs/GPGPUShadowDistanceMap'
-// import * as GPGPU from '../Programs/GPGPUShadowDistanceMapComparison'
+
+import { computeVertexMargins } from '../Programs/GPGPUShadowMapDifferencesDocumented'
+import { propagateVertexMinmax } from '../Programs/GPGPUShadowMapPaths'
 
 export default class DistanceMap 
 {
@@ -18,6 +20,16 @@ export default class DistanceMap
 
     computeTexture()
     {
+        const volume = this.computes.volumeMap.tensor
+
+        const minmaxP = propagateVertexMinmax(volume, [0,1,2], [])
+        const marginsD = computeVertexMargins(volume, [0,1,2], [])
+
+        const minLaneD = marginsD.min([3, 4]) 
+        const minmaxD = tf.maximum(minLaneD, 0).add(volume) 
+
+        console.log('minmax delta', tf.max(tf.abs(minmaxP.sub(minmaxD))).arraySync())
+    
         if (this.distanceVariation ===  '1bit') this.compute1BitDistanceTexture()
         if (this.distanceVariation ===  '5bit') this.compute5BitDistanceTexture()
         if (this.distanceVariation ===  '8bit') this.compute8BitDistanceTexture()

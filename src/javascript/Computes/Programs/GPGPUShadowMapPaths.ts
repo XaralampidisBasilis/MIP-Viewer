@@ -154,7 +154,7 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
         permute: Permute = [0, 1, 2],
         reverse: Reverse = []
     ) {
-        const [depth, height, width] = shape.slice(0, 3)
+        const [depth, height, width] = shape
 
         this.outputShape = shape
         this.userCode = `
@@ -187,10 +187,8 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
             return insideVolume(p) ? getB(p.z, p.y, p.x) : 0.0;
         }
 
-        void main()
+        float vertexMinmax(ivec3 p)
         {
-            ivec3 p = outputCoords();
-
             float v111 =  currentSliceAt(p + ivec3(${sliceOffset( 0,  0,  0, permute, reverse)}));
             float v110 = previousSliceAt(p + ivec3(${sliceOffset( 0,  0, -1, permute, reverse)}));
             float v100 = previousSliceAt(p + ivec3(${sliceOffset( 0, -1, -1, permute, reverse)}));
@@ -198,9 +196,78 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
             float v000 = previousSliceAt(p + ivec3(${sliceOffset(-1, -1, -1, permute, reverse)}));
 
             float bottleneck = min4(v000, v010, v100, v110);
-            float minmax = max(v111, bottleneck);
 
-            setOutput(minmax);
+            return max(v111, bottleneck);
+        }
+
+        void main()
+        {
+            setOutput(vertexMinmax(outputCoords()));
+        }
+        `
+    }
+}
+
+class ComputeVertexMarginsProgram implements GPGPUProgram
+{
+    variableNames = ['A', 'B']
+    outputShape: number[]
+    userCode: string
+    packedInputs = false
+    packedOutput = true
+
+    constructor(
+        shape: Shape3,
+        permute: Permute = [0, 1, 2],
+        reverse: Reverse = []
+    ) {
+        const [depth, height, width] = shape
+    
+        this.outputShape = [depth, height, width, 2, 2] 
+        this.userCode = `
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
+
+        float min4(float a, float b, float c, float d)
+        {
+            return min(min(min(a, b), c), d);
+        }
+
+        bool insideVolume(ivec3 p)
+        {
+            return all(greaterThanEqual(p, minCoords)) && all(lessThanEqual(p, maxCoords));
+        }
+
+        ivec3 outputCoords()
+        {
+            ivec5 p = getOutputCoords();
+            return ivec3(p.z, p.y, p.x);
+        }
+
+        float volumeAt(ivec3 p)
+        {
+            return getA(p.z, p.y, p.x);
+        }
+
+        float minmaxAt(ivec3 p)
+        {
+            return insideVolume(p) ? getB(p.z, p.y, p.x) : 0.0;
+        }
+
+        vec4 vertexMargins(ivec3 p)
+        {
+            float v111 = volumeAt(p + ivec3(${voxelOffset( 0,  0,  0, permute, reverse)}));
+            float v110 = minmaxAt(p + ivec3(${voxelOffset( 0,  0, -1, permute, reverse)}));
+            float v100 = minmaxAt(p + ivec3(${voxelOffset( 0, -1, -1, permute, reverse)}));
+            float v010 = minmaxAt(p + ivec3(${voxelOffset(-1,  0, -1, permute, reverse)}));
+            float v000 = minmaxAt(p + ivec3(${voxelOffset(-1, -1, -1, permute, reverse)}));
+
+            return vec4(v000, v010, v100, v110) - v111;
+        }
+
+        void main()
+        {
+            setOutput(vertexMargins(outputCoords()));
         }
         `
     }
@@ -273,9 +340,8 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
             float v000 = minmaxAt(p + ivec3(${voxelOffset(-1, -1, -1, permute, reverse)}));
 
             float bottleneck = min4(v000, v010, v100, v110);
-            float margin = v111 - bottleneck;
 
-            return margin < tolerance;
+            return  v111 - bottleneck < tolerance;
         }
 
         void main()
@@ -363,7 +429,7 @@ class ComputeCellShadowsProgram implements GPGPUProgram
  * 2.2: every entry says whether the corresponding trilinear cell can be
  * skipped for rays in that class.
  */
-function propagateVertexMinmax(
+export function propagateVertexMinmax(
     volume: tf.Tensor3D,
     permute: Permute,
     reverse: Reverse,
@@ -398,7 +464,7 @@ function propagateVertexMinmax(
 /**
  * Converts propagated vertex margins into a binary 3D cell mask.
  */
-function computeVertexShadows(
+export function computeVertexShadows(
     volume: tf.Tensor3D,
     minmax: tf.Tensor3D,
     permute: Permute,
@@ -415,9 +481,28 @@ function computeVertexShadows(
 }
 
 /**
+ * Converts propagated vertex minmax values into margins.
+ */
+export function computeVertexMargins(
+    volume: tf.Tensor3D,
+    permute: Permute,
+    reverse: Reverse,
+    verbose: boolean = false
+): tf.Tensor5D
+{
+    const program = new ComputeVertexMarginsProgram(volume.shape, permute, reverse)
+    const minmax = propagateVertexMinmax(volume, permute, reverse)
+    const margins = runWebGLProgram(program, [volume, minmax], 'float32', [], true) as tf.Tensor5D
+    tf.dispose(minmax)
+    if (verbose) logMean('margins', margins)
+
+    return margins
+}
+
+/**
  * Converts propagated vertex margins into a binary 3D cell mask.
  */
-function computeCellShadows(
+export function computeCellShadows(
     vertexShadows: tf.Tensor3D,
     permute: Permute,
     reverse: Reverse,
@@ -430,7 +515,6 @@ function computeCellShadows(
 
     return cellShadows
 }
-
 
 /**
  * Computes one directed cell mask for one dominant axis and octant.
