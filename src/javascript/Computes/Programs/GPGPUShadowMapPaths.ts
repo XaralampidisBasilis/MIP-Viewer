@@ -168,7 +168,15 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
 
         bool insideVolume(ivec3 p)
         {
-            return all(greaterThanEqual(p, minCoords)) && all(lessThanEqual(p, maxCoords));
+            if (p.x < minCoords.x) return false;
+            if (p.y < minCoords.y) return false;
+            if (p.z < minCoords.z) return false;
+
+            if (p.x > maxCoords.x) return false;
+            if (p.y > maxCoords.y) return false;
+            if (p.z > maxCoords.z) return false;
+
+            return true;
         }
 
         ivec3 outputCoords()
@@ -184,6 +192,7 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
 
         float previousSliceAt(ivec3 p)
         {
+            p = clamp(p, minCoords, maxCoords);
             return insideVolume(p) ? getB(p.z, p.y, p.x) : 0.0;
         }
 
@@ -235,7 +244,15 @@ class ComputeVertexMarginsProgram implements GPGPUProgram
 
         bool insideVolume(ivec3 p)
         {
-            return all(greaterThanEqual(p, minCoords)) && all(lessThanEqual(p, maxCoords));
+            if (p.x < minCoords.x) return false;
+            if (p.y < minCoords.y) return false;
+            if (p.z < minCoords.z) return false;
+
+            if (p.x > maxCoords.x) return false;
+            if (p.y > maxCoords.y) return false;
+            if (p.z > maxCoords.z) return false;
+
+            return true;
         }
 
         ivec3 outputCoords()
@@ -251,6 +268,7 @@ class ComputeVertexMarginsProgram implements GPGPUProgram
 
         float minmaxAt(ivec3 p)
         {
+            p = clamp(p, minCoords, maxCoords);
             return insideVolume(p) ? getB(p.z, p.y, p.x) : 0.0;
         }
 
@@ -312,7 +330,15 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
 
         bool insideVolume(ivec3 p)
         {
-            return all(greaterThanEqual(p, minCoords)) && all(lessThanEqual(p, maxCoords));
+            if (p.x < minCoords.x) return false;
+            if (p.y < minCoords.y) return false;
+            if (p.z < minCoords.z) return false;
+
+            if (p.x > maxCoords.x) return false;
+            if (p.y > maxCoords.y) return false;
+            if (p.z > maxCoords.z) return false;
+
+            return true;
         }
 
         ivec3 outputCoords()
@@ -328,6 +354,7 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
 
         float minmaxAt(ivec3 p)
         {
+            p = clamp(p, minCoords, maxCoords);
             return insideVolume(p) ? getB(p.z, p.y, p.x) : 0.0;
         }
 
@@ -429,7 +456,7 @@ class ComputeCellShadowsProgram implements GPGPUProgram
  * 2.2: every entry says whether the corresponding trilinear cell can be
  * skipped for rays in that class.
  */
-export function propagateVertexMinmax(
+export function computeVertexMinmax(
     volume: tf.Tensor3D,
     permute: Permute,
     reverse: Reverse,
@@ -449,7 +476,7 @@ export function propagateVertexMinmax(
 
     for (let i = start; i !== end; i += step)
     {
-        const next = runWebGLProgram( propagate, [slices[i], slices[i-step]], 'float32', [[i]], true)
+        const next = runWebGLProgram(propagate, [slices[i], slices[i-step]], 'float32', [[i]], true)
         tf.dispose(slices[i])
         slices[i] = next
     }
@@ -462,25 +489,6 @@ export function propagateVertexMinmax(
 }
 
 /**
- * Converts propagated vertex margins into a binary 3D cell mask.
- */
-export function computeVertexShadows(
-    volume: tf.Tensor3D,
-    minmax: tf.Tensor3D,
-    permute: Permute,
-    reverse: Reverse,
-    tolerance: number,
-    verbose: boolean = false
-): tf.Tensor3D
-{
-    const program = new ComputeVertexShadowsProgram(volume.shape, permute, reverse)
-    const vertexShadows = runWebGLProgram(program, [volume, minmax], 'bool', [[tolerance]], true) as tf.Tensor3D
-    if (verbose) logMean('vertexShadows', vertexShadows)
-
-    return vertexShadows
-}
-
-/**
  * Converts propagated vertex minmax values into margins.
  */
 export function computeVertexMargins(
@@ -490,8 +498,10 @@ export function computeVertexMargins(
     verbose: boolean = false
 ): tf.Tensor5D
 {
+    const minmax = computeVertexMinmax(volume, permute, reverse)
+    if (verbose) logMean('minmax', minmax)
+
     const program = new ComputeVertexMarginsProgram(volume.shape, permute, reverse)
-    const minmax = propagateVertexMinmax(volume, permute, reverse)
     const margins = runWebGLProgram(program, [volume, minmax], 'float32', [], true) as tf.Tensor5D
     tf.dispose(minmax)
     if (verbose) logMean('margins', margins)
@@ -502,15 +512,42 @@ export function computeVertexMargins(
 /**
  * Converts propagated vertex margins into a binary 3D cell mask.
  */
-export function computeCellShadows(
-    vertexShadows: tf.Tensor3D,
+export function computeVertexShadows(
+    volume: tf.Tensor3D,
     permute: Permute,
     reverse: Reverse,
+    tolerance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
+    const minmax = computeVertexMinmax(volume, permute, reverse)
+    if (verbose) logMean('minmax', minmax)
+
+    const program = new ComputeVertexShadowsProgram(volume.shape, permute, reverse)
+    const shadows = runWebGLProgram(program, [volume, minmax], 'bool', [[tolerance]], true) as tf.Tensor3D
+    tf.dispose(minmax)
+    if (verbose) logMean('shadows', shadows)
+
+    return shadows
+}
+
+/**
+ * Converts propagated vertex margins into a binary 3D cell mask.
+ */
+export function computeCellShadows(
+    volume: tf.Tensor3D,
+    permute: Permute,
+    reverse: Reverse,
+    tolerance: number,
+    verbose: boolean = false
+): tf.Tensor3D
+{
+    const vertexShadows = computeVertexShadows(volume, permute, reverse, tolerance)
+    if (verbose) logMean('vertexShadows', vertexShadows)
+
     const program = new ComputeCellShadowsProgram(vertexShadows.shape, permute, reverse)
     const cellShadows = runWebGLProgram(program, [vertexShadows], 'bool', [], true) as tf.Tensor3D
+    tf.dispose(vertexShadows)
     if (verbose) logMean('cellShadows', cellShadows)
 
     return cellShadows
@@ -532,14 +569,7 @@ export function computeUnidirectionalShadowMap(
 {
     const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
 
-    const vertexMinmax = propagateVertexMinmax(volume, permute, reverse, verbose)
-    const vertexShadows = computeVertexShadows(volume, vertexMinmax, permute, reverse, tolerance, verbose)
-    tf.dispose(vertexMinmax)
-
-    const cellShadows = computeCellShadows(vertexShadows, permute, reverse, verbose)
-    tf.dispose(vertexShadows)
-
-    return cellShadows
+    return computeCellShadows(volume, permute, reverse, tolerance, verbose)
 }
 
 /**
@@ -562,26 +592,7 @@ export function computeBidirectionalShadowMap(
     const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
     const backwardReverse = complementReverse(reverse)
 
-    const forwardMinmax = propagateVertexMinmax(volume, permute, reverse, verbose)
-    const forwardVertexShadows = computeVertexShadows(volume, forwardMinmax, permute, reverse, tolerance, verbose)
-    tf.dispose(forwardMinmax)
-
-    const hollowVolume = tf.where(forwardVertexShadows, tf.zerosLike(volume), volume)
-    const forwardCellShadows = computeCellShadows(forwardVertexShadows, permute, reverse, verbose)
-    tf.dispose(forwardVertexShadows)
-
-    const backwardMinmax = propagateVertexMinmax(hollowVolume, permute, backwardReverse, verbose)
-    tf.dispose(hollowVolume)
-    
-    const backwardVertexShadows = computeVertexShadows(volume, backwardMinmax, permute, backwardReverse, tolerance, verbose)
-    tf.dispose(backwardMinmax)
-
-    const backwardCellShadows = computeCellShadows(backwardVertexShadows, permute, backwardReverse, verbose)
-    tf.dispose(backwardVertexShadows)
-
-    const cellShadows = tf.logicalOr(forwardCellShadows, backwardCellShadows) as tf.Tensor3D
-    tf.dispose([forwardCellShadows, backwardCellShadows]) 
-    if (verbose) logMean('bidirectionalCellShadows', cellShadows)
+    const cellShadows = computeCellShadows(volume, permute, reverse, tolerance, verbose)
 
     return cellShadows
 }

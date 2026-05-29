@@ -497,14 +497,13 @@ export function computeVertexMargins(
     const propagate = new PropagateVertexMarginsProgram(shape, permute, reverse)
     tf.dispose(margins)
 
-    const start = backwards ? slices.length - 3 : 2
+    const start = backwards ? slices.length - 2 : 1
     const end = backwards ? -1 : slices.length
     const step = backwards ? -1 : 1
 
     for (let i = start; i !== end; i += step)
     {
         const next = runWebGLProgram( propagate, [slices[i], slices[i-step]], 'float32', [[i]], true)
-
         tf.dispose(slices[i])
         slices[i] = next
     }
@@ -514,6 +513,23 @@ export function computeVertexMargins(
     if (verbose) logMean('margins', margins)
 
     return margins
+}
+
+export function computeVertexMinmax(
+    volume: tf.Tensor3D,
+    permute: Permute,
+    reverse: Reverse,
+    verbose: boolean = false
+): tf.Tensor3D
+{
+    const margins = computeVertexMargins(volume, permute, reverse)
+    if (verbose) logMean('margins', margins)
+
+    const minmax = tf.tidy(() => margins.min([3, 4]).maximum(0).add(volume))
+    tf.dispose(margins)
+    if (verbose) logMean('minmax', minmax)
+
+    return minmax as tf.Tensor3D
 }
 
 /**
