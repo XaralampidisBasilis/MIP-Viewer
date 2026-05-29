@@ -166,15 +166,17 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
             return min(min(min(a, b), c), d);
         }
 
+        // PROBLEMATIC
+        // bool insideVolume(ivec3 p)
+        // {
+        //     return (all(greaterThanEqual(p, minCoords)) && all(lessThanEqual(p, maxCoords)));
+        // }
+
         bool insideVolume(ivec3 p)
         {
-            if (p.x < minCoords.x) return false;
-            if (p.y < minCoords.y) return false;
-            if (p.z < minCoords.z) return false;
-
-            if (p.x > maxCoords.x) return false;
-            if (p.y > maxCoords.y) return false;
-            if (p.z > maxCoords.z) return false;
+            if (p.x < minCoords.x || p.x > maxCoords.x) return false;
+            if (p.y < minCoords.y || p.y > maxCoords.y) return false;
+            if (p.z < minCoords.z || p.z > maxCoords.z) return false;
 
             return true;
         }
@@ -192,7 +194,7 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
 
         float previousSliceAt(ivec3 p)
         {
-            p = clamp(p, minCoords, maxCoords);
+            // p = clamp(p, minCoords, maxCoords);
             return insideVolume(p) ? getB(p.z, p.y, p.x) : 0.0;
         }
 
@@ -242,15 +244,17 @@ class ComputeVertexMarginsProgram implements GPGPUProgram
             return min(min(min(a, b), c), d);
         }
 
+        // PROBLEMATIC
+        // bool insideVolume(ivec3 p)
+        // {
+        //     return (all(greaterThanEqual(p, minCoords)) && all(lessThanEqual(p, maxCoords)));
+        // }
+
         bool insideVolume(ivec3 p)
         {
-            if (p.x < minCoords.x) return false;
-            if (p.y < minCoords.y) return false;
-            if (p.z < minCoords.z) return false;
-
-            if (p.x > maxCoords.x) return false;
-            if (p.y > maxCoords.y) return false;
-            if (p.z > maxCoords.z) return false;
+            if (p.x < minCoords.x || p.x > maxCoords.x) return false;
+            if (p.y < minCoords.y || p.y > maxCoords.y) return false;
+            if (p.z < minCoords.z || p.z > maxCoords.z) return false;
 
             return true;
         }
@@ -268,7 +272,7 @@ class ComputeVertexMarginsProgram implements GPGPUProgram
 
         float minmaxAt(ivec3 p)
         {
-            p = clamp(p, minCoords, maxCoords);
+            // p = clamp(p, minCoords, maxCoords);
             return insideVolume(p) ? getB(p.z, p.y, p.x) : 0.0;
         }
 
@@ -280,7 +284,7 @@ class ComputeVertexMarginsProgram implements GPGPUProgram
             float v010 = minmaxAt(p + ivec3(${voxelOffset(-1,  0, -1, permute, reverse)}));
             float v000 = minmaxAt(p + ivec3(${voxelOffset(-1, -1, -1, permute, reverse)}));
 
-            return vec4(v000, v010, v100, v110) - v111;
+            return (vec4(v000, v010, v100, v110) - v111);
         }
 
         void main()
@@ -328,15 +332,17 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
             return min(min(min(a, b), c), d);
         }
 
+        // PROBLEMATIC
+        // bool insideVolume(ivec3 p)
+        // {
+        //     return (all(greaterThanEqual(p, minCoords)) && all(lessThanEqual(p, maxCoords)));
+        // }
+
         bool insideVolume(ivec3 p)
         {
-            if (p.x < minCoords.x) return false;
-            if (p.y < minCoords.y) return false;
-            if (p.z < minCoords.z) return false;
-
-            if (p.x > maxCoords.x) return false;
-            if (p.y > maxCoords.y) return false;
-            if (p.z > maxCoords.z) return false;
+            if (p.x < minCoords.x || p.x > maxCoords.x) return false;
+            if (p.y < minCoords.y || p.y > maxCoords.y) return false;
+            if (p.z < minCoords.z || p.z > maxCoords.z) return false;
 
             return true;
         }
@@ -354,7 +360,7 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
 
         float minmaxAt(ivec3 p)
         {
-            p = clamp(p, minCoords, maxCoords);
+            // p = clamp(p, minCoords, maxCoords);
             return insideVolume(p) ? getB(p.z, p.y, p.x) : 0.0;
         }
 
@@ -368,7 +374,7 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
 
             float bottleneck = min4(v000, v010, v100, v110);
 
-            return  v111 - bottleneck < tolerance;
+            return (v111 - bottleneck < tolerance);
         }
 
         void main()
@@ -409,11 +415,21 @@ class ComputeCellShadowsProgram implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
+        // PROBLEMATIC
+        // bool insideVolume(ivec3 p)
+        // {
+        //     return (all(greaterThanEqual(p, minCoords)) && all(lessThanEqual(p, maxCoords)));
+        // }
+            
         bool insideVolume(ivec3 p)
         {
-            return all(greaterThanEqual(p, minCoords)) && all(lessThanEqual(p, maxCoords));
+            if (p.x < minCoords.x || p.x > maxCoords.x) return false;
+            if (p.y < minCoords.y || p.y > maxCoords.y) return false;
+            if (p.z < minCoords.z || p.z > maxCoords.z) return false;
+
+            return true;
         }
-            
+
         ivec3 outputCoords()
         {
             ivec3 p = getOutputCoords();
@@ -422,7 +438,8 @@ class ComputeCellShadowsProgram implements GPGPUProgram
 
         bool vertexShadow(ivec3 p)
         {
-            return insideVolume(p) ? getA(p.z, p.y, p.x) > 0.5 : false;
+            // p = clamp(p, minCoords, maxCoords);
+            return (insideVolume(p) ? getA(p.z, p.y, p.x) > 0.5 : false);
         }
 
         bool cellShadow(ivec3 coords)
@@ -430,11 +447,12 @@ class ComputeCellShadowsProgram implements GPGPUProgram
             ivec3 base = coords - 1;
 
             // Consider a cell shadowed if all four of its relevant face vertices are shadowed. 
-            return
+            return (
                 vertexShadow(base + ivec3(${cellOffset(1, 1, 1, permute, reverse)})) &&
                 vertexShadow(base + ivec3(${cellOffset(1, 0, 1, permute, reverse)})) &&
                 vertexShadow(base + ivec3(${cellOffset(0, 1, 1, permute, reverse)})) &&
-                vertexShadow(base + ivec3(${cellOffset(0, 0, 1, permute, reverse)}));
+                vertexShadow(base + ivec3(${cellOffset(0, 0, 1, permute, reverse)}))
+            );
         }
 
         void main()
