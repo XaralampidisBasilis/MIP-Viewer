@@ -2,10 +2,6 @@ import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import * as GPGPU from '../Programs/GPGPUShadowDistanceMap'
-
-import { computeVertexMargins as F1, computeVertexMinmax as G1 } from '../Programs/GPGPUShadowMapMargins'
-import { computeVertexMargins as F2, computeVertexMinmax as G2 } from '../Programs/GPGPUShadowMapPaths'
-
 export default class DistanceMap 
 {
     constructor()
@@ -20,29 +16,6 @@ export default class DistanceMap
 
     computeTexture()
     {
-        const volume = this.computes.volumeMap.tensor
-
-        // const margins1 = F1(volume, [0,1,2], [])
-        // const margins2 = F2(volume, [0,1,2], [])
-        // const error = tf.abs(margins2.sub(margins1))
-
-        // console.log('error z', error.mean([1,2,3,4]).mul(100).dataSync())
-        // console.log('error y', error.mean([0,2,3,4]).mul(100).dataSync())
-        // console.log('error x', error.mean([0,1,3,4]).mul(100).dataSync())
-
-        // const minmax1 = G1(volume, [0,1,2], [])
-        // const minmax2 = G2(volume, [0,1,2], [])
-        // const error1 = tf.abs(minmax1.sub(volume))
-        // const error2 = tf.abs(minmax2.sub(volume))
-        
-        // console.log('error 1: x = 0', error1.slice([0,0,0], [-1,-1,1]).mean().dataSync())
-        // console.log('error 1: y = 0', error1.slice([0,0,0], [-1,1,-1]).mean().dataSync())
-        // console.log('error 1: z = 0', error1.slice([0,0,0], [1,-1,-1]).mean().dataSync())
-
-        // console.log('error 2: x = 0', error2.slice([1,0,0], [-1,-1,1]).mean().dataSync())
-        // console.log('error 2: y = 0', error2.slice([0,0,0], [-1,1,-1]).mean().dataSync())
-        // console.log('error 2: z = 0', error2.slice([0,0,0], [1,-1,-1]).mean().dataSync())
-
         if (this.distanceVariation ===  '1bit') this.compute1BitDistanceTexture()
         if (this.distanceVariation ===  '5bit') this.compute5BitDistanceTexture()
         if (this.distanceVariation ===  '8bit') this.compute8BitDistanceTexture()

@@ -2,9 +2,9 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMap'
+import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapPaths'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapDifferences'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapDifferencesDocumented'
-import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapPaths'
 import {
     type Axis,
     type Octant,
@@ -298,7 +298,6 @@ function runWebGLProgram(
     const info = backend.compileAndRun(prog, inputs, dtype, customValues, preventEagerUnpackingOfOutput)
     return tf.engine().makeTensorFromTensorInfo(info) 
 }
-
 
 function packToR16UIArray(maps: Tuple<Int32Array, 12>): Uint16Array 
 {
