@@ -41,10 +41,9 @@ import { unstack3d } from './unstack_keepDims_webgl'
 import {
     type Axis,
     type Octant,
-    type Permute,
-    type Reverse,
+    axisToIndex,
+    reverseOctant,
     applyPermutation,
-    complementReverse,
     dominantAxisOctantToPermuteReverse,
 } from '../../Utils/ShadowMapUtils'
 import { minPool3d } from './pool3d'
@@ -58,9 +57,9 @@ type CoordExpr = number | string
  * as z/y/x, so applyPermutation works in z/y/x order and xyz emits GLSL ivec3
  * arguments.
  */
-function xyz(coordsZyx: [CoordExpr, CoordExpr, CoordExpr]): string
+function xyz(zyx: [CoordExpr, CoordExpr, CoordExpr]): string
 {
-    return [coordsZyx[2], coordsZyx[1], coordsZyx[0]].join(', ')
+    return [zyx[2], zyx[1], zyx[0]].join(', ')
 }
 
 /**
@@ -71,15 +70,17 @@ function voxelOffset(
     x: number,
     y: number,
     z: number,
-    permute: Permute,
-    reverse: Reverse
+    axis: Axis,
+    octant: Octant,
 ): string
 {
-    const o = applyPermutation([z, y, x], permute)
+    const { permute, reverse } = dominantAxisOctantToPermuteReverse(axis, octant)
 
-    for (const axis of reverse) o[axis] = -o[axis]
+    const zyx = applyPermutation([z, y, x], permute)
 
-    return xyz(o)
+    for (const dim of reverse) zyx[dim] = -zyx[dim]
+
+    return xyz(zyx)
 }
 
 /**
@@ -91,17 +92,19 @@ function sliceOffset(
     x: number,
     y: number,
     z: number,
-    permute: Permute,
-    reverse: Reverse
+    axis: Axis,
+    octant: Octant,
 ): string
 {
-    const o = applyPermutation([z, y, x], permute)
+    const { permute, reverse } = dominantAxisOctantToPermuteReverse(axis, octant)
 
-    for (const axis of reverse) o[axis] = -o[axis]
+    const zyx = applyPermutation([z, y, x], permute)
 
-    o[permute[0]] = 0
+    for (const dim of reverse) zyx[dim] = -zyx[dim]
 
-    return xyz(o)
+    zyx[permute[0]] = 0
+
+    return xyz(zyx)
 }
 
 /**
@@ -113,15 +116,17 @@ function cellOffset(
     x: number,
     y: number,
     z: number,
-    permute: Permute,
-    reverse: Reverse
+    axis: Axis,
+    octant: Octant,
 ): string
 {
-    const o = applyPermutation([z, y, x], permute)
+    const { permute, reverse } = dominantAxisOctantToPermuteReverse(axis, octant)
 
-    for (const axis of reverse) o[axis] = 1 - o[axis]
+    const zyx = applyPermutation([z, y, x], permute)
 
-    return xyz(o)
+    for (const dim of reverse) zyx[dim] = 1 - zyx[dim]
+
+    return xyz(zyx)
 }
 
 /**
@@ -151,8 +156,8 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
 
     constructor(
         shape: Shape3,
-        permute: Permute = [0, 1, 2],
-        reverse: Reverse = []
+        axis: Axis = 'z',
+        octant: Octant = '+++',
     ) {
         const [depth, height, width] = shape
 
@@ -193,11 +198,11 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
 
         float vertexMinmax(ivec3 p)
         {
-            float v111 =  currentSliceAt(p + ivec3(${sliceOffset( 0,  0,  0, permute, reverse)}));
-            float v110 = previousSliceAt(p + ivec3(${sliceOffset( 0,  0, -1, permute, reverse)}));
-            float v100 = previousSliceAt(p + ivec3(${sliceOffset( 0, -1, -1, permute, reverse)}));
-            float v010 = previousSliceAt(p + ivec3(${sliceOffset(-1,  0, -1, permute, reverse)}));
-            float v000 = previousSliceAt(p + ivec3(${sliceOffset(-1, -1, -1, permute, reverse)}));
+            float v111 =  currentSliceAt(p + ivec3(${sliceOffset( 0,  0,  0, axis, octant)}));
+            float v110 = previousSliceAt(p + ivec3(${sliceOffset( 0,  0, -1, axis, octant)}));
+            float v100 = previousSliceAt(p + ivec3(${sliceOffset( 0, -1, -1, axis, octant)}));
+            float v010 = previousSliceAt(p + ivec3(${sliceOffset(-1,  0, -1, axis, octant)}));
+            float v000 = previousSliceAt(p + ivec3(${sliceOffset(-1, -1, -1, axis, octant)}));
 
             float bottleneck = min4(v000, v010, v100, v110);
 
@@ -222,8 +227,8 @@ class ComputeVertexMarginsProgram implements GPGPUProgram
 
     constructor(
         shape: Shape3,
-        permute: Permute = [0, 1, 2],
-        reverse: Reverse = []
+        axis: Axis = 'z',
+        octant: Octant = '+++',
     ) {
         const [depth, height, width] = shape
     
@@ -259,17 +264,16 @@ class ComputeVertexMarginsProgram implements GPGPUProgram
 
         float minmaxAt(ivec3 p)
         {
-            p = clamp(p, minCoords, maxCoords);
-            return getB(p.z, p.y, p.x);
+            return insideVolume(p) ? getB(p.z, p.y, p.x) : 0.0;
         }
 
         vec4 vertexMargins(ivec3 p)
         {
-            float v111 = volumeAt(p + ivec3(${voxelOffset( 0,  0,  0, permute, reverse)}));
-            float v110 = minmaxAt(p + ivec3(${voxelOffset( 0,  0, -1, permute, reverse)}));
-            float v100 = minmaxAt(p + ivec3(${voxelOffset( 0, -1, -1, permute, reverse)}));
-            float v010 = minmaxAt(p + ivec3(${voxelOffset(-1,  0, -1, permute, reverse)}));
-            float v000 = minmaxAt(p + ivec3(${voxelOffset(-1, -1, -1, permute, reverse)}));
+            float v111 = volumeAt(p + ivec3(${voxelOffset( 0,  0,  0, axis, octant)}));
+            float v110 = minmaxAt(p + ivec3(${voxelOffset( 0,  0, -1, axis, octant)}));
+            float v100 = minmaxAt(p + ivec3(${voxelOffset( 0, -1, -1, axis, octant)}));
+            float v010 = minmaxAt(p + ivec3(${voxelOffset(-1,  0, -1, axis, octant)}));
+            float v000 = minmaxAt(p + ivec3(${voxelOffset(-1, -1, -1, axis, octant)}));
 
             return (vec4(v000, v010, v100, v110) - v111);
         }
@@ -304,8 +308,8 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
 
     constructor(
         shape: Shape3,
-        permute: Permute = [0, 1, 2],
-        reverse: Reverse = []
+        axis: Axis = 'z',
+        octant: Octant = '+++'
     ) {
         const [depth, height, width] = shape
     
@@ -341,17 +345,16 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
 
         float minmaxAt(ivec3 p)
         {
-            // p = clamp(p, minCoords, maxCoords);
             return insideVolume(p) ? getB(p.z, p.y, p.x) : 0.0;
         }
 
         bool vertexShadow(ivec3 p)
         {
-            float v111 = volumeAt(p + ivec3(${voxelOffset( 0,  0,  0, permute, reverse)}));
-            float v110 = minmaxAt(p + ivec3(${voxelOffset( 0,  0, -1, permute, reverse)}));
-            float v100 = minmaxAt(p + ivec3(${voxelOffset( 0, -1, -1, permute, reverse)}));
-            float v010 = minmaxAt(p + ivec3(${voxelOffset(-1,  0, -1, permute, reverse)}));
-            float v000 = minmaxAt(p + ivec3(${voxelOffset(-1, -1, -1, permute, reverse)}));
+            float v111 = volumeAt(p + ivec3(${voxelOffset( 0,  0,  0, axis, octant)}));
+            float v110 = minmaxAt(p + ivec3(${voxelOffset( 0,  0, -1, axis, octant)}));
+            float v100 = minmaxAt(p + ivec3(${voxelOffset( 0, -1, -1, axis, octant)}));
+            float v010 = minmaxAt(p + ivec3(${voxelOffset(-1,  0, -1, axis, octant)}));
+            float v000 = minmaxAt(p + ivec3(${voxelOffset(-1, -1, -1, axis, octant)}));
 
             float bottleneck = min4(v000, v010, v100, v110);
             float margin = v111 - bottleneck;
@@ -377,8 +380,8 @@ class computeVertexHolesProgram implements GPGPUProgram
 
     constructor(
         shape: Shape3,
-        permute: Permute = [0, 1, 2],
-        reverse: Reverse = []
+        axis: Axis = 'z',
+        octant: Octant = '+++',
     ) {
         const [depth, height, width] = shape
 
@@ -401,7 +404,7 @@ class computeVertexHolesProgram implements GPGPUProgram
 
         bool vertexHole(ivec3 coords)
         {
-            return cellShadow(coords + ivec3(${cellOffset(1, 1, 1, permute, reverse)}));
+            return cellShadow(coords + ivec3(${cellOffset(1, 1, 1, axis, octant)}));
    
         }
 
@@ -433,8 +436,8 @@ class ComputeCellShadowsProgram implements GPGPUProgram
 
     constructor(
         shape: Shape3,
-        permute: Permute = [0, 1, 2],
-        reverse: Reverse = []
+        axis: Axis = 'z',
+        octant: Octant = '+++',
     ) {
         const [depth, height, width] = shape
 
@@ -468,15 +471,14 @@ class ComputeCellShadowsProgram implements GPGPUProgram
         {
             ivec3 base = coords - 1;
 
-            // Consider a cell shadowed if all four of its relevant face vertices are shadowed. 
             return (
-                vertexShadow(base + ivec3(${cellOffset(1, 1, 1, permute, reverse)})) &&
-                vertexShadow(base + ivec3(${cellOffset(1, 0, 1, permute, reverse)})) &&
-                vertexShadow(base + ivec3(${cellOffset(0, 1, 1, permute, reverse)})) &&
-                vertexShadow(base + ivec3(${cellOffset(0, 0, 1, permute, reverse)})) &&
-                vertexShadow(base + ivec3(${cellOffset(1, 1, 0, permute, reverse)})) &&
-                vertexShadow(base + ivec3(${cellOffset(1, 0, 0, permute, reverse)})) &&
-                vertexShadow(base + ivec3(${cellOffset(0, 1, 0, permute, reverse)})) 
+                vertexShadow(base + ivec3(${cellOffset(1, 1, 1, axis, octant)})) &&
+                vertexShadow(base + ivec3(${cellOffset(1, 0, 1, axis, octant)})) &&
+                vertexShadow(base + ivec3(${cellOffset(0, 1, 1, axis, octant)})) &&
+                vertexShadow(base + ivec3(${cellOffset(0, 0, 1, axis, octant)})) &&
+                vertexShadow(base + ivec3(${cellOffset(1, 1, 0, axis, octant)})) &&
+                vertexShadow(base + ivec3(${cellOffset(1, 0, 0, axis, octant)})) &&
+                vertexShadow(base + ivec3(${cellOffset(0, 1, 0, axis, octant)})) 
             );
         }
 
@@ -501,20 +503,21 @@ class ComputeCellShadowsProgram implements GPGPUProgram
  */
 export function computeVertexMinmax(
     volume: tf.Tensor3D,
-    permute: Permute,
-    reverse: Reverse,
+    axis: Axis,
+    octant: Octant,
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const axis = permute[0]
-    const backwards = reverse.includes(axis)
+    const { permute, reverse } = dominantAxisOctantToPermuteReverse(axis, octant)
+    const dim = permute[0]
+    const backwards = reverse.includes(dim)
     
-    const slices = unstack3d(volume, axis)
+    const slices = unstack3d(volume, dim)
     const shape = slices[0].shape as Shape3
-    const propagate = new PropagateVertexMinmaxProgram(shape, permute, reverse)
+    const propagate = new PropagateVertexMinmaxProgram(shape, axis, octant)
 
     const start = backwards ? slices.length - 2 : 1
-    const end = backwards ? -1 : slices.length
+    const end = backwards ? 0 : slices.length - 1
     const step = backwards ? -1 : 1
 
     for (let i = start; i !== end; i += step)
@@ -524,7 +527,7 @@ export function computeVertexMinmax(
         slices[i] = next
     }
 
-    const minmax = stack3d(slices, axis) as tf.Tensor3D
+    const minmax = stack3d(slices, dim) as tf.Tensor3D
     tf.dispose(slices)
     if (verbose) logMean('minmax', minmax)
 
@@ -536,15 +539,15 @@ export function computeVertexMinmax(
  */
 export function computeVertexMargins(
     volume: tf.Tensor3D,
-    permute: Permute,
-    reverse: Reverse,
+    axis: Axis,
+    octant: Octant,
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const minmax = computeVertexMinmax(volume, permute, reverse)
+    const minmax = computeVertexMinmax(volume, axis, octant)
     if (verbose) logMean('minmax', minmax)
 
-    const program = new ComputeVertexMarginsProgram(volume.shape, permute, reverse)
+    const program = new ComputeVertexMarginsProgram(volume.shape, axis, octant)
     const margins = runWebGLProgram(program, [volume, minmax], 'float32', [], true) as tf.Tensor5D
     tf.dispose(minmax)
     if (verbose) logMean('margins', margins)
@@ -557,16 +560,16 @@ export function computeVertexMargins(
  */
 export function computeVertexShadows(
     volume: tf.Tensor3D,
-    permute: Permute,
-    reverse: Reverse,
+    axis: Axis,
+    octant: Octant,
     tolerance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const minmax = computeVertexMinmax(volume, permute, reverse)
+    const minmax = computeVertexMinmax(volume, axis, octant)
     if (verbose) logMean('minmax', minmax)
 
-    const program = new ComputeVertexShadowsProgram(volume.shape, permute, reverse)
+    const program = new ComputeVertexShadowsProgram(volume.shape, axis, octant)
     const shadows = runWebGLProgram(program, [volume, minmax], 'bool', [[tolerance]], true) as tf.Tensor3D
     tf.dispose(minmax)
     if (verbose) logMean('shadows', shadows)
@@ -579,16 +582,16 @@ export function computeVertexShadows(
  */
 export function computeCellShadows(
     volume: tf.Tensor3D,
-    permute: Permute,
-    reverse: Reverse,
+    axis: Axis,
+    octant: Octant,
     tolerance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const vertexShadows = computeVertexShadows(volume, permute, reverse, tolerance)
+    const vertexShadows = computeVertexShadows(volume, axis, octant, tolerance)
     if (verbose) logMean('vertexShadows', vertexShadows)
 
-    const program = new ComputeCellShadowsProgram(vertexShadows.shape, permute, reverse)
+    const program = new ComputeCellShadowsProgram(vertexShadows.shape, axis, octant)
     const cellShadows = runWebGLProgram(program, [vertexShadows], 'bool', [], true) as tf.Tensor3D
     tf.dispose(vertexShadows)
     if (verbose) logMean('cellShadows', cellShadows)
@@ -604,15 +607,13 @@ export function computeCellShadows(
  */
 export function computeUnidirectionalShadowMap(
     volume: tf.Tensor3D,
-    dominantAxis: Axis,
+    axis: Axis,
     octant: Octant,
     tolerance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
-
-    return computeCellShadows(volume, permute, reverse, tolerance, verbose)
+    return computeCellShadows(volume, axis, octant, tolerance, verbose)
 }
 
 /**
@@ -626,23 +627,22 @@ export function computeUnidirectionalShadowMap(
  */
 export function computeBidirectionalShadowMap(
     volume: tf.Tensor3D,
-    dominantAxis: Axis,
+    axis: Axis,
     octant: Octant,
     tolerance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
-    const backwardReverse = complementReverse(reverse)
+    const forwardShadows = computeCellShadows(volume, axis, octant, tolerance)
 
-    const forwardShadows = computeCellShadows(volume, permute, reverse, tolerance)
-    const program = new computeVertexHolesProgram(forwardShadows.shape, permute, backwardReverse)
-    const holes = runWebGLProgram(program, [forwardShadows], 'bool', [], true) as tf.Tensor3D
+    const backwardOctant = reverseOctant(octant)
+    const program = new computeVertexHolesProgram(forwardShadows.shape, axis, backwardOctant)
+    const volumeHoles = runWebGLProgram(program, [forwardShadows], 'bool', [], true) as tf.Tensor3D
     if (verbose) logMean('forwardShadows', forwardShadows)
 
-    const hollowVolume = tf.where(holes, 0, volume) 
-    const backwardShadows = computeCellShadows(hollowVolume, permute, backwardReverse, tolerance)
-    tf.dispose(holes)
+    const hollowVolume = tf.where(volumeHoles, 0, volume) 
+    const backwardShadows = computeCellShadows(hollowVolume, axis, backwardOctant, tolerance)
+    tf.dispose(volumeHoles)
     if (verbose) logMean('backwardShadows', backwardShadows)
 
     const shadows = tf.logicalOr(forwardShadows, backwardShadows)
@@ -660,14 +660,14 @@ export function computeBidirectionalShadowMap(
  */
 export function computeBidirectionalBlockShadowMap(
     volume: tf.Tensor3D,
-    dominantAxis: Axis,
+    axis: Axis,
     octant: Octant,
     tolerance: number,
     blockSize: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const shadowMap = computeBidirectionalShadowMap(volume, dominantAxis, octant, tolerance, verbose)
+    const shadowMap = computeBidirectionalShadowMap(volume, axis, octant, tolerance, verbose)
     if (blockSize === 1) return shadowMap
 
     const blockShadowMap = minPool3d(shadowMap, blockSize, blockSize, 'same') as tf.Tensor3D

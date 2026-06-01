@@ -2,7 +2,8 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMap'
-import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapPaths'
+// import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapPaths2'
+import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapFaces'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapDifferences'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapDifferencesDocumented'
 import {
@@ -10,9 +11,9 @@ import {
     type Octant,
     type Sign,
     type Tuple,
-    axisIndex,
+    axisToIndex,
     reverseSign,
-    octantAxisToSign,
+    octantIndexToSign,
 } from '../../Utils/ShadowMapUtils'
 
 class ShadowChebyshevDistancePass implements GPGPUProgram 
@@ -541,10 +542,10 @@ function extendedAnisotropicUnidirectionalDistanceMapInt32Array(
     if (verbose) logTensor('shadows', shadows)
 
     const axes = ['x', 'y', 'z'] as [Axis, Axis, Axis]
-    const dominantSign = octantAxisToSign(octant, axisIndex(dominantAxis))
+    const dominantSign = octantIndexToSign(octant, axisToIndex(dominantAxis))
 
     const otherAxes = axes.filter(a => a !== dominantAxis) as [Axis, Axis]
-    const otherSigns = otherAxes.map(a => octantAxisToSign(octant, axisIndex(a))) as [Sign, Sign]
+    const otherSigns = otherAxes.map(a => octantIndexToSign(octant, axisToIndex(a))) as [Sign, Sign]
 
     const inAxes = [...otherAxes, dominantAxis] as [Axis, Axis, Axis]
     const inSigns = [...otherSigns, dominantSign] as [Sign, Sign, Sign]
@@ -586,10 +587,10 @@ function extendedAnisotropicBidirectionalDistanceMapInt32Array(
     if (verbose) logTensor('shadows', shadows)
 
     const axes = ['x', 'y', 'z'] as [Axis, Axis, Axis]
-    const dominantSign = octantAxisToSign(octant, axisIndex(dominantAxis))
+    const dominantSign = octantIndexToSign(octant, axisToIndex(dominantAxis))
 
     const otherAxes = axes.filter(a => a !== dominantAxis) as [Axis, Axis]
-    const otherSigns = otherAxes.map(a => octantAxisToSign(octant, axisIndex(a))) as [Sign, Sign]
+    const otherSigns = otherAxes.map(a => octantIndexToSign(octant, axisToIndex(a))) as [Sign, Sign]
 
     const inAxes = [...otherAxes, dominantAxis] as [Axis, Axis, Axis]
     const inSigns = [...otherSigns, dominantSign] as [Sign, Sign, Sign]

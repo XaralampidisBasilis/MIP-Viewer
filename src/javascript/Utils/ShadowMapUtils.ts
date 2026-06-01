@@ -167,7 +167,7 @@ export function applyPermutation(newOffset: [number, number, number], permute: P
     return oldOffset
 }
 
-export function axisIndex(axis: Axis): Dimension
+export function axisToIndex(axis: Axis): Dimension
 {
     return INDEX_FROM_AXIS[axis]
 }
@@ -177,14 +177,14 @@ export function reverseSign(sign: Sign): Sign
     return sign === '+' ? '-' : '+'
 }
 
-export function octantAxisToSign(octant: Octant, axis: Dimension): Sign
+export function octantIndexToSign(octant: Octant, index: Dimension): Sign
 {
-    return octant[axis] as Sign
+    return octant[index] as Sign
 }
 
 export function reverseOctant(octant: Octant): Octant
 {
-    return `${reverseSign(octantAxisToSign(octant, 0))}${reverseSign(octantAxisToSign(octant, 1))}${reverseSign(octantAxisToSign(octant, 2))}`
+    return `${reverseSign(octantIndexToSign(octant, 0))}${reverseSign(octantIndexToSign(octant, 1))}${reverseSign(octantIndexToSign(octant, 2))}`
 }
 
 export function permuteReverseToMap(permute: Permute, reverse: Reverse): number

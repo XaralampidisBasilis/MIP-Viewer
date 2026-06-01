@@ -84,10 +84,10 @@ export default class VolumeMap
             this.resizeTensor()
         }
 
-        this.tensor.dispose()
+        // this.tensor.dispose()
         // this.tensor = TensorUtils.makeCartesianPlanes3d(this.shape, true)
         // this.tensor = TensorUtils.makeCartesianAxes3d(this.shape, true)
-        this.tensor = TensorUtils.makeBoundaryPlanes3d(this.shape, true)
+        // this.tensor = TensorUtils.makeBoundaryPlanes3d(this.shape, true)
 
         console.log(this)
         console.timeEnd('computeTensor') 
