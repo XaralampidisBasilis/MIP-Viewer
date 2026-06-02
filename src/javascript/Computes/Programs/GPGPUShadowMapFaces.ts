@@ -38,7 +38,7 @@ function xyz(zyx: [CoordExpr, CoordExpr, CoordExpr]): string
  * Reversal mirrors a unit cell corner: coordinate 0 becomes 1 and coordinate
  * 1 becomes 0.
  */
-function cellOffset(
+function voxelOffset(
     x: number,
     y: number,
     z: number,
@@ -58,7 +58,7 @@ function cellOffset(
 /**
  * Offset for propagated face-map addressing. Reversal flips the signed offset.
  */
-function voxelOffset(
+function cellOffset(
     x: number,
     y: number,
     z: number,
@@ -67,6 +67,7 @@ function voxelOffset(
 ): string
 {
     const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
+
     const zyx = applyPermutation([z, y, x], permute)
 
     for (const dim of reverse) zyx[dim] = -zyx[dim]
@@ -87,6 +88,7 @@ function sliceOffset(
 ): string
 {
     const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
+
     const zyx = applyPermutation([z, y, x], permute)
 
     for (const dim of reverse) zyx[dim] = -zyx[dim]
@@ -96,50 +98,25 @@ function sliceOffset(
     return xyz(zyx)
 }
 
-function addOneShape([depth, height, width]: Shape3): Shape3
-{
-    return [depth + 1, height + 1, width + 1]
-}
-
 class ComputeFaceMinimaProgram implements GPGPUProgram
 {
-    variableNames: string[]
+    variableNames = ['A']
     outputShape: number[]
     userCode: string
     packedInputs = false
     packedOutput = true
 
     constructor(
-        volumeShape: Shape3,
-        dominantAxis: Axis = 'z',
+        shape: Shape3,
+        axis: Axis = 'z',
         octant: Octant = '+++',
-        hollow = false
     ) {
-        const [inDepth, inHeight, inWidth] = volumeShape
-        const [outDepth, outHeight, outWidth] = addOneShape(volumeShape)
+        const [depth, height, width] = shape
 
-        this.variableNames = hollow ? ['A', 'B'] : ['A']
-        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]
+        this.outputShape = [depth + 1, height + 1, width + 1, 2, 2]
         this.userCode = `
         const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${inWidth - 1}, ${inHeight - 1}, ${inDepth - 1});
-
-        struct CellValues
-        {
-            float v000;
-            float v100;
-            float v010;
-            float v001;
-            float v011;
-            float v101;
-            float v110;
-            float v111;
-        };
-
-        float min4(float a, float b, float c, float d)
-        {
-            return min(min(min(a, b), c), d);
-        }
+        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
         bool insideVolume(ivec3 p)
         {
@@ -161,64 +138,60 @@ class ComputeFaceMinimaProgram implements GPGPUProgram
             return insideVolume(p) ? getA(p.z, p.y, p.x) : 0.0;
         }
 
-        ${hollow ? `
-        float holesAt(ivec3 p)
+        struct CellValues
         {
-            return insideVolume(p) ? getB(p.z, p.y, p.x) : 0.0;
-        }
-
-        bool isHollow(ivec3 p)
-        {
-            return holesAt(p) > 0.5;
-        }
-        ` : ''}
+            float v000;
+            float v100;
+            float v010;
+            float v001;
+            float v011;
+            float v101;
+            float v110;
+            float v111;
+        };
 
         CellValues cellValues(ivec3 coords)
         {
             ivec3 base = coords - 1;
 
             CellValues c;
-            c.v000 = volumeAt(base + ivec3(${cellOffset(0, 0, 0, dominantAxis, octant)}));
-            c.v100 = volumeAt(base + ivec3(${cellOffset(1, 0, 0, dominantAxis, octant)}));
-            c.v010 = volumeAt(base + ivec3(${cellOffset(0, 1, 0, dominantAxis, octant)}));
-            c.v001 = volumeAt(base + ivec3(${cellOffset(0, 0, 1, dominantAxis, octant)}));
-            c.v011 = volumeAt(base + ivec3(${cellOffset(0, 1, 1, dominantAxis, octant)}));
-            c.v101 = volumeAt(base + ivec3(${cellOffset(1, 0, 1, dominantAxis, octant)}));
-            c.v110 = volumeAt(base + ivec3(${cellOffset(1, 1, 0, dominantAxis, octant)}));
-            c.v111 = volumeAt(base + ivec3(${cellOffset(1, 1, 1, dominantAxis, octant)}));
+            c.v000 = volumeAt(base + ivec3(${voxelOffset(0, 0, 0, axis, octant)}));
+            c.v100 = volumeAt(base + ivec3(${voxelOffset(1, 0, 0, axis, octant)}));
+            c.v010 = volumeAt(base + ivec3(${voxelOffset(0, 1, 0, axis, octant)}));
+            c.v001 = volumeAt(base + ivec3(${voxelOffset(0, 0, 1, axis, octant)}));
+            c.v011 = volumeAt(base + ivec3(${voxelOffset(0, 1, 1, axis, octant)}));
+            c.v101 = volumeAt(base + ivec3(${voxelOffset(1, 0, 1, axis, octant)}));
+            c.v110 = volumeAt(base + ivec3(${voxelOffset(1, 1, 0, axis, octant)}));
+            c.v111 = volumeAt(base + ivec3(${voxelOffset(1, 1, 1, axis, octant)}));
 
             return c;
         }
 
-        float faceX(CellValues c)
+        float min4(float a, float b, float c, float d)
+        {
+            return min(min(min(a, b), c), d);
+        }
+
+        float faceXMin(CellValues c)
         {
             return min4(c.v100, c.v110, c.v101, c.v111);
         }
 
-        float faceY(CellValues c)
+        float faceYMin(CellValues c)
         {
             return min4(c.v010, c.v110, c.v011, c.v111);
         }
 
-        float faceZ(CellValues c)
+        float faceZMin(CellValues c)
         {
             return min4(c.v001, c.v011, c.v101, c.v111);
         }
 
         void main()
         {
-            ivec3 coords = outputCoords();
-            CellValues c = cellValues(coords);
+            CellValues c = cellValues(outputCoords());
 
-            ${hollow ? `
-            if (isHollow(coords))
-            {
-                setOutput(vec4(0.0, 0.0, 0.0, 1.0));
-                return;
-            }
-            ` : ''}
-
-            setOutput(vec4(faceX(c), faceY(c), faceZ(c), 0.0));
+            setOutput(vec4(faceXMin(c), faceYMin(c), faceZMin(c), 0.0));
         }
         `
     }
@@ -233,34 +206,16 @@ class ComputeFaceMaximaProgram implements GPGPUProgram
     packedOutput = true
 
     constructor(
-        volumeShape: Shape3,
-        dominantAxis: Axis = 'z',
+        shape: Shape3,
+        axis: Axis = 'z',
         octant: Octant = '+++'
     ) {
-        const [inDepth, inHeight, inWidth] = volumeShape
-        const [outDepth, outHeight, outWidth] = addOneShape(volumeShape)
+        const [depth, height, width] = shape
 
-        this.outputShape = [outDepth, outHeight, outWidth, 2, 2]
+        this.outputShape = [depth + 1, height + 1, width + 1, 2, 2]
         this.userCode = `
         const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${inWidth - 1}, ${inHeight - 1}, ${inDepth - 1});
-
-        struct CellValues
-        {
-            float v000;
-            float v100;
-            float v010;
-            float v001;
-            float v011;
-            float v101;
-            float v110;
-            float v111;
-        };
-
-        float max4(float a, float b, float c, float d)
-        {
-            return max(max(max(a, b), c), d);
-        }
+        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
         bool insideVolume(ivec3 p)
         {
@@ -282,34 +237,51 @@ class ComputeFaceMaximaProgram implements GPGPUProgram
             return insideVolume(p) ? getA(p.z, p.y, p.x) : 0.0;
         }
 
+        struct CellValues
+        {
+            float v000;
+            float v100;
+            float v010;
+            float v001;
+            float v011;
+            float v101;
+            float v110;
+            float v111;
+        };
+
         CellValues cellValues(ivec3 coords)
         {
             ivec3 base = coords - 1;
 
             CellValues c;
-            c.v000 = volumeAt(base + ivec3(${cellOffset(0, 0, 0, dominantAxis, octant)}));
-            c.v100 = volumeAt(base + ivec3(${cellOffset(1, 0, 0, dominantAxis, octant)}));
-            c.v010 = volumeAt(base + ivec3(${cellOffset(0, 1, 0, dominantAxis, octant)}));
-            c.v001 = volumeAt(base + ivec3(${cellOffset(0, 0, 1, dominantAxis, octant)}));
-            c.v011 = volumeAt(base + ivec3(${cellOffset(0, 1, 1, dominantAxis, octant)}));
-            c.v101 = volumeAt(base + ivec3(${cellOffset(1, 0, 1, dominantAxis, octant)}));
-            c.v110 = volumeAt(base + ivec3(${cellOffset(1, 1, 0, dominantAxis, octant)}));
-            c.v111 = volumeAt(base + ivec3(${cellOffset(1, 1, 1, dominantAxis, octant)}));
+            c.v000 = volumeAt(base + ivec3(${voxelOffset(0, 0, 0, axis, octant)}));
+            c.v100 = volumeAt(base + ivec3(${voxelOffset(1, 0, 0, axis, octant)}));
+            c.v010 = volumeAt(base + ivec3(${voxelOffset(0, 1, 0, axis, octant)}));
+            c.v001 = volumeAt(base + ivec3(${voxelOffset(0, 0, 1, axis, octant)}));
+            c.v011 = volumeAt(base + ivec3(${voxelOffset(0, 1, 1, axis, octant)}));
+            c.v101 = volumeAt(base + ivec3(${voxelOffset(1, 0, 1, axis, octant)}));
+            c.v110 = volumeAt(base + ivec3(${voxelOffset(1, 1, 0, axis, octant)}));
+            c.v111 = volumeAt(base + ivec3(${voxelOffset(1, 1, 1, axis, octant)}));
 
             return c;
         }
 
-        float faceX(CellValues c)
+        float max4(float a, float b, float c, float d)
+        {
+            return max(max(max(a, b), c), d);
+        }
+
+        float faceXMax(CellValues c)
         {
             return max4(c.v100, c.v110, c.v101, c.v111);
         }
 
-        float faceY(CellValues c)
+        float faceYMax(CellValues c)
         {
             return max4(c.v010, c.v110, c.v011, c.v111);
         }
 
-        float faceZ(CellValues c)
+        float faceZMax(CellValues c)
         {
             return max4(c.v001, c.v011, c.v101, c.v111);
         }
@@ -318,7 +290,7 @@ class ComputeFaceMaximaProgram implements GPGPUProgram
         {
             CellValues c = cellValues(outputCoords());
 
-            setOutput(vec4(faceX(c), faceY(c), faceZ(c), 0.5));
+            setOutput(vec4(faceXMax(c), faceYMax(c), faceZMax(c), 0.0));
         }
         `
     }
@@ -334,13 +306,13 @@ class PropagateFaceMinmaxProgram implements GPGPUProgram
     customUniforms = [{ name: 'slice', type: 'int' as const }]
 
     constructor(
-        outputShape: Shape3Packed,
-        dominantAxis: Axis = 'z',
+        shape: Shape3Packed,
+        axis: Axis = 'z',
         octant: Octant = '+++'
     ) {
-        const [depth, height, width] = outputShape
+        const [depth, height, width] = shape
 
-        this.outputShape = outputShape
+        this.outputShape = shape
         this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
@@ -360,55 +332,55 @@ class PropagateFaceMinmaxProgram implements GPGPUProgram
             return ivec3(p.z, p.y, p.x);
         }
 
-        vec4 currentSliceAt(ivec3 p)
+        vec3 currentSliceAt(ivec3 p)
         {
-            return insideVolume(p) ? getA(p.z, p.y, p.x, 0, 0) : vec4(0.0);
+            return insideVolume(p) ? getA(p.z, p.y, p.x, 0, 0).xyz : vec3(0.0);
         }
 
-        vec4 previousSliceAt(ivec3 p)
+        vec3 previousSliceAt(ivec3 p)
         {
-            return insideVolume(p) ? getB(p.z, p.y, p.x, 0, 0) : vec4(0.0);
+            return insideVolume(p) ? getB(p.z, p.y, p.x, 0, 0).xyz : vec3(0.0);
         }
 
-        float minmaxX(vec4 c111, vec4 c110, vec4 c101, vec4 c100)
+        float faceXMinmax(vec3 c111, vec3 c110, vec3 c101, vec3 c100)
         {
             return max(c111.x, min(c110.z, max(c101.y, c100.z)));
         }
 
-        float minmaxY(vec4 c111, vec4 c110, vec4 c011, vec4 c010)
+        float faceYMinmax(vec3 c111, vec3 c110, vec3 c011, vec3 c010)
         {
             return max(c111.y, min(c110.z, max(c011.x, c010.z)));
         }
 
-        float minmaxZ(vec4 c111, vec4 c110, vec4 c101, vec4 c011)
+        float faceZMinmax(vec3 c111, vec3 c110, vec3 c101, vec3 c011)
         {
             return max(c111.z, min(c110.z, min(c101.y, c011.x)));
         }
 
-        vec4 propagatedMinima(ivec3 p)
+        vec3 cellMinmaxAt(ivec3 p)
         {
-            vec4 c111 =  currentSliceAt(p + ivec3(${sliceOffset( 0,  0,  0, dominantAxis, octant)}));
-            vec4 c011 =  currentSliceAt(p + ivec3(${sliceOffset(-1,  0,  0, dominantAxis, octant)}));
-            vec4 c101 =  currentSliceAt(p + ivec3(${sliceOffset( 0, -1,  0, dominantAxis, octant)}));
-            vec4 c001 =  currentSliceAt(p + ivec3(${sliceOffset(-1, -1,  0, dominantAxis, octant)}));
-            vec4 c110 = previousSliceAt(p + ivec3(${sliceOffset( 0,  0, -1, dominantAxis, octant)}));
-            vec4 c010 = previousSliceAt(p + ivec3(${sliceOffset(-1,  0, -1, dominantAxis, octant)}));
-            vec4 c100 = previousSliceAt(p + ivec3(${sliceOffset( 0, -1, -1, dominantAxis, octant)}));
-            vec4 c000 = previousSliceAt(p + ivec3(${sliceOffset(-1, -1, -1, dominantAxis, octant)}));
+            vec3 c111 =  currentSliceAt(p + ivec3(${sliceOffset( 0,  0,  0, axis, octant)}));
+            vec3 c011 =  currentSliceAt(p + ivec3(${sliceOffset(-1,  0,  0, axis, octant)}));
+            vec3 c101 =  currentSliceAt(p + ivec3(${sliceOffset( 0, -1,  0, axis, octant)}));
+            vec3 c001 =  currentSliceAt(p + ivec3(${sliceOffset(-1, -1,  0, axis, octant)}));
+            vec3 c110 = previousSliceAt(p + ivec3(${sliceOffset( 0,  0, -1, axis, octant)}));
+            vec3 c010 = previousSliceAt(p + ivec3(${sliceOffset(-1,  0, -1, axis, octant)}));
+            vec3 c100 = previousSliceAt(p + ivec3(${sliceOffset( 0, -1, -1, axis, octant)}));
+            vec3 c000 = previousSliceAt(p + ivec3(${sliceOffset(-1, -1, -1, axis, octant)}));
 
-            c011.x = minmaxX(c011, c010, c001, c000);
-            c101.y = minmaxY(c101, c100, c001, c000);
+            c011.x = faceXMinmax(c011, c010, c001, c000);
+            c101.y = faceYMinmax(c101, c100, c001, c000);
 
-            c111.x = minmaxX(c111, c110, c101, c100);
-            c111.y = minmaxY(c111, c110, c011, c010);
-            c111.z = minmaxZ(c111, c110, c101, c011);
+            c111.x = faceXMinmax(c111, c110, c101, c100);
+            c111.y = faceYMinmax(c111, c110, c011, c010);
+            c111.z = faceZMinmax(c111, c110, c101, c011);
 
             return c111;
         }
 
         void main()
         {
-            setOutput(propagatedMinima(outputCoords()));
+            setOutput(vec4(cellMinmaxAt(outputCoords()), 0.0));
         }
         `
     }
@@ -424,20 +396,24 @@ class ComputeCellShadowsProgram implements GPGPUProgram
     customUniforms = [{ name: 'tolerance', type: 'float' as const }]
 
     constructor(
-        outputShape: Shape3,
-        dominantAxis: Axis = 'z',
+        shape: Shape3,
+        axis: Axis = 'z',
         octant: Octant = '+++'
     ) {
-        const [depth, height, width] = outputShape
+        const [depth, height, width] = shape
 
-        this.outputShape = outputShape
+        this.outputShape = shape
         this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
-        float min3(float a, float b, float c)
+         bool insideVolume(ivec3 p)
         {
-            return min(min(a, b), c);
+            if (p.x < minCoords.x || p.x > maxCoords.x) return false;
+            if (p.y < minCoords.y || p.y > maxCoords.y) return false;
+            if (p.z < minCoords.z || p.z > maxCoords.z) return false;
+
+            return true;
         }
 
         ivec3 outputCoords()
@@ -446,70 +422,193 @@ class ComputeCellShadowsProgram implements GPGPUProgram
             return ivec3(p.z, p.y, p.x);
         }
 
-        vec4 minimaAt(ivec3 p)
+        vec3 faceMinmaxAt(ivec3 p)
         {
             p = clamp(p, minCoords, maxCoords);
-            return getA(p.z, p.y, p.x, 0, 0);
+            return getA(p.z, p.y, p.x, 0, 0).xyz;
         }
 
-        vec4 maximaAt(ivec3 p)
+        vec3 faceMaximaAt(ivec3 p)
         {
             p = clamp(p, minCoords, maxCoords);
-            return getB(p.z, p.y, p.x, 0, 0);
+            return getB(p.z, p.y, p.x, 0, 0).xyz;
         }
 
-        vec3 maxValues(ivec3 p)
+        bool cellShadow(ivec3 p)
         {
-            vec4 c111 = maximaAt(p + ivec3(${voxelOffset( 0,  0,  0, dominantAxis, octant)}));
-
-            return vec3(c111.x, c111.y, c111.z);
-        }
-
-        vec3 minValues(ivec3 p)
-        {
-            vec4 c011 = minimaAt(p + ivec3(${voxelOffset(-1,  0,  0, dominantAxis, octant)}));
-            vec4 c101 = minimaAt(p + ivec3(${voxelOffset( 0, -1,  0, dominantAxis, octant)}));
-            vec4 c110 = minimaAt(p + ivec3(${voxelOffset( 0,  0, -1, dominantAxis, octant)}));
-
-            return vec3(c011.x, c101.y, c110.z);
-        }
-
-        bool cellShadow(vec3 minima, vec3 maxima)
-        {
-            return all(lessThan(maxima - minima, vec3(tolerance)));
+            vec3 faceMinmax = faceMinmaxAt(p);
+            vec3 faceMaxima = faceMaximaAt(p);
+            
+            return all(lessThan(faceMaxima - faceMinmax, vec3(tolerance)));
         }
 
         void main()
         {
-            ivec3 p = outputCoords();
-
-            setOutput(float(cellShadow(minValues(p), maxValues(p))));
+            setOutput(float(cellShadow(outputCoords())));
         }
         `
     }
 }
 
-function sweepInfo(dominantAxis: Axis, octant: Octant): { axis: 0 | 1 | 2, backwards: boolean }
+class ComputeFaceHolesProgram implements GPGPUProgram
 {
-    const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
-    const axis = permute[0]
+    variableNames = ['A']
+    outputShape: number[]
+    userCode: string
+    packedInputs = false
+    packedOutput = true
 
-    return { axis, backwards: reverse.includes(axis) }
+    constructor(
+        shape: Shape3,
+        axis: Axis = 'z',
+        octant: Octant = '+++'
+    ) {
+        const [depth, height, width] = shape
+
+        this.outputShape = [depth, height, width, 2, 2]
+        this.userCode = `
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
+
+        bool insideVolume(ivec3 p)
+        {
+            if (p.x < minCoords.x || p.x > maxCoords.x) return false;
+            if (p.y < minCoords.y || p.y > maxCoords.y) return false;
+            if (p.z < minCoords.z || p.z > maxCoords.z) return false;
+
+            return true;
+        }
+
+        ivec3 outputCoords()
+        {
+            ivec5 p = getOutputCoords();
+            return ivec3(p.z, p.y, p.x);
+        }
+
+        bool cellShadow(ivec3 p)
+        {
+            p = clamp(p, minCoords, maxCoords);
+            return getA(p.z, p.y, p.x) > 0.5;
+        }
+
+        bvec3 faceHoles(ivec3 p)
+        {
+            bool c000 = cellShadow(p + ivec3(${cellOffset(0, 0, 0, axis, octant)}));
+            bool c100 = cellShadow(p + ivec3(${cellOffset(1, 0, 0, axis, octant)}));
+            bool c010 = cellShadow(p + ivec3(${cellOffset(0, 1, 0, axis, octant)}));
+            bool c001 = cellShadow(p + ivec3(${cellOffset(0, 0, 1, axis, octant)}));
+
+            return bvec3(c000 && c100, c000 && c010, c000 && c001);
+        }
+
+        void main()
+        {
+            setOutput(vec4(faceHoles(outputCoords()), 0.0));
+        }
+        `
+    }
 }
 
-function propagateFaceMinima(
-    minima: tf.Tensor5D,
-    dominantAxis: Axis,
+class HollowFaceMinimaProgram implements GPGPUProgram
+{
+    variableNames = ['A', 'B']
+    outputShape: number[]
+    userCode: string
+    packedInputs = true
+    packedOutput = true
+
+    constructor(
+        shape: Shape3Packed,
+        axis: Axis = 'z',
+        octant: Octant = '+++'
+    ) {
+        const [depth, height, width, ] = shape
+
+        this.outputShape = shape
+        this.userCode = `
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
+
+        bool insideVolume(ivec3 p)
+        {
+            if (p.x < minCoords.x || p.x > maxCoords.x) return false;
+            if (p.y < minCoords.y || p.y > maxCoords.y) return false;
+            if (p.z < minCoords.z || p.z > maxCoords.z) return false;
+
+            return true;
+        }
+
+        ivec3 outputCoords()
+        {
+            ivec5 p = getOutputCoords();
+            return ivec3(p.z, p.y, p.x);
+        }
+
+        vec3 faceMinimaAt(ivec3 p)
+        {
+            p = clamp(p, minCoords, maxCoords);
+            return getA(p.z, p.y, p.x, 0, 0).xyz;
+        }
+
+        vec3 faceHolesAt(ivec3 p)
+        {
+            p = clamp(p, minCoords, maxCoords);
+            return getB(p.z, p.y, p.x, 0, 0).xyz;
+        }
+
+        void main()
+        {
+            ivec3 p = outputCoords();
+            vec3 hollowMinima = mix(faceMinimaAt(p), vec3(0.0), faceHolesAt(p));
+
+            setOutput(vec4(hollowMinima, 0.0));
+        }
+        `
+    }
+}
+
+function computeFaceMinima(
+    volume: tf.Tensor3D,
+    axis: Axis,
     octant: Octant,
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const { axis, backwards } = sweepInfo(dominantAxis, octant)
-    const slices = unstackPacked(minima, axis)
-    tf.dispose(minima)
+    const program = new ComputeFaceMinimaProgram(volume.shape, axis, octant)
+    const faceMinima = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
+    if (verbose) logMean('faceMinima', faceMinima)
 
+    return faceMinima
+}
+
+function computeFaceMaxima(
+    volume: tf.Tensor3D,
+    axis: Axis,
+    octant: Octant,
+    verbose: boolean = false
+): tf.Tensor5D
+{
+    const program = new ComputeFaceMaximaProgram(volume.shape, axis, octant)
+    const faceMaxima = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
+    if (verbose) logMean('faceMaxima', faceMaxima)
+
+    return faceMaxima
+}
+
+function computeFaceMinmax(
+    faceMinima: tf.Tensor5D,
+    axis: Axis,
+    octant: Octant,
+    verbose: boolean = false
+): tf.Tensor5D
+{
+    const { permute, reverse } = dominantAxisOctantToPermuteReverse(axis, octant)
+    const dimension = permute[0]
+    const backwards = reverse.includes(dimension)
+
+    const slices = unstackPacked(faceMinima, dimension)
     const shape = slices[0].shape as Shape3Packed
-    const propagate = new PropagateFaceMinmaxProgram(shape, dominantAxis, octant)
+    const propagate = new PropagateFaceMinmaxProgram(shape, axis, octant)
 
     const start = backwards ? slices.length - 2 : 1
     const end = backwards ? -1 : slices.length
@@ -517,140 +616,125 @@ function propagateFaceMinima(
 
     for (let i = start; i !== end; i += step)
     {
-        const previous = i - step
-        const next = runWebGLProgram(propagate, [slices[i], slices[previous]], 'float32', [[i]], true)
-
+        const next = runWebGLProgram(propagate, [slices[i], slices[i-step]], 'float32', [[i]], true)
         tf.dispose(slices[i])
         slices[i] = next
     }
 
-    const propagated = stackPacked(slices, axis) as tf.Tensor5D
-    if (verbose) logMean('minimaPropagated', propagated)
+    const faceMinmax = stackPacked(slices, dimension) 
+    tf.dispose(slices)
+    if (verbose) logMean('faceMinmax', faceMinmax)
 
-    return propagated
+    return faceMinmax as tf.Tensor5D
 }
 
-function unidirectionalMinimaMap(
-    volume: tf.Tensor3D,
-    dominantAxis: Axis,
-    octant: Octant,
-    verbose: boolean = false
-): tf.Tensor5D
-{
-    const program = new ComputeFaceMinimaProgram(volume.shape as Shape3, dominantAxis, octant)
-    const minima = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
-    if (verbose) logMean('minimaStart', minima)
-
-    return propagateFaceMinima(minima, dominantAxis, octant, verbose)
-}
-
-function unidirectionalMinimaMapHollow(
-    volume: tf.Tensor3D,
-    holes: tf.Tensor3D,
-    dominantAxis: Axis,
-    octant: Octant,
-    verbose: boolean = false
-): tf.Tensor5D
-{
-    const program = new ComputeFaceMinimaProgram(volume.shape as Shape3, dominantAxis, octant, true)
-    const minima = runWebGLProgram(program, [volume, holes], 'float32', [], true) as tf.Tensor5D
-    if (verbose) logMean('minimaStart', minima)
-
-    return propagateFaceMinima(minima, dominantAxis, octant, verbose)
-}
-
-function unidirectionalMaximaMap(
-    volume: tf.Tensor3D,
-    dominantAxis: Axis,
-    octant: Octant,
-    verbose: boolean = false
-): tf.Tensor5D
-{
-    const program = new ComputeFaceMaximaProgram(volume.shape as Shape3, dominantAxis, octant)
-    const maxima = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
-    if (verbose) logMean('maxima', maxima)
-
-    return maxima
-}
-
-function unidirectionalShadowMap(
-    minima: tf.Tensor5D,
-    maxima: tf.Tensor5D,
-    dominantAxis: Axis,
+function computeCellShadows(
+    faceMinmax: tf.Tensor5D,
+    faceMaxima: tf.Tensor5D,
+    axis: Axis,
     octant: Octant,
     tolerance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const shape = minima.shape.slice(0, 3) as Shape3
-    const program = new ComputeCellShadowsProgram(shape, dominantAxis, octant)
-    const shadows = runWebGLProgram(program, [minima, maxima], 'float32', [[tolerance]], true) as tf.Tensor3D
-    if (verbose) logMean('shadows', shadows)
+    const shape = faceMinmax.shape.slice(0, 3) as Shape3
+    const program = new ComputeCellShadowsProgram(shape, axis, octant)
+    const cellShadows = runWebGLProgram(program, [faceMinmax, faceMaxima], 'bool', [[tolerance]], true) 
+    if (verbose) logMean('cellShadows', cellShadows)
 
-    return shadows
+    return cellShadows as tf.Tensor3D
+}
+
+function computeFaceHoles(
+    cellShadows: tf.Tensor3D,
+    axis: Axis,
+    octant: Octant,
+    verbose: boolean = false
+): tf.Tensor5D
+{
+    const program = new ComputeFaceHolesProgram(cellShadows.shape, axis, octant)
+    const faceHoles = runWebGLProgram(program, [cellShadows], 'bool', [], true) as tf.Tensor5D
+    if (verbose) logMean('faceHoles', faceHoles)
+
+    return faceHoles
+}
+
+function hollowFaceMinima(
+    faceMinima: tf.Tensor5D,
+    faceHoles: tf.Tensor5D,
+    axis: Axis,
+    octant: Octant,
+    verbose: boolean = false
+): tf.Tensor5D  
+{
+    const shape = faceMinima.shape as Shape3Packed
+    const program = new HollowFaceMinimaProgram(shape, axis, octant)
+    const hollowMinima = runWebGLProgram(program, [faceMinima, faceHoles], 'float32', [], true) as tf.Tensor5D
+    if (verbose) logMean('hollowMinima', hollowMinima)
+
+    return hollowMinima
 }
 
 export function computeUnidirectionalShadowMap(
     volume: tf.Tensor3D,
-    dominantAxis: Axis,
+    axis: Axis,
     octant: Octant,
     tolerance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const minimaMap = unidirectionalMinimaMap(volume, dominantAxis, octant)
-    if (verbose) logMean('minimaMap', minimaMap)
-
-    const maximaMap = unidirectionalMaximaMap(volume, dominantAxis, octant)
-    if (verbose) logMean('maximaMap', maximaMap)
-
-    const shadowsMap = unidirectionalShadowMap(minimaMap, maximaMap, dominantAxis, octant, tolerance)
-    if (verbose) logMean('shadowsMap', shadowsMap)
-
-    tf.dispose([minimaMap, maximaMap])
-
-    return shadowsMap
+    const faceMinima = computeFaceMinima(volume, axis, octant, verbose)
+    const faceMinmax = computeFaceMinmax(faceMinima, axis, octant, verbose)
+    tf.dispose(faceMinima)
+    
+    const faceMaxima = computeFaceMaxima(volume, axis, octant, verbose)
+    const cellShadows = computeCellShadows(faceMinmax, faceMaxima, axis, octant, tolerance, verbose)
+    tf.dispose([faceMinmax, faceMaxima])
+    
+    return cellShadows
 }
 
 export function computeBidirectionalShadowMap(
     volume: tf.Tensor3D,
-    dominantAxis: Axis,
+    axis: Axis,
     octant: Octant,
     tolerance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
+    const forwardShadows = computeUnidirectionalShadowMap(volume, axis, octant, tolerance, verbose)
+
     const backwardOctant = reverseOctant(octant)
+    const faceHoles = computeFaceHoles(forwardShadows, axis, backwardOctant, verbose)
 
-    const forwardShadowMap = computeUnidirectionalShadowMap(volume, dominantAxis, octant, tolerance)
-    if (verbose) logMean('forwardShadowMap', forwardShadowMap)
+    const faceMinima = computeFaceMinima(volume, axis, backwardOctant, verbose)
+    const hollowMinima = hollowFaceMinima(faceMinima, faceHoles, axis, backwardOctant, verbose)
+    tf.dispose(faceHoles)
 
-    const backwardMinimaMap = unidirectionalMinimaMapHollow(volume, forwardShadowMap, dominantAxis, backwardOctant)
-    const backwardMaximaMap = unidirectionalMaximaMap(volume, dominantAxis, backwardOctant)
-    const backwardShadowMap = unidirectionalShadowMap(backwardMinimaMap, backwardMaximaMap, dominantAxis, backwardOctant, tolerance)
-    if (verbose) logMean('backwardShadowMap', backwardShadowMap)
+    const faceMinmax = computeFaceMinmax(hollowMinima, axis, backwardOctant, verbose)
+    tf.dispose(faceMinima)
+    
+    const faceMaxima = computeFaceMaxima(volume, axis, backwardOctant, verbose)
+    const backwardShadows = computeCellShadows(faceMinmax, faceMaxima, axis, backwardOctant, tolerance, verbose)
+    tf.dispose([faceMinmax, faceMaxima])
 
-    tf.dispose([backwardMinimaMap, backwardMaximaMap])
-
-    const shadowMap = tf.maximum(forwardShadowMap, backwardShadowMap) 
-    if (verbose) logMean('shadowMap', shadowMap)
-
-    tf.dispose([forwardShadowMap, backwardShadowMap])
-
-    return shadowMap as tf.Tensor3D
+    const shadows = tf.logicalOr(forwardShadows, backwardShadows)
+    tf.dispose([forwardShadows, backwardShadows])
+    if (verbose) logMean('shadows', shadows)
+    
+    return shadows as tf.Tensor3D
 }
-
 
 export function computeBidirectionalBlockShadowMap(
     volume: tf.Tensor3D,
-    dominantAxis: Axis,
+    axis: Axis,
     octant: Octant,
     tolerance: number,
     blockSize: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const shadowMap = computeBidirectionalShadowMap(volume, dominantAxis, octant, tolerance, verbose)
+    const shadowMap = computeBidirectionalShadowMap(volume, axis, octant, tolerance, verbose)
     if (blockSize === 1) return shadowMap
 
     const blockShadowMap = minPool3d(shadowMap, blockSize, blockSize, 'same') as tf.Tensor3D
