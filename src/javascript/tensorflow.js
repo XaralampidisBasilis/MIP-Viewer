@@ -4,6 +4,7 @@ export function setTensorflowFlags()
 {
     tf.env().set('WEBGL_FORCE_F16_TEXTURES', true)
     tf.env().set('WEBGL_PACK', true)
+    tf.env().set('WEBGL_PACK_BINARY_OPERATIONS', true)
     tf.env().set('WEBGL_LAZILY_UNPACK', true)
     tf.env().set('WEBGL_CPU_FORWARD', false)
     tf.env().set('WEBGL_VERSION', 2)
