@@ -981,7 +981,7 @@ class UnpackExtendedAnisotropicBidirectionalShadowMap implements GPGPUProgram
     }
 }
 
-function unidirectionalMinimaMapHollow(
+export function unidirectionalMinimaMapHollow(
     volume: tf.Tensor3D, 
     holes: tf.Tensor3D,
     permute: Permute, 
@@ -1022,7 +1022,7 @@ function unidirectionalMinimaMapHollow(
     return minima
 }
 
-function unidirectionalMinimaMap(
+export function unidirectionalMinimaMap(
     volume: tf.Tensor3D, 
     permute: Permute, 
     reverse: Reverse, 
@@ -1062,7 +1062,7 @@ function unidirectionalMinimaMap(
     return minima
 }
 
-function unidirectionalMaximaMap(
+export function unidirectionalMaximaMap(
     volume: tf.Tensor3D, 
     permute: Permute, 
     reverse: Reverse, 
@@ -1076,7 +1076,7 @@ function unidirectionalMaximaMap(
     return maxima as tf.Tensor5D
 }
 
-function unidirectionalShadowMap(
+export function unidirectionalShadowMap(
     minima: tf.Tensor5D, 
     maxima: tf.Tensor5D, 
     permute: Permute, 
@@ -1093,7 +1093,7 @@ function unidirectionalShadowMap(
     return shadows as tf.Tensor3D
 }
 
-function bidirectionalShadowMap(
+export function bidirectionalShadowMap(
     forwardShadows: tf.Tensor3D, 
     backwardShadows: tf.Tensor3D, 
     verbose: boolean = false
@@ -1106,7 +1106,7 @@ function bidirectionalShadowMap(
     return shadows as tf.Tensor3D
 }
 
-function anisotropicBidirectionalShadowMap(
+export function anisotropicBidirectionalShadowMap(
     shadowMaps: Array4<tf.Tensor3D>, 
     verbose: boolean = false
 ): tf.Tensor3D
@@ -1118,7 +1118,7 @@ function anisotropicBidirectionalShadowMap(
     return shadows as tf.Tensor3D
 }
 
-function extendedAnisotropicBidirectionalShadowMap(
+export function extendedAnisotropicBidirectionalShadowMap(
     shadowMaps: Array3<tf.Tensor3D>, 
     verbose: boolean = false
 ): tf.Tensor3D
