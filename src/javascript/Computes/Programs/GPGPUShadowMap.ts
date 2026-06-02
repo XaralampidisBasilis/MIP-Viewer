@@ -64,10 +64,13 @@ class HollowFaceMinima implements GPGPUProgram
             return min(min(min(a, b), c), d); 
         }
 
-        bool inBounds(ivec3 coords)
+        bool inBounds(ivec3 p)
         {
-            return  all(greaterThanEqual(coords, minCoords)) && 
-                    all(lessThanEqual(coords, maxCoords));
+            if (p.x < minCoords.x || p.x > maxCoords.x) return false;
+            if (p.y < minCoords.y || p.y > maxCoords.y) return false;
+            if (p.z < minCoords.z || p.z > maxCoords.z) return false;
+
+            return true;
         }
 
         ivec3 getOutCoords()
@@ -193,10 +196,13 @@ class FaceMinima implements GPGPUProgram
             return min(min(min(a, b), c), d); 
         }
 
-        bool inBounds(ivec3 coords)
+        bool inBounds(ivec3 p)
         {
-            return  all(greaterThanEqual(coords, minCoords)) && 
-                    all(lessThanEqual(coords, maxCoords));
+            if (p.x < minCoords.x || p.x > maxCoords.x) return false;
+            if (p.y < minCoords.y || p.y > maxCoords.y) return false;
+            if (p.z < minCoords.z || p.z > maxCoords.z) return false;
+
+            return true;
         }
 
         ivec3 getOutCoords()
@@ -306,10 +312,13 @@ class FaceMaxima implements GPGPUProgram
             return max(max(max(a, b), c), d); 
         }
 
-        bool inBounds(ivec3 coords)
+        bool inBounds(ivec3 p)
         {
-            return  all(greaterThanEqual(coords, minCoords)) && 
-                    all(lessThanEqual(coords, maxCoords));
+            if (p.x < minCoords.x || p.x > maxCoords.x) return false;
+            if (p.y < minCoords.y || p.y > maxCoords.y) return false;
+            if (p.z < minCoords.z || p.z > maxCoords.z) return false;
+
+            return true;
         }
 
         ivec3 getOutCoords()
@@ -407,10 +416,13 @@ class PropagateFaceMinimaPerSlice implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
-        bool inBounds(ivec3 coords)
+        bool inBounds(ivec3 p)
         {
-            return  all(greaterThanEqual(coords, minCoords)) && 
-                    all(lessThanEqual(coords, maxCoords));
+            if (p.x < minCoords.x || p.x > maxCoords.x) return false;
+            if (p.y < minCoords.y || p.y > maxCoords.y) return false;
+            if (p.z < minCoords.z || p.z > maxCoords.z) return false;
+
+            return true;
         }
 
         ivec3 getOutCoords()
@@ -528,10 +540,13 @@ class PropagateFaceMinimaPerIteration implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
-        bool inBounds(ivec3 coords)
+        bool inBounds(ivec3 p)
         {
-            return  all(greaterThanEqual(coords, minCoords)) && 
-                    all(lessThanEqual(coords, maxCoords));
+            if (p.x < minCoords.x || p.x > maxCoords.x) return false;
+            if (p.y < minCoords.y || p.y > maxCoords.y) return false;
+            if (p.z < minCoords.z || p.z > maxCoords.z) return false;
+
+            return true;
         }
 
         ivec3 getOutCoords()
@@ -643,10 +658,13 @@ class UnidirectionalShadowMap implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${outWidth-1}, ${outHeight-1}, ${outDepth-1});
 
-        bool inBounds(ivec3 coords)
+        bool inBounds(ivec3 p)
         {
-            return  all(greaterThanEqual(coords, minCoords)) && 
-                    all(lessThanEqual(coords, maxCoords));
+            if (p.x < minCoords.x || p.x > maxCoords.x) return false;
+            if (p.y < minCoords.y || p.y > maxCoords.y) return false;
+            if (p.z < minCoords.z || p.z > maxCoords.z) return false;
+
+            return true;
         }
 
         ivec3 getOutCoords()

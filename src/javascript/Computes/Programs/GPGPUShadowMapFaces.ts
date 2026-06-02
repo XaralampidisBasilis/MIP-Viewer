@@ -50,7 +50,7 @@ function voxelOffset(
 
     const zyx = applyPermutation([z, y, x], permute)
 
-    for (const dim of reverse) zyx[dim] = 1 - zyx[dim]
+    for (const dimension of reverse) zyx[dimension] = 1 - zyx[dimension]
 
     return xyz(zyx)
 }
@@ -70,7 +70,7 @@ function cellOffset(
 
     const zyx = applyPermutation([z, y, x], permute)
 
-    for (const dim of reverse) zyx[dim] = -zyx[dim]
+    for (const dimension of reverse) zyx[dimension] = -zyx[dimension]
 
     return xyz(zyx)
 }
@@ -91,7 +91,7 @@ function sliceOffset(
 
     const zyx = applyPermutation([z, y, x], permute)
 
-    for (const dim of reverse) zyx[dim] = -zyx[dim]
+    for (const dimension of reverse) zyx[dimension] = -zyx[dimension]
 
     zyx[permute[0]] = 0
 
@@ -172,26 +172,35 @@ class ComputeFaceMinimaProgram implements GPGPUProgram
             return min(min(min(a, b), c), d);
         }
 
-        float faceXMin(CellValues c)
+        float computeFaceXMin(CellValues c)
         {
             return min4(c.v100, c.v110, c.v101, c.v111);
         }
 
-        float faceYMin(CellValues c)
+        float computeFaceYMin(CellValues c)
         {
             return min4(c.v010, c.v110, c.v011, c.v111);
         }
 
-        float faceZMin(CellValues c)
+        float computeFaceZMin(CellValues c)
         {
             return min4(c.v001, c.v011, c.v101, c.v111);
         }
 
+        vec3 computeFaceMinima(ivec3 p)
+        {
+            CellValues c = cellValues(p);
+
+            return vec3(
+                computeFaceXMin(c), 
+                computeFaceYMin(c), 
+                computeFaceZMin(c)
+            );
+        }
+
         void main()
         {
-            CellValues c = cellValues(outputCoords());
-
-            setOutput(vec4(faceXMin(c), faceYMin(c), faceZMin(c), 0.0));
+            setOutput(vec4(computeFaceMinima(outputCoords()), 0.0));
         }
         `
     }
@@ -271,26 +280,35 @@ class ComputeFaceMaximaProgram implements GPGPUProgram
             return max(max(max(a, b), c), d);
         }
 
-        float faceXMax(CellValues c)
+        float computeFaceXMax(CellValues c)
         {
             return max4(c.v100, c.v110, c.v101, c.v111);
         }
 
-        float faceYMax(CellValues c)
+        float computeFaceYMax(CellValues c)
         {
             return max4(c.v010, c.v110, c.v011, c.v111);
         }
 
-        float faceZMax(CellValues c)
+        float computeFaceZMax(CellValues c)
         {
             return max4(c.v001, c.v011, c.v101, c.v111);
         }
 
+        vec3 computeFaceMaxima(ivec3 p)
+        {
+            CellValues c = cellValues(p);
+
+            return vec3(
+                computeFaceXMax(c), 
+                computeFaceYMax(c), 
+                computeFaceZMax(c)
+            );
+        }
+
         void main()
         {
-            CellValues c = cellValues(outputCoords());
-
-            setOutput(vec4(faceXMax(c), faceYMax(c), faceZMax(c), 0.0));
+            setOutput(vec4(computeFaceMaxima(outputCoords()), 0.0));
         }
         `
     }
@@ -334,30 +352,35 @@ class PropagateFaceMinmaxProgram implements GPGPUProgram
 
         vec3 currentSliceAt(ivec3 p)
         {
+            // p = clamp(p, minCoords, maxCoords);
             return insideVolume(p) ? getA(p.z, p.y, p.x, 0, 0).xyz : vec3(0.0);
         }
 
         vec3 previousSliceAt(ivec3 p)
         {
+            // p = clamp(p, minCoords, maxCoords);
             return insideVolume(p) ? getB(p.z, p.y, p.x, 0, 0).xyz : vec3(0.0);
         }
 
-        float faceXMinmax(vec3 c111, vec3 c110, vec3 c101, vec3 c100)
+        float computeFaceXMinmax(vec3 c111, vec3 c110, vec3 c101, vec3 c100)
         {
-            return max(c111.x, min(c110.z, max(c101.y, c100.z)));
+            float bottleneck = min(c110.z, max(c101.y, c100.z));
+            return max(c111.x, bottleneck);
         }
 
-        float faceYMinmax(vec3 c111, vec3 c110, vec3 c011, vec3 c010)
+        float computeFaceYMinmax(vec3 c111, vec3 c110, vec3 c011, vec3 c010)
         {
-            return max(c111.y, min(c110.z, max(c011.x, c010.z)));
+            float bottleneck = min(c110.z, max(c011.x, c010.z));
+            return max(c111.y, bottleneck);
         }
 
-        float faceZMinmax(vec3 c111, vec3 c110, vec3 c101, vec3 c011)
+        float computeFaceZMinmax(vec3 c111, vec3 c110, vec3 c101, vec3 c011)
         {
-            return max(c111.z, min(c110.z, min(c101.y, c011.x)));
+            float bottleneck = min(c110.z, min(c101.y, c011.x));
+            return max(c111.z, bottleneck);
         }
 
-        vec3 cellMinmaxAt(ivec3 p)
+        vec3 computeFaceMinmax(ivec3 p)
         {
             vec3 c111 =  currentSliceAt(p + ivec3(${sliceOffset( 0,  0,  0, axis, octant)}));
             vec3 c011 =  currentSliceAt(p + ivec3(${sliceOffset(-1,  0,  0, axis, octant)}));
@@ -368,46 +391,47 @@ class PropagateFaceMinmaxProgram implements GPGPUProgram
             vec3 c100 = previousSliceAt(p + ivec3(${sliceOffset( 0, -1, -1, axis, octant)}));
             vec3 c000 = previousSliceAt(p + ivec3(${sliceOffset(-1, -1, -1, axis, octant)}));
 
-            c011.x = faceXMinmax(c011, c010, c001, c000);
-            c101.y = faceYMinmax(c101, c100, c001, c000);
+            c111.x = computeFaceXMinmax(c111, c110, c101, c100);
+            c111.y = computeFaceYMinmax(c111, c110, c011, c010);
 
-            c111.x = faceXMinmax(c111, c110, c101, c100);
-            c111.y = faceYMinmax(c111, c110, c011, c010);
-            c111.z = faceZMinmax(c111, c110, c101, c011);
+            c011.x = computeFaceXMinmax(c011, c010, c001, c000);
+            c101.y = computeFaceYMinmax(c101, c100, c001, c000);
+            c111.z = computeFaceZMinmax(c111, c110, c101, c011);
 
             return c111;
         }
 
         void main()
         {
-            setOutput(vec4(cellMinmaxAt(outputCoords()), 0.0));
+            setOutput(vec4(computeFaceMinmax(outputCoords()), 0.0));
         }
         `
     }
 }
 
-class ComputeCellShadowsProgram implements GPGPUProgram
+class ComputeFaceShadowsProgram implements GPGPUProgram
 {
     variableNames = ['A', 'B']
     outputShape: number[]
     userCode: string
     packedInputs = true
-    packedOutput = false
+    packedOutput = true
     customUniforms = [{ name: 'tolerance', type: 'float' as const }]
 
     constructor(
-        shape: Shape3,
+        shape: Shape3Packed,
         axis: Axis = 'z',
         octant: Octant = '+++'
     ) {
-        const [depth, height, width] = shape
+        const [depth, height, width, ] = shape
 
         this.outputShape = shape
         this.userCode = `
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
-         bool insideVolume(ivec3 p)
+        
+        bool insideVolume(ivec3 p)
         {
             if (p.x < minCoords.x || p.x > maxCoords.x) return false;
             if (p.y < minCoords.y || p.y > maxCoords.y) return false;
@@ -418,33 +442,43 @@ class ComputeCellShadowsProgram implements GPGPUProgram
 
         ivec3 outputCoords()
         {
-            ivec3 p = getOutputCoords();
+            ivec5 p = getOutputCoords();
             return ivec3(p.z, p.y, p.x);
         }
 
         vec3 faceMinmaxAt(ivec3 p)
         {
-            p = clamp(p, minCoords, maxCoords);
-            return getA(p.z, p.y, p.x, 0, 0).xyz;
+            // p = clamp(p, minCoords, maxCoords);
+            return insideVolume(p) ? getA(p.z, p.y, p.x, 0, 0).xyz : vec3(0.0);
         }
 
         vec3 faceMaximaAt(ivec3 p)
         {
-            p = clamp(p, minCoords, maxCoords);
-            return getB(p.z, p.y, p.x, 0, 0).xyz;
+            // p = clamp(p, minCoords, maxCoords);
+            return insideVolume(p) ? getB(p.z, p.y, p.x, 0, 0).xyz : vec3(0.0);
         }
 
-        bool cellShadow(ivec3 p)
+        bvec3 computeFaceShadows(ivec3 p)
         {
-            vec3 faceMinmax = faceMinmaxAt(p);
-            vec3 faceMaxima = faceMaximaAt(p);
-            
-            return all(lessThan(faceMaxima - faceMinmax, vec3(tolerance)));
+            vec3 c111 = faceMaximaAt(p + ivec3(${cellOffset( 0,  0,  0, axis, octant)}));
+            vec3 c011 = faceMinmaxAt(p + ivec3(${cellOffset(-1,  0,  0, axis, octant)}));
+            vec3 c101 = faceMinmaxAt(p + ivec3(${cellOffset( 0, -1,  0, axis, octant)}));
+            vec3 c110 = faceMinmaxAt(p + ivec3(${cellOffset( 0,  0, -1, axis, octant)}));
+
+            bool faceXShadow = (c111.x - c011.x < tolerance);
+            bool faceYShadow = (c111.y - c101.y < tolerance);
+            bool faceZShadow = (c111.z - c110.z < tolerance);
+
+            return bvec3(
+                faceXShadow, 
+                faceYShadow, 
+                faceZShadow
+            );
         }
 
         void main()
-        {
-            setOutput(float(cellShadow(outputCoords())));
+        {   
+            setOutput(vec4(computeFaceShadows(outputCoords()), 1.0));
         }
         `
     }
@@ -487,23 +521,25 @@ class ComputeFaceHolesProgram implements GPGPUProgram
 
         bool cellShadow(ivec3 p)
         {
-            p = clamp(p, minCoords, maxCoords);
-            return getA(p.z, p.y, p.x) > 0.5;
+            // p = clamp(p, minCoords, maxCoords);
+            return insideVolume(p) ? getA(p.z, p.y, p.x) > 0.5 : false;
         }
 
-        bvec3 faceHoles(ivec3 p)
+        bvec3 computeFaceHoles(ivec3 p)
         {
             bool c000 = cellShadow(p + ivec3(${cellOffset(0, 0, 0, axis, octant)}));
             bool c100 = cellShadow(p + ivec3(${cellOffset(1, 0, 0, axis, octant)}));
             bool c010 = cellShadow(p + ivec3(${cellOffset(0, 1, 0, axis, octant)}));
             bool c001 = cellShadow(p + ivec3(${cellOffset(0, 0, 1, axis, octant)}));
 
-            return bvec3(c000 && c100, c000 && c010, c000 && c001);
+            return bvec3(c000);
+            // return bvec3(c100, c010, c001);
+            // return bvec3(c100 && c000, c010 && c000, c001 && c000);
         }
 
         void main()
         {
-            setOutput(vec4(faceHoles(outputCoords()), 0.0));
+            setOutput(vec4(computeFaceHoles(outputCoords()), 0.0));
         }
         `
     }
@@ -546,14 +582,14 @@ class HollowFaceMinimaProgram implements GPGPUProgram
 
         vec3 faceMinimaAt(ivec3 p)
         {
-            p = clamp(p, minCoords, maxCoords);
-            return getA(p.z, p.y, p.x, 0, 0).xyz;
+            // p = clamp(p, minCoords, maxCoords);
+            return insideVolume(p) ? getA(p.z, p.y, p.x, 0, 0).xyz : vec3(0.0);
         }
 
         vec3 faceHolesAt(ivec3 p)
         {
-            p = clamp(p, minCoords, maxCoords);
-            return getB(p.z, p.y, p.x, 0, 0).xyz;
+            // p = clamp(p, minCoords, maxCoords);
+            return insideVolume(p) ? getB(p.z, p.y, p.x, 0, 0).xyz : vec3(0.0);
         }
 
         void main()
@@ -628,21 +664,21 @@ function computeFaceMinmax(
     return faceMinmax as tf.Tensor5D
 }
 
-function computeCellShadows(
+function computeFaceShadows(
     faceMinmax: tf.Tensor5D,
     faceMaxima: tf.Tensor5D,
     axis: Axis,
     octant: Octant,
     tolerance: number,
     verbose: boolean = false
-): tf.Tensor3D
+): tf.Tensor5D
 {
-    const shape = faceMinmax.shape.slice(0, 3) as Shape3
-    const program = new ComputeCellShadowsProgram(shape, axis, octant)
-    const cellShadows = runWebGLProgram(program, [faceMinmax, faceMaxima], 'bool', [[tolerance]], true) 
-    if (verbose) logMean('cellShadows', cellShadows)
+    const shape = faceMinmax.shape as Shape3Packed
+    const program = new ComputeFaceShadowsProgram(shape, axis, octant)
+    const faceShadows = runWebGLProgram(program, [faceMinmax, faceMaxima], 'bool', [[tolerance]], true) 
+    if (verbose) logMean('faceShadows', faceShadows)
 
-    return cellShadows as tf.Tensor3D
+    return faceShadows as tf.Tensor5D
 }
 
 function computeFaceHoles(
@@ -688,10 +724,13 @@ export function computeUnidirectionalShadowMap(
     tf.dispose(faceMinima)
     
     const faceMaxima = computeFaceMaxima(volume, axis, octant, verbose)
-    const cellShadows = computeCellShadows(faceMinmax, faceMaxima, axis, octant, tolerance, verbose)
+    const faceShadows = computeFaceShadows(faceMinmax, faceMaxima, axis, octant, tolerance, verbose)
     tf.dispose([faceMinmax, faceMaxima])
+
+    const cellShadows = tf.all(faceShadows, [3, 4])
+    tf.dispose(faceShadows)
     
-    return cellShadows
+    return cellShadows as tf.Tensor3D
 }
 
 export function computeBidirectionalShadowMap(
@@ -709,14 +748,17 @@ export function computeBidirectionalShadowMap(
 
     const faceMinima = computeFaceMinima(volume, axis, backwardOctant, verbose)
     const hollowMinima = hollowFaceMinima(faceMinima, faceHoles, axis, backwardOctant, verbose)
-    tf.dispose(faceHoles)
+    tf.dispose([faceMinima, faceHoles])
 
     const faceMinmax = computeFaceMinmax(hollowMinima, axis, backwardOctant, verbose)
-    tf.dispose(faceMinima)
+    tf.dispose(hollowMinima)
     
     const faceMaxima = computeFaceMaxima(volume, axis, backwardOctant, verbose)
-    const backwardShadows = computeCellShadows(faceMinmax, faceMaxima, axis, backwardOctant, tolerance, verbose)
+    const faceShadows = computeFaceShadows(faceMinmax, faceMaxima, axis, backwardOctant, tolerance, verbose)
     tf.dispose([faceMinmax, faceMaxima])
+
+    const backwardShadows = tf.all(faceShadows, [3, 4])
+    tf.dispose(faceShadows)
 
     const shadows = tf.logicalOr(forwardShadows, backwardShadows)
     tf.dispose([forwardShadows, backwardShadows])
@@ -734,15 +776,14 @@ export function computeBidirectionalBlockShadowMap(
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const shadowMap = computeBidirectionalShadowMap(volume, axis, octant, tolerance, verbose)
-    if (blockSize === 1) return shadowMap
+    const shadows = computeBidirectionalShadowMap(volume, axis, octant, tolerance, verbose)
+    if (blockSize === 1) return shadows
 
-    const blockShadowMap = minPool3d(shadowMap, blockSize, blockSize, 'same') as tf.Tensor3D
-    if (verbose) logMean('blockShadowMap', blockShadowMap)
+    const blockShadows = minPool3d(shadows, blockSize, blockSize, 'same') as tf.Tensor3D
+    tf.dispose(shadows)
+    if (verbose) logMean('blockShadows', blockShadows)
 
-    tf.dispose(shadowMap)
-
-    return blockShadowMap
+    return blockShadows
 }
 
 function logMean(name: string, tensor: tf.Tensor): void

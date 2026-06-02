@@ -370,7 +370,7 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
     }
 }
 
-class computeVertexHolesProgram implements GPGPUProgram
+class ComputeVertexHolesProgram implements GPGPUProgram
 {
     variableNames = ['A']
     outputShape: number[]
@@ -509,10 +509,10 @@ export function computeVertexMinmax(
 ): tf.Tensor3D
 {
     const { permute, reverse } = dominantAxisOctantToPermuteReverse(axis, octant)
-    const dim = permute[0]
-    const backwards = reverse.includes(dim)
+    const dimension = permute[0]
+    const backwards = reverse.includes(dimension)
     
-    const slices = unstack3d(volume, dim)
+    const slices = unstack3d(volume, dimension)
     const shape = slices[0].shape as Shape3
     const propagate = new PropagateVertexMinmaxProgram(shape, axis, octant)
 
@@ -527,11 +527,11 @@ export function computeVertexMinmax(
         slices[i] = next
     }
 
-    const minmax = stack3d(slices, dim) as tf.Tensor3D
+    const vertexMinmax = stack3d(slices, dimension) 
     tf.dispose(slices)
-    if (verbose) logMean('minmax', minmax)
+    if (verbose) logMean('vertexMinmax', vertexMinmax)
 
-    return minmax
+    return vertexMinmax as tf.Tensor3D
 }
 
 /**
@@ -539,20 +539,17 @@ export function computeVertexMinmax(
  */
 export function computeVertexMargins(
     volume: tf.Tensor3D,
+    vertexMinmax: tf.Tensor3D,
     axis: Axis,
     octant: Octant,
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const minmax = computeVertexMinmax(volume, axis, octant)
-    if (verbose) logMean('minmax', minmax)
-
     const program = new ComputeVertexMarginsProgram(volume.shape, axis, octant)
-    const margins = runWebGLProgram(program, [volume, minmax], 'float32', [], true) as tf.Tensor5D
-    tf.dispose(minmax)
-    if (verbose) logMean('margins', margins)
+    const vertexMargins = runWebGLProgram(program, [volume, vertexMinmax], 'float32', [], true) 
+    if (verbose) logMean('vertexMargins', vertexMargins)
 
-    return margins
+    return vertexMargins as tf.Tensor5D
 }
 
 /**
@@ -560,43 +557,49 @@ export function computeVertexMargins(
  */
 export function computeVertexShadows(
     volume: tf.Tensor3D,
+    vertexMinmax: tf.Tensor3D,
     axis: Axis,
     octant: Octant,
     tolerance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const minmax = computeVertexMinmax(volume, axis, octant)
-    if (verbose) logMean('minmax', minmax)
-
     const program = new ComputeVertexShadowsProgram(volume.shape, axis, octant)
-    const shadows = runWebGLProgram(program, [volume, minmax], 'bool', [[tolerance]], true) as tf.Tensor3D
-    tf.dispose(minmax)
-    if (verbose) logMean('shadows', shadows)
+    const vertexShadows = runWebGLProgram(program, [volume, vertexMinmax], 'bool', [[tolerance]], true) 
+    if (verbose) logMean('vertexShadows', vertexShadows)
 
-    return shadows
+    return vertexShadows as tf.Tensor3D
 }
 
 /**
  * Converts propagated vertex margins into a binary 3D cell mask.
  */
 export function computeCellShadows(
-    volume: tf.Tensor3D,
+    vertexShadows: tf.Tensor3D,
     axis: Axis,
     octant: Octant,
-    tolerance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const vertexShadows = computeVertexShadows(volume, axis, octant, tolerance)
-    if (verbose) logMean('vertexShadows', vertexShadows)
-
     const program = new ComputeCellShadowsProgram(vertexShadows.shape, axis, octant)
-    const cellShadows = runWebGLProgram(program, [vertexShadows], 'bool', [], true) as tf.Tensor3D
-    tf.dispose(vertexShadows)
+    const cellShadows = runWebGLProgram(program, [vertexShadows], 'bool', [], true) 
     if (verbose) logMean('cellShadows', cellShadows)
 
-    return cellShadows
+    return cellShadows as tf.Tensor3D
+}
+
+export function computeVertexHoles(
+    cellShadows: tf.Tensor3D,
+    axis: Axis,
+    octant: Octant,
+    verbose: boolean = false
+): tf.Tensor3D
+{
+    const program = new ComputeVertexHolesProgram(cellShadows.shape, axis, octant)
+    const vertexHoles = runWebGLProgram(program, [cellShadows], 'bool', [], true) 
+    if (verbose) logMean('vertexHoles', vertexHoles)
+
+    return vertexHoles as tf.Tensor3D
 }
 
 /**
@@ -613,7 +616,14 @@ export function computeUnidirectionalShadowMap(
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    return computeCellShadows(volume, axis, octant, tolerance, verbose)
+    const vertexMinmax = computeVertexMinmax(volume, axis, octant, verbose)
+    const vertexShadows = computeVertexShadows(volume, vertexMinmax, axis, octant, tolerance, verbose)
+    tf.dispose(vertexMinmax)
+
+    const cellShadows = computeCellShadows(vertexShadows, axis, octant, verbose)
+    tf.dispose(vertexShadows)
+
+    return cellShadows
 }
 
 /**
@@ -633,17 +643,15 @@ export function computeBidirectionalShadowMap(
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const forwardShadows = computeCellShadows(volume, axis, octant, tolerance)
-
     const backwardOctant = reverseOctant(octant)
-    const program = new computeVertexHolesProgram(forwardShadows.shape, axis, backwardOctant)
-    const volumeHoles = runWebGLProgram(program, [forwardShadows], 'bool', [], true) as tf.Tensor3D
-    if (verbose) logMean('forwardShadows', forwardShadows)
+    const forwardShadows = computeUnidirectionalShadowMap(volume, axis, octant, tolerance, verbose)
 
-    const hollowVolume = tf.where(volumeHoles, 0, volume) 
-    const backwardShadows = computeCellShadows(hollowVolume, axis, backwardOctant, tolerance)
-    tf.dispose(volumeHoles)
-    if (verbose) logMean('backwardShadows', backwardShadows)
+    const vertexHoles = computeVertexHoles(forwardShadows, axis, backwardOctant, verbose)
+    const hollowVolume = tf.where(vertexHoles, 0, volume) 
+    tf.dispose(vertexHoles)
+
+    const backwardShadows = computeUnidirectionalShadowMap(hollowVolume, axis, backwardOctant, tolerance, verbose)
+    tf.dispose(hollowVolume)
 
     const shadows = tf.logicalOr(forwardShadows, backwardShadows)
     tf.dispose([forwardShadows, backwardShadows])
