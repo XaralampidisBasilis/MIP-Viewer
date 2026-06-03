@@ -43,12 +43,11 @@ import {
     type Sign,
     axisToDimension,
     setOctantSign,
-    reverseOctant,
+    reverseSign,
     applyPermutation,
     dominantAxisOctantToPermuteReverse,
 } from '../../Utils/ShadowMapUtils'
 import { minPool3d } from './pool3d'
-import { compute } from 'three/webgpu'
 
 type Shape3 = [number, number, number]
 type Shape3Packed = [number, number, number, 2, 2]
@@ -161,14 +160,69 @@ class ComputeVertexValuesProgram implements GPGPUProgram
             return ivec3(voxelCoords.z, voxelCoords.y, voxelCoords.x);
         }
 
-        float voxelValueAt(ivec3 voxelCoords)
+        float vertexValueAt(ivec3 voxelCoords)
         {
             return getA(voxelCoords.z, voxelCoords.y, voxelCoords.x);
         }
 
         void main()
         {
-            setOutput(vec4(voxelValueAt(outputCoords())));
+            setOutput(vec4(vertexValueAt(outputCoords())));
+        }
+        `
+    }
+}
+
+class SubstituteVertexValuesProgram implements GPGPUProgram
+{
+    variableNames = ['A', 'B']
+    outputShape: Shape3Packed
+    userCode: string
+    packedInputs = true
+    packedOutput = true
+    customUniforms = [{ name: 'substitute', type: 'float' as const }]
+
+    constructor(shape: Shape3Packed) 
+    {
+        const [depth, height, width, ] = shape
+
+        this.outputShape = [depth, height, width, 2, 2]
+        this.userCode = `
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
+
+        ivec3 outputCoords()
+        {
+            ivec5 voxelCoords = getOutputCoords();
+            return ivec3(voxelCoords.z, voxelCoords.y, voxelCoords.x);
+        }
+
+        vec4 vertexValuesAt(ivec3 voxelCoords)
+        {
+            return getA(voxelCoords.z, voxelCoords.y, voxelCoords.x, 0, 0);
+        }
+
+        bvec4 vertexHolesAt(ivec3 voxelCoords)
+        {
+            return greaterThan(getB(voxelCoords.z, voxelCoords.y, voxelCoords.x, 0, 0), vec4(0.5));
+        }
+
+        vec4 substituteVertexValues(ivec3 voxelCoords)
+        {
+            vec4 vertexValues = vertexValuesAt(voxelCoords);
+            bvec4 vertexHoles = vertexHolesAt(voxelCoords);
+
+            return vec4(
+                vertexHoles.r ? substitute : vertexValues.r,
+                vertexHoles.g ? substitute : vertexValues.g,
+                vertexHoles.b ? substitute : vertexValues.b,
+                vertexHoles.a ? substitute : vertexValues.a
+            )
+        }
+
+        void main()
+        {
+            setOutput(substituteVertexValues(outputCoords()));
         }
         `
     }
@@ -502,6 +556,18 @@ export function computeVertexValues(volume: tf.Tensor3D): tf.Tensor5D
     return vertexValues as tf.Tensor5D
 }
 
+export function substituteVertexValues(
+    vertexValues: tf.Tensor5D,
+    vertexHoles: tf.Tensor5D, 
+    substitute: number, 
+): tf.Tensor5D
+{
+    const shape = vertexValues.shape as Shape3Packed
+    const program = new SubstituteVertexValuesProgram(shape)
+    const substituteValues = runWebGLProgram(program, [vertexValues, vertexHoles], 'float32', [[substitute]], true) 
+    return substituteValues as tf.Tensor5D
+}
+
 /**
  * Runs the initial-margin pass and propagates margins through the volume one slice at a
  * time along the selected sweep axis.
@@ -638,23 +704,25 @@ export function computeBidirectionalShadowMap(
     sign: Sign,
     tolerance: number,
     verbose: boolean = false
-): tf.Tensor3D
+): tf.Tensor5D
 {
-    const backwardOctant = reverseOctant(octant)
+    const backwardSign = reverseSign(sign)
     const forwardShadows = computeUnidirectionalShadowMap(volume, axis, sign, tolerance, verbose)
 
-    const vertexHoles = computeVertexHoles(forwardShadows, axis, backwardOctant, verbose)
-    const vertexValues = tf.where(vertexHoles, 0, volume) 
+    const vertexValues = computeVertexValues(volume)
+    const vertexHoles = computeVertexHoles(forwardShadows, axis, backwardSign, verbose)
+
+    const backwardValues = substituteVertexValues(vertexValues, vertexHoles, 0)
     tf.dispose(vertexHoles)
 
-    const backwardShadows = computeUnidirectionalShadowMap(vertexValues, axis, backwardOctant, tolerance, verbose)
+    const backwardShadows = computeUnidirectionalShadowMap(backwardValues, axis, backwardSign, tolerance, verbose)
     tf.dispose(vertexValues)
 
     const shadows = tf.logicalOr(forwardShadows, backwardShadows)
     tf.dispose([forwardShadows, backwardShadows])
     if (verbose) logMean('shadows', shadows)
 
-    return shadows as tf.Tensor3D
+    return shadows as tf.Tensor5D
 }
 
 /**
