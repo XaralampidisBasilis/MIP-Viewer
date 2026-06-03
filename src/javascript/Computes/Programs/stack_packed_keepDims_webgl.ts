@@ -214,7 +214,7 @@ export function stackBlocksPacked(blocks: tf.Tensor[], axis: Axis3 = 0): tf.Tens
  * axis = 1: slices [D,1,W,2,2] -> out [D,H,W,2,2]
  * axis = 2: slices [D,H,1,2,2] -> out [D,H,W,2,2]
  */
-export function stackPacked(slices: tf.Tensor[], axis: Axis3 = 0, chunkSize?: number): tf.Tensor 
+export function stack3dPacked(slices: tf.Tensor[], axis: Axis3 = 0, chunkSize?: number): tf.Tensor 
 {
     assertAxis3(axis)
     assertSlices(slices, axis)

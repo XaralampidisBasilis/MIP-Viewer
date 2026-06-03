@@ -36,8 +36,8 @@
 import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
-import { stackPacked } from './stack_packed_keepDims_webgl'
-import { unstackPacked } from './unstack_packed_keepDims_webgl'
+import { stack3dPacked } from './stack_packed_keepDims_webgl'
+import { unstack3dPacked } from './unstack_packed_keepDims_webgl'
 import {
     type Axis,
     type Octant,
@@ -492,7 +492,7 @@ export function computeVertexMargins(
     let margins = runWebGLProgram(initialMarginsProgram, [volume], 'float32', [], true) as tf.Tensor5D
     if (verbose) logMean('initialMargins', margins)
 
-    const slices = unstackPacked(margins, axis)
+    const slices = unstack3dPacked(margins, axis)
     const shape = slices[0].shape as PackedShape3
     const propagate = new PropagateVertexMarginsProgram(shape, permute, reverse)
     tf.dispose(margins)
@@ -508,7 +508,7 @@ export function computeVertexMargins(
         slices[i] = next
     }
 
-    margins = stackPacked(slices, axis) as tf.Tensor5D
+    margins = stack3dPacked(slices, axis) as tf.Tensor5D
     tf.dispose(slices)
     if (verbose) logMean('margins', margins)
 
@@ -552,7 +552,7 @@ export function computeGatedVertexMargins(
     let margins = runWebGLProgram(initialMarginsProgram, [volume], 'float32', [], true) as tf.Tensor5D
     if (verbose) logMean('initialMargins', margins)
 
-    const slices = unstackPacked(margins, axis)
+    const slices = unstack3dPacked(margins, axis)
     const shape = slices[0].shape as PackedShape3
     const propagate = new PropagateVertexMarginsProgram(shape, permute, reverse, true)
     tf.dispose(margins)
@@ -569,7 +569,7 @@ export function computeGatedVertexMargins(
         slices[i] = next
     }
 
-    margins = stackPacked(slices, axis) as tf.Tensor5D
+    margins = stack3dPacked(slices, axis) as tf.Tensor5D
     tf.dispose(slices)
     if (verbose) logMean('gatedMargins', margins)
 

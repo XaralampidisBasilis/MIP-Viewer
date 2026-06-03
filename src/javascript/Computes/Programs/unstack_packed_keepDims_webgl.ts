@@ -61,7 +61,7 @@ export class UnstackPackedProgram implements GPGPUProgram
     }
 }
 
-export function unstackPacked(tensor: tf.Tensor, axis: Axis3 = 0): tf.Tensor[]
+export function unstack3dPacked(tensor: tf.Tensor, axis: Axis3 = 0): tf.Tensor[]
 {
     assertAxis3(axis)
     assertTensor(tensor)

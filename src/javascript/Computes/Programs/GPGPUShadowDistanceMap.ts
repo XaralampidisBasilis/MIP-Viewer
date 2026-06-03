@@ -2,18 +2,17 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMap'
-// import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapPaths2'
-import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapFaces'
+import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapPaths'
+// import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapFaces'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapDifferences'
-// import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapDifferencesDocumented'
 import {
     type Axis,
     type Octant,
     type Sign,
     type Tuple,
-    axisToIndex,
+    axisToDimension,
     reverseSign,
-    octantIndexToSign,
+    getOctantSign,
 } from '../../Utils/ShadowMapUtils'
 
 class ShadowChebyshevDistancePass implements GPGPUProgram 
@@ -489,7 +488,6 @@ function packToRGBA32UIArray(maps: Tuple<Int32Array, 12>): Uint32Array
     return packed
 }
 
-
 function isotropicDistanceMapInt32Array(
     volume: tf.Tensor3D,
     dominantAxis: Axis,
@@ -542,10 +540,10 @@ function extendedAnisotropicUnidirectionalDistanceMapInt32Array(
     if (verbose) logTensor('shadows', shadows)
 
     const axes = ['x', 'y', 'z'] as [Axis, Axis, Axis]
-    const dominantSign = octantIndexToSign(octant, axisToIndex(dominantAxis))
+    const dominantSign = getOctantSign(octant, axisToDimension(dominantAxis))
 
     const otherAxes = axes.filter(a => a !== dominantAxis) as [Axis, Axis]
-    const otherSigns = otherAxes.map(a => octantIndexToSign(octant, axisToIndex(a))) as [Sign, Sign]
+    const otherSigns = otherAxes.map(a => getOctantSign(octant, axisToDimension(a))) as [Sign, Sign]
 
     const inAxes = [...otherAxes, dominantAxis] as [Axis, Axis, Axis]
     const inSigns = [...otherSigns, dominantSign] as [Sign, Sign, Sign]
@@ -587,10 +585,10 @@ function extendedAnisotropicBidirectionalDistanceMapInt32Array(
     if (verbose) logTensor('shadows', shadows)
 
     const axes = ['x', 'y', 'z'] as [Axis, Axis, Axis]
-    const dominantSign = octantIndexToSign(octant, axisToIndex(dominantAxis))
+    const dominantSign = getOctantSign(octant, axisToDimension(dominantAxis))
 
     const otherAxes = axes.filter(a => a !== dominantAxis) as [Axis, Axis]
-    const otherSigns = otherAxes.map(a => octantIndexToSign(octant, axisToIndex(a))) as [Sign, Sign]
+    const otherSigns = otherAxes.map(a => getOctantSign(octant, axisToDimension(a))) as [Sign, Sign]
 
     const inAxes = [...otherAxes, dominantAxis] as [Axis, Axis, Axis]
     const inSigns = [...otherSigns, dominantSign] as [Sign, Sign, Sign]

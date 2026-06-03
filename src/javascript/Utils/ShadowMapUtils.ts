@@ -1,16 +1,17 @@
 export type Axis = 'x' | 'y' | 'z'
 export type Sign = '+' | '-'
-export type Dimension = 0 | 1 | 2
+export type Dimension = 2 | 1 | 0
 export type Octant = `${Sign}${Sign}${Sign}`
 export type Permute = [Dimension, Dimension, Dimension]
 export type Reverse = Dimension[]
 export type Tuple<T, N extends number, R extends unknown[] = []> = R['length'] extends N ? R : Tuple<T, N, [T, ...R]>
 
-const INDEX_FROM_AXIS: Record<Axis, Dimension> = 
+
+const DIMENSION_FROM_AXIS: Record<Axis, Dimension> = 
 {
-    'x': 0,
+    'x': 2,
     'y': 1,
-    'z': 2,
+    'z': 0,
 }
 
 const MAP_FROM_DOMINANT_AXIS_OCTANT: Record<string, number> = 
@@ -167,9 +168,9 @@ export function applyPermutation(newOffset: [number, number, number], permute: P
     return oldOffset
 }
 
-export function axisToIndex(axis: Axis): Dimension
+export function axisToDimension(dominantAxis: Axis): Dimension
 {
-    return INDEX_FROM_AXIS[axis]
+    return DIMENSION_FROM_AXIS[dominantAxis]
 }
 
 export function reverseSign(sign: Sign): Sign
@@ -177,14 +178,20 @@ export function reverseSign(sign: Sign): Sign
     return sign === '+' ? '-' : '+'
 }
 
-export function octantIndexToSign(octant: Octant, index: Dimension): Sign
+export function setOctantSign(octant: Octant, axis: Axis, sign: Sign): Octant
 {
-    return octant[index] as Sign
+    const [xSign, ySign, zSign] = [...octant] as [Sign, Sign, Sign]
+    return `${axis == 'x' ? sign : xSign}${axis == 'y' ? sign : ySign}${axis == 'z' ? sign : zSign}`
+}
+
+export function getOctantSign(octant: Octant, dimension: Dimension): Sign
+{
+    return octant[2 - dimension] as Sign
 }
 
 export function reverseOctant(octant: Octant): Octant
 {
-    return `${reverseSign(octantIndexToSign(octant, 0))}${reverseSign(octantIndexToSign(octant, 1))}${reverseSign(octantIndexToSign(octant, 2))}`
+    return `${reverseSign(getOctantSign(octant, 2))}${reverseSign(getOctantSign(octant, 1))}${reverseSign(getOctantSign(octant, 0))}`
 }
 
 export function permuteReverseToMap(permute: Permute, reverse: Reverse): number

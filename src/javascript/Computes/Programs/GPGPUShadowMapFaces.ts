@@ -11,8 +11,8 @@
 import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
-import { unstackPacked } from './unstack_packed_keepDims_webgl'
-import { stackPacked } from './stack_packed_keepDims_webgl'
+import { unstack3dPacked } from './unstack_packed_keepDims_webgl'
+import { stack3dPacked } from './stack_packed_keepDims_webgl'
 import {
     type Axis,
     type Octant,
@@ -623,7 +623,7 @@ export function computeFaceMinmax(
     const dimension = permute[0]
     const backwards = reverse.includes(dimension)
 
-    const slices = unstackPacked(faceMinima, dimension)
+    const slices = unstack3dPacked(faceMinima, dimension)
     const shape = slices[0].shape as Shape3Packed
     const propagate = new PropagateFaceMinmaxProgram(shape, axis, octant)
 
@@ -638,7 +638,7 @@ export function computeFaceMinmax(
         slices[i] = next
     }
 
-    const faceMinmax = stackPacked(slices, dimension) 
+    const faceMinmax = stack3dPacked(slices, dimension) 
     tf.dispose(slices)
     if (verbose) logMean('faceMinmax', faceMinmax)
 

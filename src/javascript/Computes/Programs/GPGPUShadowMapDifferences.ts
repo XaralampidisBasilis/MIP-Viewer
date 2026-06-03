@@ -1,8 +1,8 @@
 import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
-import { unstackPacked } from './unstack_packed_keepDims_webgl'
-import { stackPacked } from './stack_packed_keepDims_webgl'
+import { unstack3dPacked } from './unstack_packed_keepDims_webgl'
+import { stack3dPacked } from './stack_packed_keepDims_webgl'
 import {
     type Axis,
     type Octant,
@@ -716,7 +716,7 @@ function unidirectionalDifferencesGates(
     let differences = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
     if (verbose) logTensor('differencesStart', differences)
 
-    const slices = unstackPacked(differences, axis) 
+    const slices = unstack3dPacked(differences, axis) 
     tf.dispose(differences)
 
     const shape = slices[0].shape as [number, number, number, 2, 2]
@@ -734,7 +734,7 @@ function unidirectionalDifferencesGates(
         slices[i] = slice
     }
 
-    differences = stackPacked(slices, axis) as tf.Tensor5D 
+    differences = stack3dPacked(slices, axis) as tf.Tensor5D 
     tf.dispose(slices)
     if (verbose) logTensor('differencesPropagated', differences)
 
@@ -755,7 +755,7 @@ function unidirectionalDifferences(
     let differences = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
     if (verbose) logTensor('differencesStart', differences)
 
-    const slices = unstackPacked(differences, axis) 
+    const slices = unstack3dPacked(differences, axis) 
     tf.dispose(differences)
 
     const shape = slices[0].shape as [number, number, number, 2, 2]
@@ -773,7 +773,7 @@ function unidirectionalDifferences(
         slices[i] = slice
     }
 
-    differences = stackPacked(slices, axis) as tf.Tensor5D 
+    differences = stack3dPacked(slices, axis) as tf.Tensor5D 
     tf.dispose(slices)
     if (verbose) logTensor('differencesPropagated', differences)
 

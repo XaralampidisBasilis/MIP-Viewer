@@ -1,8 +1,8 @@
 import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
-import { unstackPacked } from './unstack_packed_keepDims_webgl'
-import { stackPacked } from './stack_packed_keepDims_webgl'
+import { unstack3dPacked } from './unstack_packed_keepDims_webgl'
+import { stack3dPacked } from './stack_packed_keepDims_webgl'
 import {
     type Axis,
     type Octant,
@@ -996,7 +996,7 @@ export function unidirectionalMinimaMapHollow(
     let minima = runWebGLProgram(program, [volume, holes], 'float32', [], true) as tf.Tensor5D
     if (verbose) logTensor('minimaStart', minima)
 
-    const slices = unstackPacked(minima, axis) 
+    const slices = unstack3dPacked(minima, axis) 
     tf.dispose(minima)
 
     const shape = slices[0].shape as [number, number, number, 2, 2]
@@ -1015,7 +1015,7 @@ export function unidirectionalMinimaMapHollow(
         slices[i] = slice
     }
 
-    minima = stackPacked(slices, axis) as tf.Tensor5D 
+    minima = stack3dPacked(slices, axis) as tf.Tensor5D 
     tf.dispose(slices)
     if (verbose) logTensor('minimaPropagated', minima)
 
@@ -1036,7 +1036,7 @@ export function unidirectionalMinimaMap(
     let minima = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
     if (verbose) logTensor('minimaStart', minima)
 
-    const slices = unstackPacked(minima, axis) 
+    const slices = unstack3dPacked(minima, axis) 
     tf.dispose(minima)
 
     const shape = slices[0].shape as [number, number, number, 2, 2]
@@ -1055,7 +1055,7 @@ export function unidirectionalMinimaMap(
         slices[i] = slice
     }
 
-    minima = stackPacked(slices, axis) as tf.Tensor5D 
+    minima = stack3dPacked(slices, axis) as tf.Tensor5D 
     tf.dispose(slices)
     if (verbose) logTensor('minimaPropagated', minima)
 
