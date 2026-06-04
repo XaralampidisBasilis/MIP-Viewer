@@ -344,7 +344,7 @@ function runProgram(prog: GPGPUProgram, inputs: tf.Tensor[], dtype: tf.DataType 
  * Pooling is applied only over [depth, height, width].
  * Each logical voxel is a vec4 packed in the trailing [2, 2].
  */
-export function maxPoolPacked3d(
+export function maxPool3dPacked(
     inputTensor: tf.Tensor5D,
     filterSize: number | Pool3D,
     strides: number | Pool3D,
@@ -373,7 +373,7 @@ export function maxPoolPacked3d(
  * Pooling is applied only over [depth, height, width].
  * Each logical voxel is a vec4 packed in the trailing [2, 2].
  */
-export function minPoolPacked3d(
+export function minPool3dPacked(
     inputTensor: tf.Tensor5D,
     filterSize: number | Pool3D,
     strides: number | Pool3D,
@@ -402,7 +402,7 @@ export function minPoolPacked3d(
  * Pooling is applied only over [depth, height, width].
  * Each logical voxel is a vec4 packed in the trailing [2, 2].
  */
-export function avgPoolPacked3d(
+export function avgPool3dPacked(
     inputTensor: tf.Tensor5D,
     filterSize: number | Pool3D,
     strides: number | Pool3D,

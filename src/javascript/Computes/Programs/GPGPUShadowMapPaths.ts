@@ -38,16 +38,8 @@ import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 import { stack3d } from './stack_keepDims_webgl'
 import { unstack3d } from './unstack_keepDims_webgl'
-import {
-    type Axis,
-    type Octant,
-    axisToDimension,
-    getOctantSign,
-    reverseOctant,
-    applyPermutation,
-    dominantAxisOctantToPermuteReverse,
-} from '../../Utils/ShadowMapUtils'
-import { minPool3d } from './pool3d'
+import { minPool3d, maxPool3d } from './pool3d'
+import * as su from '../../Utils/ShadowMapUtils'
 
 type Shape3 = [number, number, number]
 type CoordExpr = number | string
@@ -71,13 +63,13 @@ function voxelOffset(
     x: number,
     y: number,
     z: number,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
 ): string
 {
-    const { permute, reverse } = dominantAxisOctantToPermuteReverse(axis, octant)
+    const { permute, reverse } = su.dominantAxisOctantToPermuteReverse(axis, octant)
 
-    const zyx = applyPermutation([z, y, x], permute)
+    const zyx = su.applyPermutation([z, y, x], permute)
 
     for (const dimension of reverse) zyx[dimension] = -zyx[dimension]
 
@@ -93,13 +85,13 @@ function sliceOffset(
     x: number,
     y: number,
     z: number,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
 ): string
 {
-    const { permute, reverse } = dominantAxisOctantToPermuteReverse(axis, octant)
+    const { permute, reverse } = su.dominantAxisOctantToPermuteReverse(axis, octant)
 
-    const zyx = applyPermutation([z, y, x], permute)
+    const zyx = su.applyPermutation([z, y, x], permute)
 
     for (const dimension of reverse) zyx[dimension] = -zyx[dimension]
 
@@ -117,13 +109,13 @@ function cellOffset(
     x: number,
     y: number,
     z: number,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
 ): string
 {
-    const { permute, reverse } = dominantAxisOctantToPermuteReverse(axis, octant)
+    const { permute, reverse } = su.dominantAxisOctantToPermuteReverse(axis, octant)
 
-    const zyx = applyPermutation([z, y, x], permute)
+    const zyx = su.applyPermutation([z, y, x], permute)
 
     for (const dimension of reverse) zyx[dimension] = 1 - zyx[dimension]
 
@@ -157,8 +149,8 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
 
     constructor(
         sliceShape: Shape3,
-        axis: Axis = 'z',
-        octant: Octant = '+++',
+        axis: su.Axis = 'z',
+        octant: su.Octant = '+++',
     ) {
         const [depth, height, width] = sliceShape
 
@@ -227,8 +219,8 @@ class ComputeVertexMarginsProgram implements GPGPUProgram
 
     constructor(
         shape: Shape3,
-        axis: Axis = 'z',
-        octant: Octant = '+++',
+        axis: su.Axis = 'z',
+        octant: su.Octant = '+++',
     ) {
         const [depth, height, width] = shape
     
@@ -302,8 +294,8 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
 
     constructor(
         shape: Shape3,
-        axis: Axis = 'z',
-        octant: Octant = '+++'
+        axis: su.Axis = 'z',
+        octant: su.Octant = '+++'
     ) {
         const [depth, height, width] = shape
     
@@ -373,8 +365,8 @@ class ComputeVertexHolesProgram implements GPGPUProgram
 
     constructor(
         shape: Shape3,
-        axis: Axis = 'z',
-        octant: Octant = '+++',
+        axis: su.Axis = 'z',
+        octant: su.Octant = '+++',
     ) {
         const [depth, height, width] = shape
 
@@ -428,8 +420,8 @@ class ComputeCellShadowsProgram implements GPGPUProgram
 
     constructor(
         shape: Shape3,
-        axis: Axis = 'z',
-        octant: Octant = '+++',
+        axis: su.Axis = 'z',
+        octant: su.Octant = '+++',
     ) {
         const [depth, height, width] = shape
 
@@ -486,13 +478,13 @@ class ComputeCellShadowsProgram implements GPGPUProgram
  */
 export function computeVertexMinmax(
     volume: tf.Tensor3D,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const dimension = axisToDimension(axis)
-    const backwards = getOctantSign(octant, dimension) === '-'
+    const dimension = su.axisToDimension(axis)
+    const backwards = su.getOctantSign(octant, dimension) === '-'
     
     const slices = unstack3d(volume, dimension)
     const shape = slices[0].shape as Shape3
@@ -522,8 +514,8 @@ export function computeVertexMinmax(
 export function computeVertexMargins(
     vertexValues: tf.Tensor3D,
     vertexMinmax: tf.Tensor3D,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
     verbose: boolean = false
 ): tf.Tensor5D
 {
@@ -540,8 +532,8 @@ export function computeVertexMargins(
 export function computeVertexShadows(
     vertexValues: tf.Tensor3D,
     vertexMinmax: tf.Tensor3D,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
     tolerance: number,
     verbose: boolean = false
 ): tf.Tensor3D
@@ -558,8 +550,8 @@ export function computeVertexShadows(
  */
 export function computeCellShadows(
     vertexShadows: tf.Tensor3D,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
     verbose: boolean = false
 ): tf.Tensor3D
 {
@@ -572,8 +564,8 @@ export function computeCellShadows(
 
 export function computeVertexHoles(
     cellShadows: tf.Tensor3D,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
     verbose: boolean = false
 ): tf.Tensor3D
 {
@@ -592,8 +584,8 @@ export function computeVertexHoles(
  */
 export function computeUnidirectionalShadowMap(
     volume: tf.Tensor3D,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
     tolerance: number,
     verbose: boolean = false
 ): tf.Tensor3D
@@ -619,27 +611,36 @@ export function computeUnidirectionalShadowMap(
  */
 export function computeBidirectionalShadowMap(
     volume: tf.Tensor3D,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
     tolerance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const backwardOctant = reverseOctant(octant)
-    const forwardShadows = computeUnidirectionalShadowMap(volume, axis, octant, tolerance, verbose)
+    // Forward 
+    const forwardOctant = octant
+    const forwardVertexMinmax = computeVertexMinmax(volume, axis, forwardOctant, verbose)
+    const forwardVertexShadows = computeVertexShadows(volume, forwardVertexMinmax, axis, forwardOctant, tolerance, verbose)
+    tf.dispose(forwardVertexMinmax)
 
-    const vertexHoles = computeVertexHoles(forwardShadows, axis, backwardOctant, verbose)
-    const vertexValues = tf.where(vertexHoles, 0, volume) 
-    tf.dispose(vertexHoles)
+    const forwardCellShadows = computeCellShadows(forwardVertexShadows, axis, forwardOctant, verbose)
 
-    const backwardShadows = computeUnidirectionalShadowMap(vertexValues, axis, backwardOctant, tolerance, verbose)
-    tf.dispose(vertexValues)
+    // Backward 
+    const backwardOctant = su.reverseOctant(forwardOctant)
+    const backwardVertexHoles = computeVertexHoles(forwardCellShadows, axis, backwardOctant, verbose)
+    const backwardVertexValues = tf.where(backwardVertexHoles, 0, volume) 
+    tf.dispose(backwardVertexHoles)
 
-    const shadows = tf.logicalOr(forwardShadows, backwardShadows)
-    tf.dispose([forwardShadows, backwardShadows])
-    if (verbose) logMean('shadows', shadows)
+    const backwardVertexMinmax = computeVertexMinmax(backwardVertexValues, axis, backwardOctant, verbose)
+    const backwardVertexShadows = computeVertexShadows(backwardVertexValues, backwardVertexMinmax, axis, backwardOctant, tolerance, verbose)
+    tf.dispose([backwardVertexValues, backwardVertexMinmax])
 
-    return shadows as tf.Tensor3D
+    // Bidirectional 
+    const cellShadows = tf.logicalOr(forwardVertexShadows, backwardVertexShadows)
+    tf.dispose([forwardVertexShadows, backwardVertexShadows])
+    if (verbose) logMean('cellShadows', cellShadows)
+
+    return cellShadows as tf.Tensor3D
 }
 
 /**
@@ -648,10 +649,10 @@ export function computeBidirectionalShadowMap(
  * rejected, preserving the conservative guarantee of the section 2.2 culling
  * test at a coarser traversal level.
  */
-export function computeBidirectionalBlockShadowMap(
+export function computeBidirectionalBlockShadowMap2(
     volume: tf.Tensor3D,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
     tolerance: number,
     blockSize: number,
     verbose: boolean = false
@@ -665,6 +666,47 @@ export function computeBidirectionalBlockShadowMap(
     if (verbose) logMean('blockShadows', blockShadows)
 
     return blockShadows
+}
+
+export function computeBidirectionalBlockShadowMap(
+    volume: tf.Tensor3D,
+    axis: su.Axis,
+    octant: su.Octant,
+    tolerance: number,
+    blockSize: number,
+    verbose: boolean = false
+): tf.Tensor3D
+{
+    // Forward
+    const forwardMinVertexValues = minPool3d(volume, blockSize, blockSize, 'same')
+    const forwardMaxVertexValues = maxPool3d(volume, blockSize, blockSize, 'same')
+
+    const forwardOctant = octant
+    const forwardVertexMinmax = computeVertexMinmax(forwardMinVertexValues, axis, forwardOctant, verbose)
+    const forwardVertexShadows = computeVertexShadows(forwardMaxVertexValues, forwardVertexMinmax, axis, forwardOctant, tolerance, verbose)
+    tf.dispose([forwardVertexMinmax])
+
+    const forwardCellShadows = computeCellShadows(forwardVertexShadows, axis, forwardOctant, verbose)
+
+    // Backward
+    const backwardOctant = su.reverseOctant(forwardOctant)
+    const backwardVertexHoles = computeVertexHoles(forwardCellShadows, axis, backwardOctant, verbose)
+    const backwardMinVertexValues = tf.where(backwardVertexHoles, 0, forwardMinVertexValues) 
+    tf.dispose([backwardVertexHoles, forwardMinVertexValues])
+
+    const backwardVertexMinmax = computeVertexMinmax(backwardMinVertexValues, axis, backwardOctant, verbose)
+    tf.dispose(backwardMinVertexValues)
+
+    const backwardMaxVertexValues = forwardMaxVertexValues
+    const backwardVertexShadows = computeVertexShadows(backwardMaxVertexValues, backwardVertexMinmax, axis, backwardOctant, tolerance, verbose)
+    tf.dispose([backwardMaxVertexValues, backwardVertexMinmax])
+
+    // Bidirectional
+    const cellShadows = tf.logicalOr(forwardVertexShadows, backwardVertexShadows)
+    tf.dispose([forwardVertexShadows, backwardVertexShadows])
+    if (verbose) logMean('cellShadows', cellShadows)
+
+    return cellShadows as tf.Tensor3D
 }
 
 /**

@@ -33,7 +33,7 @@ export default class Configs extends EventEmitter
         this.downscaleFactor = 0.8
 
         this.errorTolerance = 0.01
-        this.blockSize = 1
+        this.blockSize = 2
         
         this.distanceVariation = '1bit'
         this.marchingMethod = 'cells'
