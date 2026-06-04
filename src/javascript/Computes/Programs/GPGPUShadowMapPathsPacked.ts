@@ -1,44 +1,11 @@
-/**
- * Extended anisotropic shadow maps for maximum intensity projection.
- *
- * This is the difference-domain version of the cell-based shadow-map idea from
- * Mroz, Hauser, and Groeller, "Interactive High-Quality Maximum Intensity
- * Projection", section 2, especially the section 2.2 preprocessing/visibility
- * test for trilinearly interpolated cells.
- *
- * The algorithm is written around one canonical cell orientation: rays
- * propagate in local +z, so z is the dominant axis in the GLSL stencil. Any
- * requested dominant-axis/octant pair is converted into that canonical case by
- * permuting and reversing offsets before they are injected into the shaders.
- *
- * Each cell is a unit cube with eight voxel corner values. The corner suffix
- * is the local (x, y, z) coordinate used by trilinear interpolation, so c000 is
- * (0, 0, 0), c100 is (1, 0, 0), ..., and c111 is (1, 1, 1).
- *
- * In the canonical initial-margin pass we compare the target corner c111 with
- * the four corners on the previous z face: c000, c010, c100, and c110. The
- * packed lanes store previous-face-minus-c111 margins in that order. Positive
- * means a previous cell corner can dominate c111 in a maximum-intensity
- * projection.
- *
- * Section 2.2 of the paper motivates this as a conservative cell rejection
- * test: if the maximum a cell can contribute is already bounded by values seen
- * before the ray reaches it, that cell cannot change the final MIP value.
- * Instead of storing explicit face minima/maxima, this implementation stores
- * differences and propagates the guaranteed positive margin through monotone
- * ray classes.
- *
- * The exported API keeps the historical "ShadowMap" names used elsewhere in
- * the viewer. Internally, the final shadow-map values are described as cell
- * masks: 1 means the cell is rejected for a ray class, 0 means it can still
- * contribute to the MIP.
- */
+
 import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
-import { unstack3dPacked } from './unstack_packed_keepDims_webgl'
-import { stack3dPacked } from './stack_packed_keepDims_webgl'
-import { minPool3dPacked } from './pool3dPacked'
+import { unstack3dPacked } from './unstack3dPacked'
+import { stack3dPacked } from './stack3dPacked'
+import { minPool3dPacked, maxPool3dPacked } from './pool3dPacked'
+import { where3dPacked } from './where3dPacked'
 import * as su from '../../Utils/ShadowMapUtils'
 
 type Shape3 = [number, number, number]
@@ -68,7 +35,7 @@ function voxelOffset(
     sign: su.Sign,
 ): string
 {
-    const octant = su.setOctantSign('+++', axis, sign)
+    const octant = `${sign}${sign}${sign}` as su.Octant
 
     const { permute, reverse } = su.dominantAxisOctantToPermuteReverse(axis, octant)
 
@@ -92,7 +59,7 @@ function sliceOffset(
     sign: su.Sign,
 ): string
 {
-    const octant = su.setOctantSign('+++', axis, sign)
+    const octant = `${sign}${sign}${sign}` as su.Octant
 
     const { permute, reverse } = su.dominantAxisOctantToPermuteReverse(axis, octant)
 
@@ -118,7 +85,7 @@ function cellOffset(
     sign: su.Sign,
 ): string
 {
-    const octant = su.setOctantSign('+++', axis, sign)
+    const octant = `${sign}${sign}${sign}` as su.Octant
 
     const { permute, reverse } = su.dominantAxisOctantToPermuteReverse(axis, octant)
 
@@ -165,61 +132,6 @@ class ComputeVertexValuesProgram implements GPGPUProgram
     }
 }
 
-class SubstituteVertexValuesProgram implements GPGPUProgram
-{
-    variableNames = ['A', 'B']
-    outputShape: Shape3Packed
-    userCode: string
-    packedInputs = true
-    packedOutput = true
-    customUniforms = [{ name: 'substitute', type: 'float' as const }]
-
-    constructor(shape: Shape3Packed) 
-    {
-        const [depth, height, width, ] = shape
-
-        this.outputShape = [depth, height, width, 2, 2]
-        this.userCode = `
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
-
-        ivec3 outputCoords()
-        {
-            ivec5 voxelCoords = getOutputCoords();
-            return ivec3(voxelCoords.z, voxelCoords.y, voxelCoords.x);
-        }
-
-        vec4 vertexValuesAt(ivec3 voxelCoords)
-        {
-            return getA(voxelCoords.z, voxelCoords.y, voxelCoords.x, 0, 0);
-        }
-
-        bvec4 vertexHolesAt(ivec3 voxelCoords)
-        {
-            return greaterThan(getB(voxelCoords.z, voxelCoords.y, voxelCoords.x, 0, 0), vec4(0.5));
-        }
-
-        vec4 substituteVertexValues(ivec3 voxelCoords)
-        {
-            vec4 vertexValues = vertexValuesAt(voxelCoords);
-            bvec4 vertexHoles = vertexHolesAt(voxelCoords);
-
-            return vec4(
-                vertexHoles.r ? substitute : vertexValues.r,
-                vertexHoles.g ? substitute : vertexValues.g,
-                vertexHoles.b ? substitute : vertexValues.b,
-                vertexHoles.a ? substitute : vertexValues.a
-            )
-        }
-
-        void main()
-        {
-            setOutput(substituteVertexValues(outputCoords()));
-        }
-        `
-    }
-}
-
 /**
  * Dynamic-programming propagation pass.
  *
@@ -252,6 +164,8 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
     ) {
         const [depth, height, width, ] = sliceShape
 
+        const backwards = sign === '-'
+        
         this.outputShape = sliceShape
         this.userCode = `
         const ivec3 minCoords = ivec3(0);
@@ -268,7 +182,7 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
         ivec3 outputCoords()
         {
             ivec5 sliceCoords = getOutputCoords();
-            return ivec3(sliceCoords.z, sliceCoords.y, sliceCoords.x, 0, 0);
+            return ivec3(sliceCoords.z, sliceCoords.y, sliceCoords.x);
         }
 
         vec4 currentSliceAt(ivec3 sliceCoords)
@@ -298,14 +212,14 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
             vec4 v020 = previousSliceAt(sliceCoords + ivec3(${sliceOffset(-1,  1, -1, axis, sign)}));
             vec4 v120 = previousSliceAt(sliceCoords + ivec3(${sliceOffset( 0,  1, -1, axis, sign)}));
             vec4 v220 = previousSliceAt(sliceCoords + ivec3(${sliceOffset( 1,  1, -1, axis, sign)}));
-           
+
             vec4 bottlenecks = vec4(
-                min4(v000.r, v010.r, v100.r, v110.r), // +++ 
+                min4(v000.r, v010.r, v100.r, v110.r), // +++
                 min4(v010.g, v020.g, v110.g, v120.g), // +-+
                 min4(v100.b, v110.b, v200.b, v210.b), // -++
                 min4(v110.a, v120.a, v210.a, v220.a)  // --+
             );
-
+            
             vec4 vertexMinmax = max(v111, bottlenecks);
             
             return vertexMinmax;
@@ -382,16 +296,16 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
 
         bvec4 computeVertexShadows(ivec3 voxelCoords)
         {
-            vec4 v111 =  currentSliceAt(sliceCoords + ivec3(${voxelOffset( 0,  0,  0, axis, sign)}));
-            vec4 v000 = previousSliceAt(sliceCoords + ivec3(${voxelOffset(-1, -1, -1, axis, sign)}));
-            vec4 v100 = previousSliceAt(sliceCoords + ivec3(${voxelOffset( 0, -1, -1, axis, sign)}));
-            vec4 v200 = previousSliceAt(sliceCoords + ivec3(${voxelOffset( 1, -1, -1, axis, sign)}));
-            vec4 v010 = previousSliceAt(sliceCoords + ivec3(${voxelOffset(-1,  0, -1, axis, sign)}));
-            vec4 v110 = previousSliceAt(sliceCoords + ivec3(${voxelOffset( 0,  0, -1, axis, sign)}));
-            vec4 v210 = previousSliceAt(sliceCoords + ivec3(${voxelOffset( 1,  0, -1, axis, sign)}));
-            vec4 v020 = previousSliceAt(sliceCoords + ivec3(${voxelOffset(-1,  1, -1, axis, sign)}));
-            vec4 v120 = previousSliceAt(sliceCoords + ivec3(${voxelOffset( 0,  1, -1, axis, sign)}));
-            vec4 v220 = previousSliceAt(sliceCoords + ivec3(${voxelOffset( 1,  1, -1, axis, sign)}));
+            vec4 v111 =  vertexValueAt(voxelCoords + ivec3(${voxelOffset( 0,  0,  0, axis, sign)}));
+            vec4 v000 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset(-1, -1, -1, axis, sign)}));
+            vec4 v100 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset( 0, -1, -1, axis, sign)}));
+            vec4 v200 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset( 1, -1, -1, axis, sign)}));
+            vec4 v010 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset(-1,  0, -1, axis, sign)}));
+            vec4 v110 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset( 0,  0, -1, axis, sign)}));
+            vec4 v210 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset( 1,  0, -1, axis, sign)}));
+            vec4 v020 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset(-1,  1, -1, axis, sign)}));
+            vec4 v120 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset( 0,  1, -1, axis, sign)}));
+            vec4 v220 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset( 1,  1, -1, axis, sign)}));
            
             vec4 bottlenecks = vec4(
                 min4(v000.r, v010.r, v100.r, v110.r), // +++ 
@@ -448,19 +362,18 @@ class ComputeVertexHolesProgram implements GPGPUProgram
         bvec4 computeVertexHoles(ivec3 voxelCoords)
         {
             bvec4 vertexHoles = bvec4(
-                cellShadowAt(voxelCoords + ivec3(${cellOffset(1, 1, 1, axis, sign)})), // +++
-                cellShadowAt(voxelCoords + ivec3(${cellOffset(1, 0, 1, axis, sign)})), // +-+
-                cellShadowAt(voxelCoords + ivec3(${cellOffset(0, 1, 1, axis, sign)})), // -++
-                cellShadowAt(voxelCoords + ivec3(${cellOffset(0, 0, 1, axis, sign)}))  // --+
+                cellShadowAt(voxelCoords + ivec3(${cellOffset(1, 1, 1, axis, sign)})).r, // ---
+                cellShadowAt(voxelCoords + ivec3(${cellOffset(1, 0, 1, axis, sign)})).g, // -+-
+                cellShadowAt(voxelCoords + ivec3(${cellOffset(0, 1, 1, axis, sign)})).b, // +--
+                cellShadowAt(voxelCoords + ivec3(${cellOffset(0, 0, 1, axis, sign)})).a  // ++-
             );
    
             return vertexHoles;
-   
         }
 
         void main()
         {            
-            setOutput(float(computeVertexHoles(outputCoords())));
+            setOutput(vec4(computeVertexHoles(outputCoords())));
         }
         `
     }
@@ -512,14 +425,14 @@ class ComputeCellShadowsProgram implements GPGPUProgram
         {
             ivec3 voxelCoords = cellCoords - 1;
 
-            bvec4 v111 = vertexShadowsAt(voxelCoords + ivec3(${cellOffset(1, 1, 1, axis, sign)}))
-            bvec4 v110 = vertexShadowsAt(voxelCoords + ivec3(${cellOffset(1, 1, 0, axis, sign)}))
-            bvec4 v101 = vertexShadowsAt(voxelCoords + ivec3(${cellOffset(1, 0, 1, axis, sign)}))
-            bvec4 v011 = vertexShadowsAt(voxelCoords + ivec3(${cellOffset(0, 1, 1, axis, sign)}))
-            bvec4 v100 = vertexShadowsAt(voxelCoords + ivec3(${cellOffset(1, 0, 0, axis, sign)}))
-            bvec4 v010 = vertexShadowsAt(voxelCoords + ivec3(${cellOffset(0, 1, 0, axis, sign)}))
-            bvec4 v001 = vertexShadowsAt(voxelCoords + ivec3(${cellOffset(0, 0, 1, axis, sign)}))
-            bvec4 v000 = vertexShadowsAt(voxelCoords + ivec3(${cellOffset(0, 0, 0, axis, sign)}))
+            bvec4 v111 = vertexShadowsAt(voxelCoords + ivec3(${cellOffset(1, 1, 1, axis, sign)}));
+            bvec4 v110 = vertexShadowsAt(voxelCoords + ivec3(${cellOffset(1, 1, 0, axis, sign)}));
+            bvec4 v101 = vertexShadowsAt(voxelCoords + ivec3(${cellOffset(1, 0, 1, axis, sign)}));
+            bvec4 v011 = vertexShadowsAt(voxelCoords + ivec3(${cellOffset(0, 1, 1, axis, sign)}));
+            bvec4 v100 = vertexShadowsAt(voxelCoords + ivec3(${cellOffset(1, 0, 0, axis, sign)}));
+            bvec4 v010 = vertexShadowsAt(voxelCoords + ivec3(${cellOffset(0, 1, 0, axis, sign)}));
+            bvec4 v001 = vertexShadowsAt(voxelCoords + ivec3(${cellOffset(0, 0, 1, axis, sign)}));
+            bvec4 v000 = vertexShadowsAt(voxelCoords + ivec3(${cellOffset(0, 0, 0, axis, sign)}));
 
             bvec4 cellShadows = bvec4(
                 v111.r && v101.r && v011.r && v001.r && v110.r && v100.r && v010.r, // +++
@@ -533,7 +446,7 @@ class ComputeCellShadowsProgram implements GPGPUProgram
 
         void main()
         {
-            setOutput(float(computeCellShadows(outputCoords())));
+            setOutput(vec4(computeCellShadows(outputCoords())));
         }
         `
     }
@@ -548,18 +461,6 @@ export function computeVertexValues(
     const program = new ComputeVertexValuesProgram(shape)
     const vertexValues = runWebGLProgram(program, [volume], 'float32', [], true) 
     return vertexValues as tf.Tensor5D
-}
-
-export function substituteVertexValues(
-    vertexValues: tf.Tensor5D,
-    vertexHoles: tf.Tensor5D, 
-    substitute: number, 
-): tf.Tensor5D
-{
-    const shape = vertexValues.shape as Shape3Packed
-    const program = new SubstituteVertexValuesProgram(shape)
-    const substituteValues = runWebGLProgram(program, [vertexValues, vertexHoles], 'float32', [[substitute]], true) 
-    return substituteValues as tf.Tensor5D
 }
 
 /**
@@ -673,7 +574,6 @@ export function computeUnidirectionalShadowMap(
 ): tf.Tensor5D
 {
     const vertexValues = computeVertexValues(volume)
-
     const vertexMinmax = computeVertexMinmax(vertexValues, axis, sign, verbose)
     const vertexShadows = computeVertexShadows(vertexValues, vertexMinmax, axis, sign, tolerance, verbose)
     tf.dispose([vertexValues, vertexMinmax])
@@ -701,32 +601,38 @@ export function computeBidirectionalShadowMap(
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const vertexValues = computeVertexValues(volume)
+    // Forward
+    const forwardVertexValues = computeVertexValues(volume)
 
-    const forwardVertexMinmax = computeVertexMinmax(vertexValues, axis, sign, verbose)
-    const forwardVertexShadows = computeVertexShadows(vertexValues, forwardVertexMinmax, axis, sign, tolerance, verbose)
+    const forwardSign = sign
+    const forwardVertexMinmax = computeVertexMinmax(forwardVertexValues, axis, forwardSign, verbose)
+    const forwardVertexShadows = computeVertexShadows(forwardVertexValues, forwardVertexMinmax, axis, forwardSign, tolerance, verbose)
     tf.dispose(forwardVertexMinmax)
 
-    const forwardCellShadows = computeCellShadows(forwardVertexShadows, axis, sign, verbose)
+    const forwardCellShadows = computeCellShadows(forwardVertexShadows, axis, forwardSign, false)
     tf.dispose(forwardVertexShadows)
+    if (verbose) logMean('forwardCellShadows', forwardCellShadows)
 
+    // Backwards
     const backwardSign = su.reverseSign(sign)
     const backwardVertexHoles = computeVertexHoles(forwardCellShadows, axis, backwardSign, verbose)
-    const backwardVertexValues = substituteVertexValues(vertexValues, backwardVertexHoles, 0)
-    tf.dispose([vertexValues, backwardVertexHoles])
+    const backwardVertexValues = where3dPacked(backwardVertexHoles, 0, forwardVertexValues)
+    tf.dispose([forwardVertexValues, backwardVertexHoles])
 
     const backwardVertexMinmax = computeVertexMinmax(backwardVertexValues, axis, backwardSign, verbose)
     const backwardVertexShadows = computeVertexShadows(backwardVertexValues, backwardVertexMinmax, axis, backwardSign, tolerance, verbose)
     tf.dispose(backwardVertexMinmax)
 
-    const backwardCellShadows = computeCellShadows(backwardVertexShadows, axis, backwardSign, verbose)
+    const backwardCellShadows = computeCellShadows(backwardVertexShadows, axis, backwardSign, false)
     tf.dispose(backwardVertexShadows)
+    if (verbose) logMean('backwardCellShadows', backwardCellShadows)
 
-    const cellShadows = tf.logicalOr(forwardCellShadows, backwardCellShadows)
+    // Bidirectional
+    const bidirectionalCellShadows = tf.logicalOr(forwardCellShadows, backwardCellShadows)
     tf.dispose([forwardCellShadows, backwardCellShadows])
-    if (verbose) logMean('cellShadows', cellShadows)
+    if (verbose) logMean('bidirectionalCellShadows', bidirectionalCellShadows)
 
-    return cellShadows as tf.Tensor5D
+    return bidirectionalCellShadows as tf.Tensor5D
 }
 
 /**
@@ -753,6 +659,59 @@ export function computeBidirectionalBlockShadowMap(
 
     return blockShadows
 }
+
+export function computeBidirectionalBlockShadowMap2(
+    volume: tf.Tensor3D,
+    axis: su.Axis,
+    sign: su.Sign,
+    tolerance: number,
+    blockSize: number,
+    verbose: boolean = false
+): tf.Tensor5D
+{
+    // Reduce
+    const vertexValues = computeVertexValues(volume)
+    const minVertexValues = minPool3dPacked(vertexValues, blockSize, blockSize, 'valid')
+    const maxVertexValues = maxPool3dPacked(vertexValues, blockSize, blockSize, 'valid')
+    tf.dispose(vertexValues)
+
+    // Forward
+    const forwardMinVertexValues = minVertexValues
+    const forwardMaxVertexValues = maxVertexValues
+   
+    const forwardSign = sign
+    const forwardVertexMinmax = computeVertexMinmax(forwardMinVertexValues, axis, forwardSign, verbose)
+    const forwardVertexShadows = computeVertexShadows(forwardMaxVertexValues, forwardVertexMinmax, axis, forwardSign, tolerance, verbose)
+    tf.dispose(forwardVertexMinmax)
+
+    const forwardCellShadows = computeCellShadows(forwardVertexShadows, axis, forwardSign, verbose)
+    tf.dispose(forwardVertexShadows)
+
+    // Backwards
+    const backwardSign = su.reverseSign(sign)
+    const backwardVertexHoles = computeVertexHoles(forwardCellShadows, axis, backwardSign, verbose)
+
+    const backwardMinVertexValues = where3dPacked(backwardVertexHoles, 0, minVertexValues)
+    const backwardMaxVertexValues = where3dPacked(backwardVertexHoles, 0, maxVertexValues)
+    tf.dispose([backwardVertexHoles, minVertexValues, maxVertexValues])
+
+    const backwardVertexMinmax = computeVertexMinmax(backwardMinVertexValues, axis, backwardSign, verbose)
+    tf.dispose(backwardMinVertexValues)
+
+    const backwardVertexShadows = computeVertexShadows(backwardMaxVertexValues, backwardVertexMinmax, axis, backwardSign, tolerance, verbose)
+    tf.dispose([backwardMaxVertexValues, backwardVertexMinmax])
+
+    const backwardCellShadows = computeCellShadows(backwardVertexShadows, axis, backwardSign, verbose)
+    tf.dispose(backwardVertexShadows)
+
+    // Bidirectional
+    const bidirectionalCellShadows = tf.logicalOr(forwardCellShadows, backwardCellShadows)
+    tf.dispose([forwardCellShadows, backwardCellShadows])
+    if (verbose) logMean('bidirectionalCellShadows', bidirectionalCellShadows)
+
+    return bidirectionalCellShadows as tf.Tensor5D
+}
+
 
 /**
  * Logs the mean value of a 3D/packed tensor over spatial axes. This is a cheap

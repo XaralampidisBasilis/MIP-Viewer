@@ -3,8 +3,8 @@ import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import * as GPGPU from '../Programs/GPGPUShadowDistanceMap'
 
-import * as A from '../Programs/GPGPUShadowMap'
-import * as B from '../Programs/GPGPUShadowMapFaces'
+import * as A from '../Programs/GPGPUShadowMapPaths'
+import * as B from '../Programs/GPGPUShadowMapPathsPacked'
 export default class DistanceMap 
 {
     constructor()
@@ -19,19 +19,18 @@ export default class DistanceMap
 
     computeTexture()
     {
-        // const volume = this.computes.volumeMap.tensor
+        const volume = this.computes.volumeMap.tensor
 
-        // const a = A.computeBidirectionalShadowMap(volume, 'x', '+++', 0.01)
-        // const b = B.computeBidirectionalShadowMap(volume, 'x', '+++', 0.01)
+        tf.tidy(() => console.log(B.computeBidirectionalShadowMap(volume, 'z',   '-', 0.01, false).mean([0,1,2]).dataSync()))
+        tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '++-', 0.01, false).mean([0,1,2]).dataSync()))
+        tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '+--', 0.01, false).mean([0,1,2]).dataSync()))
+        tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '-+-', 0.01, false).mean([0,1,2]).dataSync()))
+        tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '---', 0.01, false).mean([0,1,2]).dataSync()))
 
-        // console.log(a.mean([0,1,2]).dataSync())
-        // console.log(b.mean([0,1,2]).dataSync())
-        // console.log(tf.abs(tf.sub(a, b)).mean([0,1,2]).dataSync())
-
-        if (this.distanceVariation ===  '1bit') this.compute1BitDistanceTexture()
-        if (this.distanceVariation ===  '5bit') this.compute5BitDistanceTexture()
-        if (this.distanceVariation ===  '8bit') this.compute8BitDistanceTexture()
-        if (this.distanceVariation === '10bit') this.compute10BitDistanceTexture()
+        // if (this.distanceVariation ===  '1bit') this.compute1BitDistanceTexture()
+        // if (this.distanceVariation ===  '5bit') this.compute5BitDistanceTexture()
+        // if (this.distanceVariation ===  '8bit') this.compute8BitDistanceTexture()
+        // if (this.distanceVariation === '10bit') this.compute10BitDistanceTexture()
     }
  
     compute1BitDistanceTexture()
