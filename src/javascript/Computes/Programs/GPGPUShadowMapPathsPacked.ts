@@ -601,10 +601,12 @@ export function computeBidirectionalShadowMap(
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    // Forward
-    const forwardVertexValues = computeVertexValues(volume)
+    const vertexValues = computeVertexValues(volume)
 
+    // Forward
     const forwardSign = sign
+    const forwardVertexValues = vertexValues
+    
     const forwardVertexMinmax = computeVertexMinmax(forwardVertexValues, axis, forwardSign, verbose)
     const forwardVertexShadows = computeVertexShadows(forwardVertexValues, forwardVertexMinmax, axis, forwardSign, tolerance, verbose)
     tf.dispose(forwardVertexMinmax)
@@ -616,8 +618,8 @@ export function computeBidirectionalShadowMap(
     // Backwards
     const backwardSign = su.reverseSign(sign)
     const backwardVertexHoles = computeVertexHoles(forwardCellShadows, axis, backwardSign, verbose)
-    const backwardVertexValues = where3dPacked(backwardVertexHoles, 0, forwardVertexValues)
-    tf.dispose([forwardVertexValues, backwardVertexHoles])
+    const backwardVertexValues = where3dPacked(backwardVertexHoles, 0, vertexValues)
+    tf.dispose([backwardVertexHoles, vertexValues])
 
     const backwardVertexMinmax = computeVertexMinmax(backwardVertexValues, axis, backwardSign, verbose)
     const backwardVertexShadows = computeVertexShadows(backwardVertexValues, backwardVertexMinmax, axis, backwardSign, tolerance, verbose)
@@ -676,10 +678,10 @@ export function computeBidirectionalBlockShadowMap2(
     tf.dispose(vertexValues)
 
     // Forward
+    const forwardSign = sign
     const forwardMinVertexValues = minVertexValues
     const forwardMaxVertexValues = maxVertexValues
    
-    const forwardSign = sign
     const forwardVertexMinmax = computeVertexMinmax(forwardMinVertexValues, axis, forwardSign, verbose)
     const forwardVertexShadows = computeVertexShadows(forwardMaxVertexValues, forwardVertexMinmax, axis, forwardSign, tolerance, verbose)
     tf.dispose(forwardVertexMinmax)
@@ -690,10 +692,10 @@ export function computeBidirectionalBlockShadowMap2(
     // Backwards
     const backwardSign = su.reverseSign(sign)
     const backwardVertexHoles = computeVertexHoles(forwardCellShadows, axis, backwardSign, verbose)
-
     const backwardMinVertexValues = where3dPacked(backwardVertexHoles, 0, minVertexValues)
+    tf.dispose(minVertexValues)
     const backwardMaxVertexValues = where3dPacked(backwardVertexHoles, 0, maxVertexValues)
-    tf.dispose([backwardVertexHoles, minVertexValues, maxVertexValues])
+    tf.dispose([maxVertexValues, backwardVertexHoles])
 
     const backwardVertexMinmax = computeVertexMinmax(backwardMinVertexValues, axis, backwardSign, verbose)
     tf.dispose(backwardMinVertexValues)
