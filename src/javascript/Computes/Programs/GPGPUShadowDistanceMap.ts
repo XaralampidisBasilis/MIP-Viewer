@@ -3,8 +3,8 @@ import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMap'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapPaths'
-import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapMargins'
-// import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapFaces'
+// import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapMargins'
+import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapFaces'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapDifferences'
 import {
     type Axis,

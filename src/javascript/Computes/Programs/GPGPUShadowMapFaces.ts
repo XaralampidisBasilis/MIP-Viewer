@@ -16,12 +16,7 @@ import { stack3dPacked } from './stack3dPacked'
 import { minPool3d } from './pool3d'
 import * as su from '../../Utils/ShadowMapUtils'
 
-type Shape3 = [number, number, number]
-type Shape3Packed = [number, number, number, 2, 2]
-type CoordExpr = number | string
-
-
-function xyz(zyx: [CoordExpr, CoordExpr, CoordExpr]): string
+function xyz(zyx: [number, number, number]): string
 {
     return [zyx[2], zyx[1], zyx[0]].join(', ')
 }
@@ -94,13 +89,13 @@ function sliceOffset(
 class ComputeFaceMinimaProgram implements GPGPUProgram
 {
     variableNames = ['A']
-    outputShape: number[]
+    outputShape: [number, number, number, 2, 2]
     userCode: string
     packedInputs = false
     packedOutput = true
 
     constructor(
-        shape: Shape3,
+        shape: [number, number, number],
         axis: su.Axis = 'z',
         octant: su.Octant = '+++',
     ) {
@@ -198,16 +193,76 @@ class ComputeFaceMinimaProgram implements GPGPUProgram
     }
 }
 
+class ComputeHollowFaceMinimaProgram implements GPGPUProgram
+{
+    variableNames = ['A', 'B']
+    outputShape: [number, number, number, 2, 2]
+    userCode: string
+    packedInputs = true
+    packedOutput = true
+
+    constructor(shape: [number, number, number, 2, 2]) 
+    {
+        const [depth, height, width, ] = shape
+
+        this.outputShape = shape
+        this.userCode = `
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
+
+        bool insideVolume(ivec3 cellCoords)
+        {
+            return 
+                cellCoords.x >= minCoords.x && cellCoords.x <= maxCoords.x &&
+                cellCoords.y >= minCoords.y && cellCoords.y <= maxCoords.y &&
+                cellCoords.z >= minCoords.z && cellCoords.z <= maxCoords.z;
+        }
+
+        ivec3 outputCoords()
+        {
+            ivec5 cellCoords = getOutputCoords();
+            return ivec3(cellCoords.z, cellCoords.y, cellCoords.x);
+        }
+
+        vec3 faceMinimaAt(ivec3 cellCoords)
+        {
+            return getA(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).xyz;
+        }
+
+        bvec3 faceHolesAt(ivec3 cellCoords)
+        {
+            return greaterThan(getB(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).xyz, vec3(0.5));
+        }
+
+        void main()
+        {
+            ivec3 cellCoords = outputCoords();
+
+            vec3 faceMinima = faceMinimaAt(cellCoords);
+            bvec3 faceHoles = faceHolesAt(cellCoords);
+
+            vec3 hollowMinima = vec3(
+                faceHoles.x ? 0.0 : faceMinima.x,
+                faceHoles.y ? 0.0 : faceMinima.y,
+                faceHoles.z ? 0.0 : faceMinima.z
+            );
+
+            setOutput(vec4(hollowMinima, 0.0));
+        }
+        `
+    }
+}
+
 class ComputeFaceMaximaProgram implements GPGPUProgram
 {
     variableNames = ['A']
-    outputShape: number[]
+    outputShape: [number, number, number, 2, 2]
     userCode: string
     packedInputs = false
     packedOutput = true
 
     constructor(
-        shape: Shape3,
+        shape: [number, number, number],
         axis: su.Axis = 'z',
         octant: su.Octant = '+++'
     ) {
@@ -308,14 +363,14 @@ class ComputeFaceMaximaProgram implements GPGPUProgram
 class PropagateFaceMinmaxProgram implements GPGPUProgram
 {
     variableNames = ['A', 'B']
-    outputShape: number[]
+    outputShape: [number, number, number, 2, 2]
     userCode: string
     packedInputs = true
     packedOutput = true
     customUniforms = [{ name: 'slice', type: 'int' as const }]
 
     constructor(
-        shape: Shape3Packed,
+        shape: [number, number, number, 2, 2],
         axis: su.Axis = 'z',
         octant: su.Octant = '+++'
     ) {
@@ -342,11 +397,13 @@ class PropagateFaceMinmaxProgram implements GPGPUProgram
 
         vec3 currentSliceAt(ivec3 sliceCoords)
         {
+            // sliceCoords = clamp(sliceCoords, minCoords, maxCoords);
             return insideSlice(sliceCoords) ? getA(sliceCoords.z, sliceCoords.y, sliceCoords.x, 0, 0).xyz : vec3(0.0);
         }
 
         vec3 previousSliceAt(ivec3 sliceCoords)
         {
+            // sliceCoords = clamp(sliceCoords, minCoords, maxCoords);
             return insideSlice(sliceCoords) ? getB(sliceCoords.z, sliceCoords.y, sliceCoords.x, 0, 0).xyz : vec3(0.0);
         }
 
@@ -379,11 +436,11 @@ class PropagateFaceMinmaxProgram implements GPGPUProgram
             vec3 c100 = previousSliceAt(sliceCoords + ivec3(${sliceOffset( 0, -1, -1, axis, octant)}));
             vec3 c000 = previousSliceAt(sliceCoords + ivec3(${sliceOffset(-1, -1, -1, axis, octant)}));
 
-            c111.x = computeFaceXMinmax(c111, c110, c101, c100);
-            c111.y = computeFaceYMinmax(c111, c110, c011, c010);
-
             c011.x = computeFaceXMinmax(c011, c010, c001, c000);
             c101.y = computeFaceYMinmax(c101, c100, c001, c000);
+
+            c111.x = computeFaceXMinmax(c111, c110, c101, c100);
+            c111.y = computeFaceYMinmax(c111, c110, c011, c010);
             c111.z = computeFaceZMinmax(c111, c110, c101, c011);
 
             return c111;
@@ -400,14 +457,14 @@ class PropagateFaceMinmaxProgram implements GPGPUProgram
 class ComputeFaceShadowsProgram implements GPGPUProgram
 {
     variableNames = ['A', 'B']
-    outputShape: number[]
+    outputShape: [number, number, number, 2, 2]
     userCode: string
     packedInputs = true
     packedOutput = true
     customUniforms = [{ name: 'tolerance', type: 'float' as const }]
 
     constructor(
-        shape: Shape3Packed,
+        shape: [number, number, number, 2, 2],
         axis: su.Axis = 'z',
         octant: su.Octant = '+++'
     ) {
@@ -473,13 +530,13 @@ class ComputeFaceShadowsProgram implements GPGPUProgram
 class ComputeFaceHolesProgram implements GPGPUProgram
 {
     variableNames = ['A']
-    outputShape: number[]
+    outputShape: [number, number, number, 2, 2]
     userCode: string
     packedInputs = false
     packedOutput = true
 
     constructor(
-        shape: Shape3,
+        shape: [number, number, number],
         axis: su.Axis = 'z',
         octant: su.Octant = '+++'
     ) {
@@ -528,84 +585,23 @@ class ComputeFaceHolesProgram implements GPGPUProgram
     }
 }
 
-class HollowFaceMinimaProgram implements GPGPUProgram
-{
-    variableNames = ['A', 'B']
-    outputShape: number[]
-    userCode: string
-    packedInputs = true
-    packedOutput = true
 
-    constructor(
-        shape: Shape3Packed,
-        axis: su.Axis = 'z',
-        octant: su.Octant = '+++'
-    ) {
-        const [depth, height, width, ] = shape
-
-        this.outputShape = shape
-        this.userCode = `
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
-
-        bool insideVolume(ivec3 cellCoords)
-        {
-            return 
-                cellCoords.x >= minCoords.x && cellCoords.x <= maxCoords.x &&
-                cellCoords.y >= minCoords.y && cellCoords.y <= maxCoords.y &&
-                cellCoords.z >= minCoords.z && cellCoords.z <= maxCoords.z;
-        }
-
-        ivec3 outputCoords()
-        {
-            ivec5 cellCoords = getOutputCoords();
-            return ivec3(cellCoords.z, cellCoords.y, cellCoords.x);
-        }
-
-        vec3 faceMinimaAt(ivec3 cellCoords)
-        {
-            return getA(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).xyz;
-        }
-
-        bvec3 faceHolesAt(ivec3 cellCoords)
-        {
-            return greaterThan(getB(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).xyz, vec3(0.5));
-        }
-
-        void main()
-        {
-            ivec3 cellCoords = outputCoords();
-
-            vec3 faceMinima = faceMinimaAt(cellCoords);
-            bvec3 faceHoles = faceHolesAt(cellCoords);
-
-            vec3 hollowMinima = vec3(
-                faceHoles.x ? 0.0 : faceMinima.x,
-                faceHoles.y ? 0.0 : faceMinima.y,
-                faceHoles.z ? 0.0 : faceMinima.z
-            );
-
-            setOutput(vec4(hollowMinima, 0.0));
-        }
-        `
-    }
-}
-
-export function computeFaceMinima(
+function computeFaceMinima(
     volume: tf.Tensor3D,
     axis: su.Axis,
     octant: su.Octant,
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const program = new ComputeFaceMinimaProgram(volume.shape, axis, octant)
-    const faceMinima = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
+    const shape = volume.shape
+    const program = new ComputeFaceMinimaProgram(shape, axis, octant)
+    const faceMinima = runWebGLProgram(program, [volume], 'float32', [], true) 
     if (verbose) logMean('faceMinima', faceMinima)
 
-    return faceMinima
+    return faceMinima as tf.Tensor5D
 }
 
-export function computeFaceMinmax(
+function computeFaceMinmax(
     faceMinima: tf.Tensor5D,
     axis: su.Axis,
     octant: su.Octant,
@@ -617,7 +613,7 @@ export function computeFaceMinmax(
     const backwards = reverse.includes(dimension)
 
     const slices = unstack3dPacked(faceMinima, dimension)
-    const shape = slices[0].shape as Shape3Packed
+    const shape = slices[0].shape as [number, number, number, 2, 2]
     const propagate = new PropagateFaceMinmaxProgram(shape, axis, octant)
 
     const start = backwards ? slices.length - 2 : 1
@@ -638,21 +634,22 @@ export function computeFaceMinmax(
     return faceMinmax as tf.Tensor5D
 }
 
-export function computeFaceMaxima(
+function computeFaceMaxima(
     volume: tf.Tensor3D,
     axis: su.Axis,
     octant: su.Octant,
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const program = new ComputeFaceMaximaProgram(volume.shape, axis, octant)
-    const faceMaxima = runWebGLProgram(program, [volume], 'float32', [], true) as tf.Tensor5D
+    const shape = volume.shape
+    const program = new ComputeFaceMaximaProgram(shape, axis, octant)
+    const faceMaxima = runWebGLProgram(program, [volume], 'float32', [], true) 
     if (verbose) logMean('faceMaxima', faceMaxima)
 
-    return faceMaxima
+    return faceMaxima as tf.Tensor5D
 }
 
-export function computeFaceShadows(
+function computeFaceShadows(
     faceMinmax: tf.Tensor5D,
     faceMaxima: tf.Tensor5D,
     axis: su.Axis,
@@ -661,7 +658,7 @@ export function computeFaceShadows(
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const shape = faceMaxima.shape as Shape3Packed
+    const shape = faceMaxima.shape as [number, number, number, 2, 2]
     const program = new ComputeFaceShadowsProgram(shape, axis, octant)
     const faceShadows = runWebGLProgram(program, [faceMinmax, faceMaxima], 'bool', [[tolerance]], true) 
     if (verbose) logMean('faceShadows', faceShadows)
@@ -669,34 +666,33 @@ export function computeFaceShadows(
     return faceShadows as tf.Tensor5D
 }
 
-export function computeFaceHoles(
+function computeFaceHoles(
     cellShadows: tf.Tensor3D,
     axis: su.Axis,
     octant: su.Octant,
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const program = new ComputeFaceHolesProgram(cellShadows.shape, axis, octant)
-    const faceHoles = runWebGLProgram(program, [cellShadows], 'bool', [], true) as tf.Tensor5D
+    const shape = cellShadows.shape
+    const program = new ComputeFaceHolesProgram(shape, axis, octant)
+    const faceHoles = runWebGLProgram(program, [cellShadows], 'bool', [], true) 
     if (verbose) logMean('faceHoles', faceHoles)
 
-    return faceHoles
+    return faceHoles as tf.Tensor5D
 }
 
-export function hollowFaceMinima(
+function computeHollowFaceMinima(
     faceMinima: tf.Tensor5D,
     faceHoles: tf.Tensor5D,
-    axis: su.Axis,
-    octant: su.Octant,
     verbose: boolean = false
 ): tf.Tensor5D  
 {
-    const shape = faceMinima.shape as Shape3Packed
-    const program = new HollowFaceMinimaProgram(shape, axis, octant)
-    const hollowMinima = runWebGLProgram(program, [faceMinima, faceHoles], 'float32', [], true) as tf.Tensor5D
-    if (verbose) logMean('hollowMinima', hollowMinima)
+    const shape = faceMinima.shape as [number, number, number, 2, 2]
+    const program = new ComputeHollowFaceMinimaProgram(shape)
+    const hollowFaceMinima = runWebGLProgram(program, [faceMinima, faceHoles], 'float32', [], true) 
+    if (verbose) logMean('hollowFaceMinima', hollowFaceMinima)
 
-    return hollowMinima
+    return hollowFaceMinima as tf.Tensor5D
 }
 
 export function computeUnidirectionalShadowMap(
@@ -735,7 +731,7 @@ export function computeBidirectionalShadowMap(
     const faceHoles = computeFaceHoles(forwardShadows, axis, octant, verbose)
 
     const faceMinima = computeFaceMinima(volume, axis, backwardOctant, verbose)
-    const hollowMinima = hollowFaceMinima(faceMinima, faceHoles, axis, backwardOctant, verbose)
+    const hollowMinima = computeHollowFaceMinima(faceMinima, faceHoles, verbose)
     tf.dispose([faceMinima, faceHoles])
 
     const faceMinmax = computeFaceMinmax(hollowMinima, axis, backwardOctant, verbose)
