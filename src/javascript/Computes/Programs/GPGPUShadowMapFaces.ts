@@ -11,17 +11,10 @@
 import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
-import { unstack3dPacked } from './unstack_packed_keepDims_webgl'
-import { stack3dPacked } from './stack_packed_keepDims_webgl'
-import {
-    type Axis,
-    type Octant,
-    applyPermutation,
-    dominantAxisOctantToPermuteReverse,
-    inversePermutation,
-    reverseOctant,
-} from '../../Utils/ShadowMapUtils'
+import { unstack3dPacked } from './unstack3dPacked'
+import { stack3dPacked } from './stack3dPacked'
 import { minPool3d } from './pool3d'
+import * as su from '../../Utils/ShadowMapUtils'
 
 type Shape3 = [number, number, number]
 type Shape3Packed = [number, number, number, 2, 2]
@@ -42,13 +35,13 @@ function voxelOffset(
     x: number,
     y: number,
     z: number,
-    dominantAxis: Axis,
-    octant: Octant
+    dominantAxis: su.Axis,
+    octant: su.Octant
 ): string
 {
-    const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
+    const { permute, reverse } = su.dominantAxisOctantToPermuteReverse(dominantAxis, octant)
 
-    const zyx = applyPermutation([z, y, x], permute)
+    const zyx = su.applyPermutation([z, y, x], permute)
 
     for (const dimension of reverse) zyx[dimension] = 1 - zyx[dimension]
 
@@ -62,13 +55,13 @@ function cellOffset(
     x: number,
     y: number,
     z: number,
-    dominantAxis: Axis,
-    octant: Octant
+    dominantAxis: su.Axis,
+    octant: su.Octant
 ): string
 {
-    const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
+    const { permute, reverse } = su.dominantAxisOctantToPermuteReverse(dominantAxis, octant)
 
-    const zyx = applyPermutation([z, y, x], permute)
+    const zyx = su.applyPermutation([z, y, x], permute)
 
     for (const dimension of reverse) zyx[dimension] = -zyx[dimension]
 
@@ -83,13 +76,13 @@ function sliceOffset(
     x: number,
     y: number,
     z: number,
-    dominantAxis: Axis,
-    octant: Octant
+    dominantAxis: su.Axis,
+    octant: su.Octant
 ): string
 {
-    const { permute, reverse } = dominantAxisOctantToPermuteReverse(dominantAxis, octant)
+    const { permute, reverse } = su.dominantAxisOctantToPermuteReverse(dominantAxis, octant)
 
-    const zyx = applyPermutation([z, y, x], permute)
+    const zyx = su.applyPermutation([z, y, x], permute)
 
     for (const dimension of reverse) zyx[dimension] = -zyx[dimension]
 
@@ -108,8 +101,8 @@ class ComputeFaceMinimaProgram implements GPGPUProgram
 
     constructor(
         shape: Shape3,
-        axis: Axis = 'z',
-        octant: Octant = '+++',
+        axis: su.Axis = 'z',
+        octant: su.Octant = '+++',
     ) {
         const [depth, height, width] = shape
 
@@ -215,8 +208,8 @@ class ComputeFaceMaximaProgram implements GPGPUProgram
 
     constructor(
         shape: Shape3,
-        axis: Axis = 'z',
-        octant: Octant = '+++'
+        axis: su.Axis = 'z',
+        octant: su.Octant = '+++'
     ) {
         const [depth, height, width] = shape
 
@@ -323,8 +316,8 @@ class PropagateFaceMinmaxProgram implements GPGPUProgram
 
     constructor(
         shape: Shape3Packed,
-        axis: Axis = 'z',
-        octant: Octant = '+++'
+        axis: su.Axis = 'z',
+        octant: su.Octant = '+++'
     ) {
         const [depth, height, width] = shape
 
@@ -415,8 +408,8 @@ class ComputeFaceShadowsProgram implements GPGPUProgram
 
     constructor(
         shape: Shape3Packed,
-        axis: Axis = 'z',
-        octant: Octant = '+++'
+        axis: su.Axis = 'z',
+        octant: su.Octant = '+++'
     ) {
         const [depth, height, width, ] = shape
 
@@ -487,8 +480,8 @@ class ComputeFaceHolesProgram implements GPGPUProgram
 
     constructor(
         shape: Shape3,
-        axis: Axis = 'z',
-        octant: Octant = '+++'
+        axis: su.Axis = 'z',
+        octant: su.Octant = '+++'
     ) {
         const [depth, height, width] = shape
 
@@ -545,8 +538,8 @@ class HollowFaceMinimaProgram implements GPGPUProgram
 
     constructor(
         shape: Shape3Packed,
-        axis: Axis = 'z',
-        octant: Octant = '+++'
+        axis: su.Axis = 'z',
+        octant: su.Octant = '+++'
     ) {
         const [depth, height, width, ] = shape
 
@@ -600,8 +593,8 @@ class HollowFaceMinimaProgram implements GPGPUProgram
 
 export function computeFaceMinima(
     volume: tf.Tensor3D,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
     verbose: boolean = false
 ): tf.Tensor5D
 {
@@ -614,12 +607,12 @@ export function computeFaceMinima(
 
 export function computeFaceMinmax(
     faceMinima: tf.Tensor5D,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const { permute, reverse } = dominantAxisOctantToPermuteReverse(axis, octant)
+    const { permute, reverse } = su.dominantAxisOctantToPermuteReverse(axis, octant)
     const dimension = permute[0]
     const backwards = reverse.includes(dimension)
 
@@ -647,8 +640,8 @@ export function computeFaceMinmax(
 
 export function computeFaceMaxima(
     volume: tf.Tensor3D,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
     verbose: boolean = false
 ): tf.Tensor5D
 {
@@ -662,8 +655,8 @@ export function computeFaceMaxima(
 export function computeFaceShadows(
     faceMinmax: tf.Tensor5D,
     faceMaxima: tf.Tensor5D,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
     tolerance: number,
     verbose: boolean = false
 ): tf.Tensor5D
@@ -678,8 +671,8 @@ export function computeFaceShadows(
 
 export function computeFaceHoles(
     cellShadows: tf.Tensor3D,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
     verbose: boolean = false
 ): tf.Tensor5D
 {
@@ -693,8 +686,8 @@ export function computeFaceHoles(
 export function hollowFaceMinima(
     faceMinima: tf.Tensor5D,
     faceHoles: tf.Tensor5D,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
     verbose: boolean = false
 ): tf.Tensor5D  
 {
@@ -708,8 +701,8 @@ export function hollowFaceMinima(
 
 export function computeUnidirectionalShadowMap(
     volume: tf.Tensor3D,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
     tolerance: number,
     verbose: boolean = false
 ): tf.Tensor3D
@@ -730,15 +723,15 @@ export function computeUnidirectionalShadowMap(
 
 export function computeBidirectionalShadowMap(
     volume: tf.Tensor3D,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
     tolerance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
     const forwardShadows = computeUnidirectionalShadowMap(volume, axis, octant, tolerance, verbose)
 
-    const backwardOctant = reverseOctant(octant)
+    const backwardOctant = su.reverseOctant(octant)
     const faceHoles = computeFaceHoles(forwardShadows, axis, octant, verbose)
 
     const faceMinima = computeFaceMinima(volume, axis, backwardOctant, verbose)
@@ -764,8 +757,8 @@ export function computeBidirectionalShadowMap(
 
 export function computeBidirectionalBlockShadowMap(
     volume: tf.Tensor3D,
-    axis: Axis,
-    octant: Octant,
+    axis: su.Axis,
+    octant: su.Octant,
     tolerance: number,
     blockSize: number,
     verbose: boolean = false

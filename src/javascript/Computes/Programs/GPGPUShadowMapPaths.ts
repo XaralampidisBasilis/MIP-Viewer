@@ -41,16 +41,13 @@ import { unstack3d } from './unstack3d'
 import { minPool3d, maxPool3d } from './pool3d'
 import * as su from '../../Utils/ShadowMapUtils'
 
-type Shape3 = [number, number, number]
-type CoordExpr = number | string
-
 /**
  * Convert a canonical sweep-space offset into the physical tensor orientation.
  * The TypeScript side thinks in local x/y/z offsets; TensorFlow stores tensors
  * as z/y/x, so applyPermutation works in z/y/x order and xyz emits GLSL ivec3
  * arguments.
  */
-function xyz(zyx: [CoordExpr, CoordExpr, CoordExpr]): string
+function xyz(zyx: [number, number, number]): string
 {
     return [zyx[2], zyx[1], zyx[0]].join(', ')
 }
@@ -148,7 +145,7 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
     customUniforms = [{ name: 'slice', type: 'int' as const }]
 
     constructor(
-        sliceShape: Shape3,
+        sliceShape: [number, number, number],
         axis: su.Axis = 'z',
         octant: su.Octant = '+++',
     ) {
@@ -218,7 +215,7 @@ class ComputeVertexMarginsProgram implements GPGPUProgram
     packedOutput = true
 
     constructor(
-        shape: Shape3,
+        shape: [number, number, number],
         axis: su.Axis = 'z',
         octant: su.Octant = '+++',
     ) {
@@ -293,7 +290,7 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
     customUniforms = [{ name: 'tolerance', type: 'float' as const }]
 
     constructor(
-        shape: Shape3,
+        shape: [number, number, number],
         axis: su.Axis = 'z',
         octant: su.Octant = '+++'
     ) {
@@ -364,7 +361,7 @@ class ComputeVertexHolesProgram implements GPGPUProgram
     packedOutput = false
 
     constructor(
-        shape: Shape3,
+        shape: [number, number, number],
         axis: su.Axis = 'z',
         octant: su.Octant = '+++',
     ) {
@@ -419,7 +416,7 @@ class ComputeCellShadowsProgram implements GPGPUProgram
     packedOutput = false
 
     constructor(
-        shape: Shape3,
+        shape: [number, number, number],
         axis: su.Axis = 'z',
         octant: su.Octant = '+++',
     ) {
@@ -487,7 +484,7 @@ export function computeVertexMinmax(
     const sign = su.getOctantSign(octant, dimension)
     
     const slices = unstack3d(volume, dimension)
-    const shape = slices[0].shape as Shape3
+    const shape = slices[0].shape as [number, number, number]
     const propagate = new PropagateVertexMinmaxProgram(shape, axis, octant)
 
     const backwards = sign === '-'
@@ -562,7 +559,6 @@ export function computeCellShadows(
 
     return cellShadows as tf.Tensor3D
 }
-
 
 export function computeVertexHoles(
     cellShadows: tf.Tensor3D,

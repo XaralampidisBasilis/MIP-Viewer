@@ -1,8 +1,8 @@
 import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
-import { unstack3dPacked } from './unstack_packed_keepDims_webgl'
-import { stack3dPacked } from './stack_packed_keepDims_webgl'
+import { unstack3dPacked } from './unstack3dPacked'
+import { stack3dPacked } from './stack3dPacked'
 import {
     type Axis,
     type Octant,
@@ -1044,6 +1044,7 @@ export function computeBidirectionalBlockShadowMap(
 
     return blockShadowMap as tf.Tensor3D
 }
+
 
 export function computeExtendedAnisotropicBidirectionalBlockShadowMap(
     volume: tf.Tensor3D, 
