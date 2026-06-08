@@ -7,11 +7,35 @@ import { unstack3d } from './unstack3d'
 import { minPool3d, maxPool3d } from './pool3d'
 import * as su from '../../Utils/ShadowMapUtils'
 
+/**
+ * Directional shadow-map preprocessing for MIP distance maps.
+ *
+ * The shader stencils are written once in a canonical local cell space where
+ * the ray advances through local +z. The TypeScript offset helpers below map
+ * that canonical stencil to the requested dominant axis and octant.
+ *
+ * TensorFlow tensors are shaped/indexed as [z, y, x], while the GLSL snippets
+ * use ivec3(x, y, z) for geometric offsets. All offset helpers therefore work
+ * in z/y/x internally, then emit x/y/z GLSL arguments.
+ *
+ * The returned masks use 1 for rejected cells and 0 for cells that may still
+ * contribute to the maximum intensity projection. Volumes are expected to be
+ * normalized and non-negative; out-of-volume samples are treated as 0.0.
+ */
+
+/**
+ * Emits GLSL ivec3 constructor arguments from an internal [z, y, x] tuple.
+ */
 function xyz(zyx: [number, number, number]): string
 {
     return [zyx[2], zyx[1], zyx[0]].join(', ')
 }
 
+/**
+ * Converts a canonical vertex-neighbor offset into physical tensor space.
+ * Reversed axes flip offset signs because voxel addresses move across the
+ * volume grid.
+ */
 function voxelOffset(
     x: number,
     y: number,
@@ -29,6 +53,11 @@ function voxelOffset(
     return xyz(zyx)
 }
 
+/**
+ * Converts a canonical propagation offset for a pair of already-unstacked
+ * slices. Any movement along the sweep axis is removed because the previous
+ * sweep slice is supplied as a separate input tensor.
+ */
 function sliceOffset(
     x: number,
     y: number,
@@ -48,6 +77,10 @@ function sliceOffset(
     return xyz(zyx)
 }
 
+/**
+ * Converts a canonical cell-corner offset. Reversal mirrors a unit-cell corner,
+ * so 0 becomes 1 and 1 becomes 0 instead of changing the sign.
+ */
 function cellOffset(
     x: number,
     y: number,
@@ -65,6 +98,9 @@ function cellOffset(
     return xyz(zyx)
 }
 
+/**
+ * Logs the mean over spatial axes without downloading the full tensor.
+ */
 function logMean3d(
     name: string, 
     tensor: tf.Tensor
@@ -73,6 +109,9 @@ function logMean3d(
     console.log(name, tf.tidy(() => tensor.mean([0, 1, 2]).dataSync()))
 }
 
+/**
+ * Runs a custom WebGL program and wraps the backend TensorInfo as a Tensor.
+ */
 function runWebGLProgram(
     program: GPGPUProgram,
     inputs: tf.Tensor[],
@@ -87,6 +126,13 @@ function runWebGLProgram(
     return tf.engine().makeTensorFromTensorInfo(info)
 }
 
+/**
+ * Reference fixed-point relaxation pass. It recomputes the whole volume until
+ * information has propagated across the selected sweep length.
+ *
+ * This is slower than PropagateVertexMinmaxProgram, but useful as a conceptual
+ * reference because every iteration applies the same local stencil everywhere.
+ */
 class IterateVertexMinmaxProgram implements GPGPUProgram
 {
     variableNames = ['A']
@@ -152,6 +198,13 @@ class IterateVertexMinmaxProgram implements GPGPUProgram
     }
 }
 
+/**
+ * One dynamic-programming propagation step for a single sweep slice.
+ *
+ * A is the current raw slice. B is the already-propagated previous slice in
+ * the requested direction. The shader keeps the current vertex value unless
+ * every incoming route has already seen a larger guaranteed bottleneck.
+ */
 class PropagateVertexMinmaxProgram implements GPGPUProgram
 {
     variableNames = ['A', 'B']
@@ -223,6 +276,13 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
     }
 }
 
+/**
+ * Classifies vertices for one oriented ray class.
+ *
+ * A contains the original vertex values. B contains propagated minmax values.
+ * A vertex is shadowed when its value is within tolerance of the bottleneck
+ * already available from the previous face.
+ */
 class ComputeVertexShadowsProgram implements GPGPUProgram
 {
     variableNames = ['A', 'B']
@@ -295,6 +355,13 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
     }
 }
 
+/**
+ * Builds the reverse-pass hole mask from a forward cell mask.
+ *
+ * During the backward pass, cells already rejected by the forward pass should
+ * not act as solid occluders. The hole tensor zeros those vertex values before
+ * the reverse propagation.
+ */
 class ComputeVertexHolesProgram implements GPGPUProgram
 {
     variableNames = ['A']
@@ -340,6 +407,12 @@ class ComputeVertexHolesProgram implements GPGPUProgram
     }
 }
 
+/**
+ * Promotes vertex shadows to cell shadows.
+ *
+ * A cell is rejected only when all relevant corners for this oriented ray class
+ * are shadowed. This keeps the final culling mask conservative.
+ */
 class ComputeCellShadowsProgram implements GPGPUProgram
 {
     variableNames = ['A']
@@ -395,6 +468,9 @@ class ComputeCellShadowsProgram implements GPGPUProgram
     }
 }
 
+/**
+ * Slow reference implementation of directional minmax propagation.
+ */
 async function iterateVertexMinmax(
     volume: tf.Tensor3D,
     axis: su.Axis,
@@ -424,6 +500,10 @@ async function iterateVertexMinmax(
     return vertexMinmax as tf.Tensor3D
 }
 
+/**
+ * Propagates directional minmax values one slice at a time along the selected
+ * axis and octant. This is the fast path used by the public shadow-map helpers.
+ */
 function propagateVertexMinmax(
     volume: tf.Tensor3D,
     axis: su.Axis,
@@ -457,6 +537,9 @@ function propagateVertexMinmax(
     return vertexMinmax as tf.Tensor3D
 }
 
+/**
+ * Converts propagated minmax values into a binary vertex shadow mask.
+ */
 function computeVertexShadows(
     vertexValues: tf.Tensor3D,
     vertexMinmax: tf.Tensor3D,
@@ -473,6 +556,9 @@ function computeVertexShadows(
     return vertexShadows as tf.Tensor3D
 }
 
+/**
+ * Converts a binary vertex shadow mask into a binary cell shadow mask.
+ */
 function computeCellShadows(
     vertexShadows: tf.Tensor3D,
     axis: su.Axis,
@@ -487,6 +573,9 @@ function computeCellShadows(
     return cellShadows as tf.Tensor3D
 }
 
+/**
+ * Converts forward cell shadows into vertex holes for the reverse sweep.
+ */
 function computeVertexHoles(
     cellShadows: tf.Tensor3D,
     axis: su.Axis,
@@ -501,6 +590,9 @@ function computeVertexHoles(
     return vertexHoles as tf.Tensor3D
 }
 
+/**
+ * Computes one directional conservative cell-rejection mask.
+ */
 export function computeUnidirectionalShadowMap(
     volume: tf.Tensor3D,
     axis: su.Axis,
@@ -519,6 +611,9 @@ export function computeUnidirectionalShadowMap(
     return cellShadows
 }
 
+/**
+ * Computes the conservative mask for both directions of the same ray family.
+ */
 export function computeBidirectionalShadowMap(
     volume: tf.Tensor3D,
     axis: su.Axis,
@@ -559,6 +654,11 @@ export function computeBidirectionalShadowMap(
     return bidirectionalCellShadows as tf.Tensor3D
 }
 
+/**
+ * Computes a bidirectional mask and min-pools it into traversal blocks.
+ *
+ * Min pooling keeps a block rejected only when every covered cell is rejected.
+ */
 export function computeBidirectionalBlockShadowMap(
     volume: tf.Tensor3D,
     axis: su.Axis,
@@ -570,14 +670,17 @@ export function computeBidirectionalBlockShadowMap(
 {
     const shadows = computeBidirectionalShadowMap(volume, axis, octant, tolerance, verbose)
     if (blockSize === 1) return shadows
-
-    const blockShadows = minPool3d(shadows, blockSize, blockSize, 'same') as tf.Tensor3D
+    const blockShadows = minPool3d(shadows, blockSize, blockSize, 'same') 
     tf.dispose(shadows)
     if (verbose) logMean3d('blockShadows', blockShadows)
-
-    return blockShadows
+ 
+    return blockShadows as tf.Tensor3D
 }
 
+/**
+ * Alternative block-first variant. It pools the input value bounds first, then
+ * computes the bidirectional mask at block resolution.
+ */
 export function computeBidirectionalBlockShadowMap2(
     volume: tf.Tensor3D,
     axis: su.Axis,
