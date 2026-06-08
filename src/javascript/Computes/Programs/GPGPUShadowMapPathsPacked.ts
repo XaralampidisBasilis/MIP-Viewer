@@ -109,7 +109,7 @@ function cellOffset(
  */
 function logMean3d(name: string, tensor: tf.Tensor): void
 {
-    console.log(name, tf.tidy(() => tensor.mean([0, 1, 2]).dataSync()))
+    console.log(name, tf.tidy(() => tensor.mean([0,1,2]).dataSync()))
 }
 
 /**
@@ -125,7 +125,6 @@ function runWebGLProgram(
 {
     const backend = tf.backend() as MathBackendWebGL
     const info = backend.compileAndRun(program, inputs, dtype, uniforms, preventEagerUnpackingOfOutput)
-
     return tf.engine().makeTensorFromTensorInfo(info)
 }
 
@@ -241,8 +240,8 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
 
             vec4 bottlenecks = vec4(
                 min4(v000.r, v010.r, v100.r, v110.r), // +++
-                min4(v010.g, v020.g, v110.g, v120.g), // +-+
-                min4(v100.b, v110.b, v200.b, v210.b), // -++
+                min4(v100.g, v110.g, v200.g, v210.g), // -++
+                min4(v010.b, v020.b, v110.b, v120.b), // +-+
                 min4(v110.a, v120.a, v210.a, v220.a)  // --+
             );
             
@@ -330,8 +329,8 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
            
             vec4 bottlenecks = vec4(
                 min4(v000.r, v010.r, v100.r, v110.r), // +++ 
-                min4(v010.g, v020.g, v110.g, v120.g), // +-+
-                min4(v100.b, v110.b, v200.b, v210.b), // -++
+                min4(v100.g, v110.g, v200.g, v210.g), // -++
+                min4(v010.b, v020.b, v110.b, v120.b), // +-+
                 min4(v110.a, v120.a, v210.a, v220.a)  // --+
             );
 
@@ -391,8 +390,8 @@ class ComputeVertexHolesProgram implements GPGPUProgram
         {
             bvec4 vertexHoles = bvec4(
                 cellShadowAt(voxelCoords + ivec3(${cellOffset(1, 1, 1, axis, sign)})).r, // ---
-                cellShadowAt(voxelCoords + ivec3(${cellOffset(1, 0, 1, axis, sign)})).g, // -+-
-                cellShadowAt(voxelCoords + ivec3(${cellOffset(0, 1, 1, axis, sign)})).b, // +--
+                cellShadowAt(voxelCoords + ivec3(${cellOffset(0, 1, 1, axis, sign)})).g, // +--
+                cellShadowAt(voxelCoords + ivec3(${cellOffset(1, 0, 1, axis, sign)})).b, // -+-
                 cellShadowAt(voxelCoords + ivec3(${cellOffset(0, 0, 1, axis, sign)})).a  // ++-
             );
    
@@ -460,8 +459,8 @@ class ComputeCellShadowsProgram implements GPGPUProgram
 
             bvec4 cellShadows = bvec4(
                 v111.r && v101.r && v011.r && v001.r && v110.r && v100.r && v010.r, // +++
-                v111.g && v101.g && v011.g && v001.g && v110.g && v100.g && v000.g, // +-+
-                v111.b && v101.b && v011.b && v001.b && v110.b && v000.b && v010.b, // -++
+                v111.g && v101.g && v011.g && v001.g && v110.g && v000.g && v010.g, // -++
+                v111.b && v101.b && v011.b && v001.b && v110.b && v100.b && v000.b, // +-+
                 v111.a && v101.a && v011.a && v001.a && v000.a && v100.a && v010.a  // --+
             );
 
