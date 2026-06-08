@@ -9,10 +9,23 @@ import { where3dPacked } from './where3dPacked'
 import * as su from '../../Utils/ShadowMapUtils'
 
 /**
- * Convert a canonical sweep-space offset into the physical tensor orientation.
- * The TypeScript side thinks in local x/y/z offsets; TensorFlow stores tensors
- * as z/y/x, so applyPermutation works in z/y/x order and xyz emits GLSL ivec3
- * arguments.
+ * Packed directional shadow-map preprocessing for MIP distance maps.
+ *
+ * This is the vec4-lane version of GPGPUShadowMapPaths.ts. Instead of computing
+ * one octant at a time, each tensor element stores four related ray classes in
+ * RGBA lanes. The `sign` argument selects the dominant-axis direction; the lanes
+ * carry the four transverse octants for that direction.
+ *
+ * TensorFlow tensors are shaped/indexed as [z, y, x], while the GLSL snippets
+ * use ivec3(x, y, z). Offset helpers therefore work in z/y/x internally, then
+ * emit x/y/z GLSL constructor arguments.
+ *
+ * Masks use 1 for rejected cells and 0 for cells that may still contribute to
+ * the MIP. Input volumes are expected to be normalized and non-negative.
+ */
+
+/**
+ * Emits GLSL ivec3 constructor arguments from an internal [z, y, x] tuple.
  */
 function xyz(zyx: [number, number, number]): string
 {
@@ -20,8 +33,8 @@ function xyz(zyx: [number, number, number]): string
 }
 
 /**
- * Offset for voxel-vertex addressing. Reversal flips the sign of the offset, 
- * over the dominant axis.
+ * Converts a canonical vertex-neighbor offset into physical tensor space.
+ * Reversed axes flip offset signs because voxel addresses move across the grid.
  */
 function voxelOffset(
     x: number,
@@ -43,9 +56,9 @@ function voxelOffset(
 }
 
 /**
- * Offset for slice propagation. The propagated neighbor is supplied as a
- * separate 2D slice tensor, so any movement along the sweep axis must be
- * erased after orientation is applied.
+ * Converts a canonical propagation offset for already-unstacked slices. Movement
+ * along the sweep axis is removed because the previous sweep slice is supplied
+ * as a separate input tensor.
  */
 function sliceOffset(
     x: number,
@@ -69,9 +82,8 @@ function sliceOffset(
 }
 
 /**
- * Offset for cell-corner addressing. Reversal mirrors a unit cell corner, so
- * coordinate 0 becomes 1 and coordinate 1 becomes 0 instead of simply flipping
- * the sign.
+ * Converts a canonical cell-corner offset. Reversal mirrors a unit-cell corner,
+ * so 0 becomes 1 and 1 becomes 0 instead of changing the sign.
  */
 function cellOffset(
     x: number,
@@ -92,6 +104,35 @@ function cellOffset(
     return xyz(zyx)
 }
 
+/**
+ * Logs the mean over spatial axes without downloading the full tensor.
+ */
+function logMean3d(name: string, tensor: tf.Tensor): void
+{
+    console.log(name, tf.tidy(() => tensor.mean([0, 1, 2]).dataSync()))
+}
+
+/**
+ * Runs a custom WebGL program and wraps the backend TensorInfo as a Tensor.
+ */
+function runWebGLProgram(
+    program: GPGPUProgram,
+    inputs: tf.Tensor[],
+    dtype?: tf.DataType,
+    uniforms?: number[][],
+    preventEagerUnpackingOfOutput?: boolean
+): tf.Tensor
+{
+    const backend = tf.backend() as MathBackendWebGL
+    const info = backend.compileAndRun(program, inputs, dtype, uniforms, preventEagerUnpackingOfOutput)
+
+    return tf.engine().makeTensorFromTensorInfo(info)
+}
+
+/**
+ * Expands a scalar volume into packed vertex values. Each RGBA lane starts with
+ * the same source value; later passes interpret lanes as different ray classes.
+ */
 class ComputeVertexValuesProgram implements GPGPUProgram
 {
     variableNames = ['A']
@@ -129,20 +170,11 @@ class ComputeVertexValuesProgram implements GPGPUProgram
 }
 
 /**
- * Dynamic-programming propagation pass.
+ * One dynamic-programming propagation step for a single sweep slice.
  *
- * A and B are neighboring slices of the same margin volume. A provides the
- * current slice local margins, while B provides the already-propagated previous
- * slice. The minimum lane in each incoming cell is the limiting margin through
- * that route.
- *
- * Mathematically, for each incoming offset r:
- *
- *     Delta_r(i) += max(min_s Delta_s(i-r), 0)
- *
- * The min over lanes makes the guarantee conservative over all monotone paths
- * that can enter the cell. The max with zero keeps only the guaranteed
- * non-negative part of the already-seen MIP prefix.
+ * A is the current raw packed slice. B is the already-propagated previous slice.
+ * The RGBA lanes propagate four transverse octants at once, so the shader reads
+ * a 3x3 neighborhood from B and forms one bottleneck per lane.
  */
 class PropagateVertexMinmaxProgram implements GPGPUProgram
 {
@@ -228,15 +260,10 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
 }
 
 /**
- * Builds the reverse-pass gate tensor from the forward cell mask.
+ * Classifies packed vertices for four ray classes at once.
  *
- * Each lane is 1 when the corresponding forward corner is not rejected. The
- * reverse propagation shader reads this as "the reverse rejection is allowed
- * to grow through this lane".
- *
- * In the paper terminology, this is the "hollow" handling for the second pass:
- * cells rejected by the first directional test should not act as solid
- * occluders for the opposite direction.
+ * A contains original packed vertex values. B contains propagated minmax values.
+ * A lane is shadowed when its value is within tolerance of the lane bottleneck.
  */
 class ComputeVertexShadowsProgram implements GPGPUProgram
 {
@@ -321,6 +348,13 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
     }
 }
 
+/**
+ * Builds the reverse-pass hole tensor from a packed forward cell mask.
+ *
+ * During the backward sweep, cells already rejected by the forward sweep should
+ * not act as solid occluders. The lane shuffle here maps each forward lane to
+ * its reversed ray class.
+ */
 class ComputeVertexHolesProgram implements GPGPUProgram
 {
     variableNames = ['A']
@@ -374,14 +408,10 @@ class ComputeVertexHolesProgram implements GPGPUProgram
 }
 
 /**
- * Converts propagated vertex margins into a binary cell mask.
+ * Promotes packed vertex shadows to packed cell shadows.
  *
- * The margin tensor stores vec4 margins to the four relevant cell vertices.
- * The output mask stores one binary value per cell-mask entry: 1 means that
- * the cell is conservatively rejected for this ray class.
- *
- * This is the conservative rejection predicate: every trilinear corner sample
- * the cell can expose to the ray class is already dominated, up to tolerance.
+ * A lane is rejected only when all relevant corners for that ray class are
+ * shadowed, keeping the final culling mask conservative.
  */
 class ComputeCellShadowsProgram implements GPGPUProgram
 {
@@ -446,8 +476,10 @@ class ComputeCellShadowsProgram implements GPGPUProgram
     }
 }
 
-
-export function computeVertexValues(
+/**
+ * Converts scalar volume values into packed RGBA vertex values.
+ */
+function computeVertexValues(
     volume: tf.Tensor3D
 ): tf.Tensor5D
 {
@@ -458,17 +490,10 @@ export function computeVertexValues(
 }
 
 /**
- * Runs the initial-margin pass and propagates margins through the volume one slice at a
- * time along the selected sweep axis.
- *
- * Slicing is done on the CPU side because each propagated slice depends on the
- * previous propagated slice. Each slice update is still a full WebGL pass.
- *
- * Conceptually this fills the directional table for one ray class from section
- * 2.2: every entry says whether the corresponding trilinear cell can be
- * skipped for rays in that class.
+ * Propagates packed directional minmax values one slice at a time along the
+ * selected dominant axis and sign.
  */
-export function computeVertexMinmax(
+function propagateVertexMinmax(
     vertexValues: tf.Tensor5D,
     axis: su.Axis,
     sign: su.Sign,
@@ -495,15 +520,15 @@ export function computeVertexMinmax(
 
     const vertexMinmax = stack3dPacked(slices, dimension) 
     tf.dispose(slices)
-    if (verbose) logMean('vertexMinmax', vertexMinmax)
+    if (verbose) logMean3d('vertexMinmax', vertexMinmax)
 
     return vertexMinmax as tf.Tensor5D
 }
 
 /**
- * Converts propagated vertex margins into a binary 3D cell mask.
+ * Converts propagated packed minmax values into a packed vertex shadow mask.
  */
-export function computeVertexShadows(
+function computeVertexShadows(
     vertexValues: tf.Tensor5D,
     vertexMinmax: tf.Tensor5D,
     axis: su.Axis,
@@ -515,15 +540,15 @@ export function computeVertexShadows(
     const shape = vertexValues.shape as [number, number, number, 2, 2]
     const program = new ComputeVertexShadowsProgram(shape, axis, sign)
     const vertexShadows = runWebGLProgram(program, [vertexValues, vertexMinmax], 'bool', [[tolerance]], true) 
-    if (verbose) logMean('vertexShadows', vertexShadows)
+    if (verbose) logMean3d('vertexShadows', vertexShadows)
 
     return vertexShadows as tf.Tensor5D
 }
 
 /**
- * Converts propagated vertex margins into a binary 3D cell mask.
+ * Converts a packed vertex shadow mask into a packed cell shadow mask.
  */
-export function computeCellShadows(
+function computeCellShadows(
     vertexShadows: tf.Tensor5D,
     axis: su.Axis,
     sign: su.Sign,
@@ -533,12 +558,15 @@ export function computeCellShadows(
     const shape = vertexShadows.shape as [number, number, number, 2, 2]
     const program = new ComputeCellShadowsProgram(shape, axis, sign)
     const cellShadows = runWebGLProgram(program, [vertexShadows], 'bool', [], true) 
-    if (verbose) logMean('cellShadows', cellShadows)
+    if (verbose) logMean3d('cellShadows', cellShadows)
 
     return cellShadows as tf.Tensor5D
 }
 
-export function computeVertexHoles(
+/**
+ * Converts packed forward cell shadows into packed vertex holes for reverse propagation.
+ */
+function computeVertexHoles(
     cellShadows: tf.Tensor5D,
     axis: su.Axis,
     sign: su.Sign,
@@ -548,16 +576,13 @@ export function computeVertexHoles(
     const shape = cellShadows.shape as [number, number, number, 2, 2]
     const program = new ComputeVertexHolesProgram(shape, axis, sign)
     const vertexHoles = runWebGLProgram(program, [cellShadows], 'bool', [], true) 
-    if (verbose) logMean('vertexHoles', vertexHoles)
+    if (verbose) logMean3d('vertexHoles', vertexHoles)
 
     return vertexHoles as tf.Tensor5D
 }
 
 /**
- * Computes one directed cell mask for one dominant axis and octant.
- *
- * This is the core public operation: initialize local margins, propagate them
- * along the selected direction, then classify rejected cells.
+ * Computes four unidirectional conservative cell-rejection masks in packed lanes.
  */
 export function computeUnidirectionalShadowMap(
     volume: tf.Tensor3D,
@@ -568,7 +593,7 @@ export function computeUnidirectionalShadowMap(
 ): tf.Tensor5D
 {
     const vertexValues = computeVertexValues(volume)
-    const vertexMinmax = computeVertexMinmax(vertexValues, axis, sign, verbose)
+    const vertexMinmax = propagateVertexMinmax(vertexValues, axis, sign, verbose)
     const vertexShadows = computeVertexShadows(vertexValues, vertexMinmax, axis, sign, tolerance, verbose)
     tf.dispose([vertexValues, vertexMinmax])
 
@@ -579,13 +604,7 @@ export function computeUnidirectionalShadowMap(
 }
 
 /**
- * Computes a cell mask that considers both directions along the same oriented
- * line family.
- *
- * The forward pass is computed normally. The backward pass uses the forward
- * cell mask as a gate so the reverse propagation is consistent with cells
- * already rejected by the forward sweep. The two binary masks are then OR-ed
- * together.
+ * Computes packed conservative masks for both directions of the same ray family.
  */
 export function computeBidirectionalShadowMap(
     volume: tf.Tensor3D,
@@ -601,13 +620,13 @@ export function computeBidirectionalShadowMap(
     const forwardSign = sign
     const forwardVertexValues = vertexValues
     
-    const forwardVertexMinmax = computeVertexMinmax(forwardVertexValues, axis, forwardSign, verbose)
+    const forwardVertexMinmax = propagateVertexMinmax(forwardVertexValues, axis, forwardSign, verbose)
     const forwardVertexShadows = computeVertexShadows(forwardVertexValues, forwardVertexMinmax, axis, forwardSign, tolerance, verbose)
     tf.dispose(forwardVertexMinmax)
 
     const forwardCellShadows = computeCellShadows(forwardVertexShadows, axis, forwardSign, false)
     tf.dispose(forwardVertexShadows)
-    if (verbose) logMean('forwardCellShadows', forwardCellShadows)
+    if (verbose) logMean3d('forwardCellShadows', forwardCellShadows)
 
     // Backwards
     const backwardSign = su.reverseSign(sign)
@@ -615,27 +634,24 @@ export function computeBidirectionalShadowMap(
     const backwardVertexValues = where3dPacked(backwardVertexHoles, 0, vertexValues)
     tf.dispose([backwardVertexHoles, vertexValues])
 
-    const backwardVertexMinmax = computeVertexMinmax(backwardVertexValues, axis, backwardSign, verbose)
+    const backwardVertexMinmax = propagateVertexMinmax(backwardVertexValues, axis, backwardSign, verbose)
     const backwardVertexShadows = computeVertexShadows(backwardVertexValues, backwardVertexMinmax, axis, backwardSign, tolerance, verbose)
     tf.dispose(backwardVertexMinmax)
 
     const backwardCellShadows = computeCellShadows(backwardVertexShadows, axis, backwardSign, false)
     tf.dispose(backwardVertexShadows)
-    if (verbose) logMean('backwardCellShadows', backwardCellShadows)
+    if (verbose) logMean3d('backwardCellShadows', backwardCellShadows)
 
     // Bidirectional
     const bidirectionalCellShadows = tf.logicalOr(forwardCellShadows, backwardCellShadows)
     tf.dispose([forwardCellShadows, backwardCellShadows])
-    if (verbose) logMean('bidirectionalCellShadows', bidirectionalCellShadows)
+    if (verbose) logMean3d('bidirectionalCellShadows', bidirectionalCellShadows)
 
     return bidirectionalCellShadows as tf.Tensor5D
 }
 
 /**
- * Computes a bidirectional cell mask and reduces it into blocks. Binary min
- * pooling marks a block rejected only if every covered cell-mask entry is
- * rejected, preserving the conservative guarantee of the section 2.2 culling
- * test at a coarser traversal level.
+ * Computes a packed bidirectional mask and min-pools it into traversal blocks.
  */
 export function computeBidirectionalBlockShadowMap(
     volume: tf.Tensor3D,
@@ -648,14 +664,17 @@ export function computeBidirectionalBlockShadowMap(
 {
     const shadows = computeBidirectionalShadowMap(volume, axis, sign, tolerance, verbose)
     if (blockSize === 1) return shadows
-
     const blockShadows = minPool3dPacked(shadows, blockSize, blockSize, 'same') 
     tf.dispose(shadows)
-    if (verbose) logMean('blockShadows', blockShadows)
+    if (verbose) logMean3d('blockShadows', blockShadows)
 
     return blockShadows
 }
 
+/**
+ * Alternative block-first variant. It pools packed input value bounds first,
+ * then computes the bidirectional mask at block resolution.
+ */
 export function computeBidirectionalBlockShadowMap2(
     volume: tf.Tensor3D,
     axis: su.Axis,
@@ -676,7 +695,7 @@ export function computeBidirectionalBlockShadowMap2(
     const forwardMinVertexValues = minVertexValues
     const forwardMaxVertexValues = maxVertexValues
    
-    const forwardVertexMinmax = computeVertexMinmax(forwardMinVertexValues, axis, forwardSign, verbose)
+    const forwardVertexMinmax = propagateVertexMinmax(forwardMinVertexValues, axis, forwardSign, verbose)
     const forwardVertexShadows = computeVertexShadows(forwardMaxVertexValues, forwardVertexMinmax, axis, forwardSign, tolerance, verbose)
     tf.dispose(forwardVertexMinmax)
 
@@ -691,7 +710,7 @@ export function computeBidirectionalBlockShadowMap2(
     const backwardMaxVertexValues = where3dPacked(backwardVertexHoles, 0, maxVertexValues)
     tf.dispose([maxVertexValues, backwardVertexHoles])
 
-    const backwardVertexMinmax = computeVertexMinmax(backwardMinVertexValues, axis, backwardSign, verbose)
+    const backwardVertexMinmax = propagateVertexMinmax(backwardMinVertexValues, axis, backwardSign, verbose)
     tf.dispose(backwardMinVertexValues)
 
     const backwardVertexShadows = computeVertexShadows(backwardMaxVertexValues, backwardVertexMinmax, axis, backwardSign, tolerance, verbose)
@@ -703,36 +722,8 @@ export function computeBidirectionalBlockShadowMap2(
     // Bidirectional
     const bidirectionalCellShadows = tf.logicalOr(forwardCellShadows, backwardCellShadows)
     tf.dispose([forwardCellShadows, backwardCellShadows])
-    if (verbose) logMean('bidirectionalCellShadows', bidirectionalCellShadows)
+    if (verbose) logMean3d('bidirectionalCellShadows', bidirectionalCellShadows)
 
     return bidirectionalCellShadows as tf.Tensor5D
 }
 
-
-/**
- * Logs the mean value of a 3D/packed tensor over spatial axes. This is a cheap
- * way to inspect how much of a mask is active without downloading the whole
- * texture.
- */
-function logMean(name: string, tensor: tf.Tensor): void
-{
-    console.log(name, tf.tidy(() => tensor.mean([0, 1, 2]).dataSync()))
-}
-
-/**
- * Thin wrapper around TensorFlow.js WebGL program execution that returns a
- * normal Tensor object from the backend TensorInfo.
- */
-function runWebGLProgram(
-    program: GPGPUProgram,
-    inputs: tf.Tensor[],
-    dtype?: tf.DataType,
-    uniforms?: number[][],
-    preventEagerUnpackingOfOutput?: boolean
-): tf.Tensor
-{
-    const backend = tf.backend() as MathBackendWebGL
-    const info = backend.compileAndRun(program, inputs, dtype, uniforms, preventEagerUnpackingOfOutput)
-
-    return tf.engine().makeTensorFromTensorInfo(info)
-}

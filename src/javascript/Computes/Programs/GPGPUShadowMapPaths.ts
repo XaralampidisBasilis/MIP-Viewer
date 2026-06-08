@@ -4,7 +4,7 @@ import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 import { stack3d } from './stack3d'
 import { unstack3d } from './unstack3d'
-import { minPool3d, maxPool3d } from './pool3d'
+import { minPool3d, maxPool3d, avgPool3d } from './pool3d'
 import * as su from '../../Utils/ShadowMapUtils'
 
 /**
@@ -659,7 +659,7 @@ export function computeBidirectionalShadowMap(
  *
  * Min pooling keeps a block rejected only when every covered cell is rejected.
  */
-export function computeBidirectionalBlockShadowMap(
+export function computeBidirectionalBlockShadowMap2(
     volume: tf.Tensor3D,
     axis: su.Axis,
     octant: su.Octant,
@@ -681,7 +681,7 @@ export function computeBidirectionalBlockShadowMap(
  * Alternative block-first variant. It pools the input value bounds first, then
  * computes the bidirectional mask at block resolution.
  */
-export function computeBidirectionalBlockShadowMap2(
+export function computeBidirectionalBlockShadowMap(
     volume: tf.Tensor3D,
     axis: su.Axis,
     octant: su.Octant,
