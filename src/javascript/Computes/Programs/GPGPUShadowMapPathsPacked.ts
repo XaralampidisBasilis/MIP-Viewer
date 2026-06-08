@@ -8,17 +8,13 @@ import { minPool3dPacked, maxPool3dPacked } from './pool3dPacked'
 import { where3dPacked } from './where3dPacked'
 import * as su from '../../Utils/ShadowMapUtils'
 
-type Shape3 = [number, number, number]
-type Shape3Packed = [number, number, number, 2, 2]
-type CoordExpr = number | string
-
 /**
  * Convert a canonical sweep-space offset into the physical tensor orientation.
  * The TypeScript side thinks in local x/y/z offsets; TensorFlow stores tensors
  * as z/y/x, so applyPermutation works in z/y/x order and xyz emits GLSL ivec3
  * arguments.
  */
-function xyz(zyx: [CoordExpr, CoordExpr, CoordExpr]): string
+function xyz(zyx: [number, number, number]): string
 {
     return [zyx[2], zyx[1], zyx[0]].join(', ')
 }
@@ -99,12 +95,12 @@ function cellOffset(
 class ComputeVertexValuesProgram implements GPGPUProgram
 {
     variableNames = ['A']
-    outputShape: Shape3Packed
+    outputShape: [number, number, number, 2, 2]
     userCode: string
     packedInputs = false
     packedOutput = true
 
-    constructor(shape: Shape3) 
+    constructor(shape: [number, number, number]) 
     {
         const [depth, height, width] = shape
 
@@ -151,20 +147,18 @@ class ComputeVertexValuesProgram implements GPGPUProgram
 class PropagateVertexMinmaxProgram implements GPGPUProgram
 {
     variableNames = ['A', 'B']
-    outputShape: Shape3Packed
+    outputShape: [number, number, number, 2, 2]
     userCode: string
     packedInputs = true
     packedOutput = true
     customUniforms = [{ name: 'slice', type: 'int' as const }]
 
     constructor(
-        sliceShape: Shape3Packed,
+        sliceShape: [number, number, number, 2, 2],
         axis: su.Axis = 'z',
         sign: su.Sign = '+',
     ) {
         const [depth, height, width, ] = sliceShape
-
-        const backwards = sign === '-'
         
         this.outputShape = sliceShape
         this.userCode = `
@@ -247,14 +241,14 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
 class ComputeVertexShadowsProgram implements GPGPUProgram
 {
     variableNames = ['A', 'B']
-    outputShape: Shape3Packed
+    outputShape: [number, number, number, 2, 2]
     userCode: string
     packedInputs = true
     packedOutput = true
     customUniforms = [{ name: 'tolerance', type: 'float' as const }]
 
     constructor(
-        shape: Shape3Packed,
+        shape: [number, number, number, 2, 2],
         axis: su.Axis = 'z',
         sign: su.Sign = '+'
     ) {
@@ -330,13 +324,13 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
 class ComputeVertexHolesProgram implements GPGPUProgram
 {
     variableNames = ['A']
-    outputShape: Shape3Packed
+    outputShape: [number, number, number, 2, 2]
     userCode: string
     packedInputs = true
     packedOutput = true
 
     constructor(
-        shape: Shape3Packed,
+        shape: [number, number, number, 2, 2],
         axis: su.Axis = 'z',
         sign: su.Sign = '+'
     ) {
@@ -392,13 +386,13 @@ class ComputeVertexHolesProgram implements GPGPUProgram
 class ComputeCellShadowsProgram implements GPGPUProgram
 {
     variableNames = ['A']
-    outputShape: Shape3Packed
+    outputShape: [number, number, number, 2, 2]
     userCode: string
     packedInputs = true
     packedOutput = true
 
     constructor(
-        shape: Shape3Packed,
+        shape: [number, number, number, 2, 2],
         axis: su.Axis = 'z',
         sign: su.Sign = '+'
     ) {
@@ -457,7 +451,7 @@ export function computeVertexValues(
     volume: tf.Tensor3D
 ): tf.Tensor5D
 {
-    const shape = volume.shape as Shape3
+    const shape = volume.shape as [number, number, number]
     const program = new ComputeVertexValuesProgram(shape)
     const vertexValues = runWebGLProgram(program, [volume], 'float32', [], true) 
     return vertexValues as tf.Tensor5D
@@ -485,7 +479,7 @@ export function computeVertexMinmax(
     const backwards = sign === '-'
     
     const slices = unstack3dPacked(vertexValues, dimension)
-    const shape = slices[0].shape as Shape3Packed
+    const shape = slices[0].shape as [number, number, number, 2, 2]
     const propagate = new PropagateVertexMinmaxProgram(shape, axis, sign)
 
     const start = backwards ? slices.length - 2 : 1
@@ -518,7 +512,7 @@ export function computeVertexShadows(
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const shape = vertexValues.shape as Shape3Packed
+    const shape = vertexValues.shape as [number, number, number, 2, 2]
     const program = new ComputeVertexShadowsProgram(shape, axis, sign)
     const vertexShadows = runWebGLProgram(program, [vertexValues, vertexMinmax], 'bool', [[tolerance]], true) 
     if (verbose) logMean('vertexShadows', vertexShadows)
@@ -536,7 +530,7 @@ export function computeCellShadows(
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const shape = vertexShadows.shape as Shape3Packed
+    const shape = vertexShadows.shape as [number, number, number, 2, 2]
     const program = new ComputeCellShadowsProgram(shape, axis, sign)
     const cellShadows = runWebGLProgram(program, [vertexShadows], 'bool', [], true) 
     if (verbose) logMean('cellShadows', cellShadows)
@@ -551,7 +545,7 @@ export function computeVertexHoles(
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const shape = cellShadows.shape as Shape3Packed
+    const shape = cellShadows.shape as [number, number, number, 2, 2]
     const program = new ComputeVertexHolesProgram(shape, axis, sign)
     const vertexHoles = runWebGLProgram(program, [cellShadows], 'bool', [], true) 
     if (verbose) logMean('vertexHoles', vertexHoles)

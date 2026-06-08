@@ -26,6 +26,9 @@ export default class DistanceMap
         // tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'y', '++-', 0.01, false).mean([0,1,2]).dataSync()))
         // tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'y', '-+-', 0.01, false).mean([0,1,2]).dataSync()))
 
+        // A.propagateVertexMinmax(volume, 'z', '+++', true)
+        // A.iterateVertexMinmax(volume, 'z', '+++', true)
+
         if (this.distanceVariation ===  '1bit') this.compute1BitDistanceTexture()
         if (this.distanceVariation ===  '5bit') this.compute5BitDistanceTexture()
         if (this.distanceVariation ===  '8bit') this.compute8BitDistanceTexture()
