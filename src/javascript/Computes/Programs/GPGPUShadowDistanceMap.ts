@@ -489,7 +489,7 @@ function packToRGBA32UIArray(maps: Tuple<Int32Array, 12>): Uint32Array
     return packed
 }
 
-function isotropicDistanceMapInt32Array(
+export function isotropicDistanceMapInt32Array(
     volume: tf.Tensor3D,
     dominantAxis: Axis,
     octant: Octant,
@@ -525,7 +525,7 @@ function isotropicDistanceMapInt32Array(
     return d as Int32Array
 }
 
-function extendedAnisotropicUnidirectionalDistanceMapInt32Array(
+export function extendedAnisotropicUnidirectionalDistanceMapInt32Array(
     volume: tf.Tensor3D,
     dominantAxis: Axis,
     octant: Octant,
@@ -570,7 +570,7 @@ function extendedAnisotropicUnidirectionalDistanceMapInt32Array(
     return d as Int32Array
 }
 
-function extendedAnisotropicBidirectionalDistanceMapInt32Array(
+export function extendedAnisotropicBidirectionalDistanceMapInt32Array(
     volume: tf.Tensor3D,
     dominantAxis: Axis,
     octant: Octant,

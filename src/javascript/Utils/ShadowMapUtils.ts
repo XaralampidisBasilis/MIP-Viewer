@@ -6,12 +6,21 @@ export type Permute = [Dimension, Dimension, Dimension]
 export type Reverse = Dimension[]
 export type Tuple<T, N extends number, R extends unknown[] = []> = R['length'] extends N ? R : Tuple<T, N, [T, ...R]>
 
-
 const DIMENSION_FROM_AXIS: Record<Axis, Dimension> = 
 {
     'x': 2,
     'y': 1,
     'z': 0,
+}
+
+const CANONICAL_OCTANTS_FROM_AXIS_SIGN: Record<string, { canonicalOctants: [Octant, Octant, Octant, Octant] }> = 
+{
+    "x|+" : { canonicalOctants: ['+++', '+-+', '++-', '+--'] },
+    "x|-" : { canonicalOctants: ['---', '-+-', '--+', '-++'] },
+    "y|+" : { canonicalOctants: ['+++', '-++', '++-', '-+-'] },
+    "y|-" : { canonicalOctants: ['---', '+--', '--+', '+-+'] },
+    "z|+" : { canonicalOctants: ['+++', '+-+', '-++', '--+'] },
+    "z|-" : { canonicalOctants: ['---', '-+-', '+--', '++-'] },
 }
 
 const MAP_FROM_DOMINANT_AXIS_OCTANT: Record<string, number> = 
@@ -134,6 +143,7 @@ const DOMINANT_AXIS_OCTANT_FROM_PERMUTE_REVERSE: Record<string, { dominantAxis: 
     "0,1,2|0"    : { dominantAxis: 'z', octant: '++-' },
 }
 
+
 export function complementReverse(reverse: Reverse): Reverse
 {
     const set = new Set<Dimension>(reverse)
@@ -178,14 +188,23 @@ export function reverseSign(sign: Sign): Sign
     return sign === '+' ? '-' : '+'
 }
 
+export function canonicalOctantsFromSignedAxis(axis: Axis, sign: Sign): [Octant, Octant, Octant, Octant]
+{
+    const key = `${axis}|${sign}`
+    const v = CANONICAL_OCTANTS_FROM_AXIS_SIGN[key]
+    
+    return [...v.canonicalOctants] as [Octant, Octant, Octant, Octant]
+}
+
 export function setOctantSign(octant: Octant, axis: Axis, sign: Sign): Octant
 {
     const [xSign, ySign, zSign] = [...octant] as [Sign, Sign, Sign]
     return `${axis == 'x' ? sign : xSign}${axis == 'y' ? sign : ySign}${axis == 'z' ? sign : zSign}`
 }
 
-export function getOctantSign(octant: Octant, dimension: Dimension): Sign
+export function getOctantSign(octant: Octant, axisOrDimension: Axis | Dimension): Sign
 {
+    const dimension = typeof axisOrDimension === 'string' ? axisToDimension(axisOrDimension) : axisOrDimension
     return octant[2 - dimension] as Sign
 }
 

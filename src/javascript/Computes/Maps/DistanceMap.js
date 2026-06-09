@@ -5,6 +5,8 @@ import * as GPGPU from '../Programs/GPGPUShadowDistanceMap'
 
 import * as A from '../Programs/GPGPUShadowMapPaths'
 import * as B from '../Programs/GPGPUShadowMapPathsPacked'
+import * as C from '../Programs/GPGPUShadowDistanceMap'
+
 export default class DistanceMap 
 {
     constructor()
@@ -23,9 +25,15 @@ export default class DistanceMap
 
         tf.tidy(() => console.log(B.computeBidirectionalShadowMap(volume, 'z',   '+', 0.01, false).mean([0,1,2]).dataSync()))
         tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '+++', 0.01, false).mean([0,1,2]).dataSync()))
+        tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '+-+', 0.01, false).mean([0,1,2]).dataSync()))
         tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '-++', 0.01, false).mean([0,1,2]).dataSync()))
-        tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '++-', 0.01, false).mean([0,1,2]).dataSync()))
-        tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '-+-', 0.01, false).mean([0,1,2]).dataSync()))
+        tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '--+', 0.01, false).mean([0,1,2]).dataSync()))
+
+        tf.tidy(() => console.log(B.computeShadowDistanceMap(volume, 'z','+', 0.01, 1, 64, false).mean([0,1,2]).dataSync()))
+        tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+++', 0.01, 1, 64, true))
+        tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+-+', 0.01, 1, 64, true))
+        tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '-++', 0.01, 1, 64, true))
+        tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '--+', 0.01, 1, 64, true))
 
         // if (this.distanceVariation ===  '1bit') this.compute1BitDistanceTexture()
         // if (this.distanceVariation ===  '5bit') this.compute5BitDistanceTexture()
