@@ -23,17 +23,27 @@ export default class DistanceMap
     {
         const volume = this.computes.volumeMap.tensor
 
-        tf.tidy(() => console.log(B.computeBidirectionalShadowMap(volume, 'z',   '+', 0.01, false).mean([0,1,2]).dataSync()))
-        tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '+++', 0.01, false).mean([0,1,2]).dataSync()))
-        tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '+-+', 0.01, false).mean([0,1,2]).dataSync()))
-        tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '-++', 0.01, false).mean([0,1,2]).dataSync()))
-        tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '--+', 0.01, false).mean([0,1,2]).dataSync()))
+        // tf.tidy(() => console.log(B.computeBidirectionalShadowMap(volume, 'z',   '+', 0.01, true).mean([0,1,2]).dataSync()))
+        // tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '+++', 0.01, false).mean([0,1,2]).dataSync()))
+        // tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '+-+', 0.01, false).mean([0,1,2]).dataSync()))
+        // tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '-++', 0.01, false).mean([0,1,2]).dataSync()))
+        // tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '--+', 0.01, false).mean([0,1,2]).dataSync()))
 
-        tf.tidy(() => console.log(B.computeShadowDistanceMap(volume, 'z','+', 0.01, 1, 64, false).mean([0,1,2]).dataSync()))
-        tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+++', 0.01, 1, 64, true))
-        tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+-+', 0.01, 1, 64, true))
-        tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '-++', 0.01, 1, 64, true))
-        tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '--+', 0.01, 1, 64, true))
+        // tf.tidy(() =>                   console.log(B.computeShadowDistanceMap(volume, 'z',   '+', 0.01, 1, 64, false).mean([0,1,2]).dataSync()))
+        // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+++', 0.01, 1, 64, true))
+        // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+-+', 0.01, 1, 64, true))
+        // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '-++', 0.01, 1, 64, true))
+        // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '--+', 0.01, 1, 64, true))
+
+        // console.time('B')
+        // tf.tidy(() => B.computeShadowDistanceMap(volume, 'z','+', 0.01, 1, 64, false).dataSync())
+        // console.timeEnd('B')
+        // console.time('C')
+        // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+++', 0.01, 1, 64, false))
+        // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+-+', 0.01, 1, 64, false))
+        // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '-++', 0.01, 1, 64, false))
+        // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '--+', 0.01, 1, 64, false))
+        // console.timeEnd('C')
 
         // if (this.distanceVariation ===  '1bit') this.compute1BitDistanceTexture()
         // if (this.distanceVariation ===  '5bit') this.compute5BitDistanceTexture()

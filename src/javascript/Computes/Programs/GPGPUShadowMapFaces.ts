@@ -178,11 +178,7 @@ class ComputeFaceMinimaProgram implements GPGPUProgram
         {
             CellValues c = cellValues(cellCoords);
 
-            return vec3(
-                computeFaceXMin(c), 
-                computeFaceYMin(c), 
-                computeFaceZMin(c)
-            );
+            return vec3(computeFaceXMin(c), computeFaceYMin(c), computeFaceZMin(c));
         }
 
         void main()
@@ -229,9 +225,9 @@ class ComputeHollowFaceMinimaProgram implements GPGPUProgram
             return getA(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).xyz;
         }
 
-        bvec3 faceHolesAt(ivec3 cellCoords)
+        vec3 faceHolesAt(ivec3 cellCoords)
         {
-            return greaterThan(getB(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).xyz, vec3(0.5));
+            return step(0.5, getB(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).xyz);
         }
 
         void main()
@@ -239,13 +235,8 @@ class ComputeHollowFaceMinimaProgram implements GPGPUProgram
             ivec3 cellCoords = outputCoords();
 
             vec3 faceMinima = faceMinimaAt(cellCoords);
-            bvec3 faceHoles = faceHolesAt(cellCoords);
-
-            vec3 hollowMinima = vec3(
-                faceHoles.x ? 0.0 : faceMinima.x,
-                faceHoles.y ? 0.0 : faceMinima.y,
-                faceHoles.z ? 0.0 : faceMinima.z
-            );
+            vec3 faceHoles = faceHolesAt(cellCoords);
+            vec3 hollowMinima = mix(faceMinima, vec3(0.0), faceHoles);
 
             setOutput(vec4(hollowMinima, 0.0));
         }
@@ -345,11 +336,7 @@ class ComputeFaceMaximaProgram implements GPGPUProgram
         {
             CellValues c = cellValues(cellCoords);
 
-            return vec3(
-                computeFaceXMax(c), 
-                computeFaceYMax(c), 
-                computeFaceZMax(c)
-            );
+            return vec3(computeFaceXMax(c), computeFaceYMax(c), computeFaceZMax(c));
         }
 
         void main()
@@ -512,11 +499,7 @@ class ComputeFaceShadowsProgram implements GPGPUProgram
             bool faceYShadow = (c111.y - c101.y < tolerance);
             bool faceZShadow = (c111.z - c110.z < tolerance);
 
-            return bvec3(
-                faceXShadow, 
-                faceYShadow, 
-                faceZShadow
-            );
+            return bvec3(faceXShadow, faceYShadow, faceZShadow);
         }
 
         void main()
