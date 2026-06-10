@@ -25,24 +25,6 @@ import { minPool3dPacked, maxPool3dPacked } from './pool3dPacked'
 import { where3dPacked } from './where3dPacked'
 import { type Sign, type Octant, type Axis } from '../../Utils/ShadowMapUtils'
 
-
-const PACKED_OCTANTS_FROM_SIGN_AXIS: Record<string, [Octant, Octant, Octant, Octant]> = 
-{
-    "+x" : ['+++', '+-+', '++-', '+--'] ,
-    "-x" : ['---', '-+-', '--+', '-++'] ,
-    "+y" : ['+++', '-++', '++-', '-+-'] ,
-    "-y" : ['---', '+--', '--+', '+-+'] ,
-    "+z" : ['+++', '+-+', '-++', '--+'] ,
-    "-z" : ['---', '-+-', '+--', '++-'] ,
-}
-function packedOctantsFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Octant, Octant]
-{
-    const key = `${sign}${axis}`
-    const octants = PACKED_OCTANTS_FROM_SIGN_AXIS[key]
-
-    return [...octants] as [Octant, Octant, Octant, Octant]
-}
-
 /**
  * Emits GLSL ivec3 constructor arguments from an internal [z, y, x] tuple.
  */
@@ -121,6 +103,21 @@ function cellOffset(
     for (const dimension of reverse) zyx[dimension] = 1 - zyx[dimension]
 
     return xyz(zyx)
+}
+
+function packedOctantsFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Octant, Octant]
+{
+    const PACKED_OCTANTS_FROM_SIGN_AXIS: Record<string, [Octant, Octant, Octant, Octant]> = 
+    {
+        "+x" : ['+++', '+-+', '++-', '+--'] , "-x" : ['---', '-+-', '--+', '-++'] ,
+        "+y" : ['+++', '-++', '++-', '-+-'] , "-y" : ['---', '+--', '--+', '+-+'] ,
+        "+z" : ['+++', '+-+', '-++', '--+'] , "-z" : ['---', '-+-', '+--', '++-'] ,
+    }
+
+    const key = `${sign}${axis}`
+    const octants = PACKED_OCTANTS_FROM_SIGN_AXIS[key]
+
+    return [...octants] as [Octant, Octant, Octant, Octant]
 }
 
 /**
@@ -256,6 +253,81 @@ class PropagateVertexMinmaxValuesProgram implements GPGPUProgram
             vec4 v020 = previousSliceAt(sliceCoords + ivec3(${sliceOffset(-1,  1, -1, dominantAxis, dominantSign)}));
             vec4 v120 = previousSliceAt(sliceCoords + ivec3(${sliceOffset( 0,  1, -1, dominantAxis, dominantSign)}));
             vec4 v220 = previousSliceAt(sliceCoords + ivec3(${sliceOffset( 1,  1, -1, dominantAxis, dominantSign)}));
+
+            vec4 minValues = vec4(                  
+                min4(v000.r, v010.r, v100.r, v110.r),
+                min4(v010.g, v020.g, v110.g, v120.g),
+                min4(v100.b, v110.b, v200.b, v210.b),
+                min4(v110.a, v120.a, v210.a, v220.a) 
+            );
+                        
+            return max(v111, minValues);
+        }
+
+        void main()
+        {
+            setOutput(computeVertexMinmaxValues(outputCoords()));
+        }
+        `
+    }
+}
+
+class IterateVertexMinmaxValuesProgram implements GPGPUProgram
+{
+    variableNames = ['A']
+    outputShape: [number, number, number, 2, 2]
+    userCode: string
+    packedInputs = true
+    packedOutput = true
+
+    constructor(
+        shape: [number, number, number, 2, 2],
+        dominantAxis: Axis = 'z',
+        dominantSign: Sign = '+',
+    ) {
+        const [depth, height, width, ] = shape
+
+        this.outputShape = shape
+        this.userCode = `
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
+
+        bool insideVolume(ivec3 voxelCoords)
+        {
+            return 
+                (voxelCoords.x >= minCoords.x && voxelCoords.x <= maxCoords.x) &&
+                (voxelCoords.y >= minCoords.y && voxelCoords.y <= maxCoords.y) &&
+                (voxelCoords.z >= minCoords.z && voxelCoords.z <= maxCoords.z);
+        }
+
+        ivec3 outputCoords()
+        {
+            ivec5 voxelCoords = getOutputCoords();
+            return ivec3(voxelCoords.z, voxelCoords.y, voxelCoords.x);
+        }
+
+        vec4 vertexMinmaxValuesAt(ivec3 voxelCoords)
+        {            
+            return insideVolume(voxelCoords) ? getA(voxelCoords.z, voxelCoords.y, voxelCoords.x, 0, 0) : vec4(0.0);
+        }
+
+        float min4(float a, float b, float c, float d)
+        {
+            return min(min(min(a, b), c), d);
+        }
+
+        vec4 computeVertexMinmaxValues(ivec3 voxelCoords)
+        {
+            vec4 v111 = vertexMinmaxValuesAt(voxelCoords + ivec3(${voxelOffset( 0,  0,  0, dominantAxis, dominantSign)}));
+            vec4 v000 = vertexMinmaxValuesAt(voxelCoords + ivec3(${voxelOffset(-1, -1, -1, dominantAxis, dominantSign)}));
+            vec4 v100 = vertexMinmaxValuesAt(voxelCoords + ivec3(${voxelOffset( 0, -1, -1, dominantAxis, dominantSign)}));
+            vec4 v200 = vertexMinmaxValuesAt(voxelCoords + ivec3(${voxelOffset( 1, -1, -1, dominantAxis, dominantSign)}));
+            vec4 v010 = vertexMinmaxValuesAt(voxelCoords + ivec3(${voxelOffset(-1,  0, -1, dominantAxis, dominantSign)}));
+            vec4 v110 = vertexMinmaxValuesAt(voxelCoords + ivec3(${voxelOffset( 0,  0, -1, dominantAxis, dominantSign)}));
+            vec4 v210 = vertexMinmaxValuesAt(voxelCoords + ivec3(${voxelOffset( 1,  0, -1, dominantAxis, dominantSign)}));
+            vec4 v020 = vertexMinmaxValuesAt(voxelCoords + ivec3(${voxelOffset(-1,  1, -1, dominantAxis, dominantSign)}));
+            vec4 v120 = vertexMinmaxValuesAt(voxelCoords + ivec3(${voxelOffset( 0,  1, -1, dominantAxis, dominantSign)}));
+            vec4 v220 = vertexMinmaxValuesAt(voxelCoords + ivec3(${voxelOffset( 1,  1, -1, dominantAxis, dominantSign)}));
 
             vec4 minValues = vec4(                  
                 min4(v000.r, v010.r, v100.r, v110.r),
@@ -847,6 +919,36 @@ function propagateVertexMinmaxValues(
 
     const vertexMinmaxValues = stack3dPacked(slices, dimension) 
     tf.dispose(slices)
+    if (verbose) logMean3d('vertexMinmaxValues', vertexMinmaxValues)
+
+    return vertexMinmaxValues as tf.Tensor5D
+}
+
+async function iterateVertexMinmaxValues(
+    vertexValues: tf.Tensor5D,
+    axis: su.Axis,
+    sign: Sign,
+    verbose: boolean = false
+): Promise<tf.Tensor5D>
+{
+    const dimension = su.axisToDimension(axis)
+    const length = vertexValues.shape[dimension]
+    
+    const shape = vertexValues.shape as [number, number, number, 2, 2]
+    const propagate = new IterateVertexMinmaxValuesProgram(shape, axis, sign)
+
+    let prev = vertexValues.clone() 
+    
+    for (let i = 1; i !== length; i += 1)
+    {
+        const next = runWebGLProgram(propagate, [prev], 'float32', [], true)
+        tf.dispose(prev)
+        prev = next  as tf.Tensor5D
+
+        await tf.nextFrame()
+    }
+
+    const vertexMinmaxValues = prev
     if (verbose) logMean3d('vertexMinmaxValues', vertexMinmaxValues)
 
     return vertexMinmaxValues as tf.Tensor5D

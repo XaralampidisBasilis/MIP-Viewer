@@ -130,10 +130,10 @@ function runWebGLProgram(
  * Reference fixed-point relaxation pass. It recomputes the whole volume until
  * information has propagated across the selected sweep length.
  *
- * This is slower than PropagateVertexMinmaxProgram, but useful as a conceptual
+ * This is slower than PropagateVertexMinmaxValuesProgram, but useful as a conceptual
  * reference because every iteration applies the same local stencil everywhere.
  */
-class IterateVertexMinmaxProgram implements GPGPUProgram
+class IterateVertexMinmaxValuesProgram implements GPGPUProgram
 {
     variableNames = ['A']
     outputShape: [number, number, number]
@@ -167,7 +167,7 @@ class IterateVertexMinmaxProgram implements GPGPUProgram
             return ivec3(voxelCoords.z, voxelCoords.y, voxelCoords.x);
         }
 
-        float vertexMinmaxAt(ivec3 voxelCoords)
+        float vertexMinmaxValueAt(ivec3 voxelCoords)
         {            
             return insideVolume(voxelCoords) ? getA(voxelCoords.z, voxelCoords.y, voxelCoords.x) : 0.0;
         }
@@ -177,22 +177,22 @@ class IterateVertexMinmaxProgram implements GPGPUProgram
             return min(min(min(a, b), c), d);
         }
 
-        float computeVertexMinmax(ivec3 voxelCoords)
+        float computeVertexMinmaxValues(ivec3 voxelCoords)
         {
-            float v111 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset( 0,  0,  0, axis, octant)}));
-            float v110 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset( 0,  0, -1, axis, octant)}));
-            float v100 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset( 0, -1, -1, axis, octant)}));
-            float v010 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset(-1,  0, -1, axis, octant)}));
-            float v000 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset(-1, -1, -1, axis, octant)}));
+            float v111 = vertexMinmaxValueAt(voxelCoords + ivec3(${voxelOffset( 0,  0,  0, axis, octant)}));
+            float v110 = vertexMinmaxValueAt(voxelCoords + ivec3(${voxelOffset( 0,  0, -1, axis, octant)}));
+            float v100 = vertexMinmaxValueAt(voxelCoords + ivec3(${voxelOffset( 0, -1, -1, axis, octant)}));
+            float v010 = vertexMinmaxValueAt(voxelCoords + ivec3(${voxelOffset(-1,  0, -1, axis, octant)}));
+            float v000 = vertexMinmaxValueAt(voxelCoords + ivec3(${voxelOffset(-1, -1, -1, axis, octant)}));
 
-            float bottleneck = min4(v000, v010, v100, v110);
+            float minValue = min4(v000, v010, v100, v110);
 
-            return max(v111, bottleneck);
+            return max(v111, minValue);
         }
 
         void main()
         {
-            setOutput(computeVertexMinmax(outputCoords()));
+            setOutput(computeVertexMinmaxValues(outputCoords()));
         }
         `
     }
@@ -203,9 +203,9 @@ class IterateVertexMinmaxProgram implements GPGPUProgram
  *
  * A is the current raw slice. B is the already-propagated previous slice in
  * the requested direction. The shader keeps the current vertex value unless
- * every incoming route has already seen a larger guaranteed bottleneck.
+ * every incoming route has already seen a larger guaranteed minValues.
  */
-class PropagateVertexMinmaxProgram implements GPGPUProgram
+class PropagateVertexMinmaxValuesProgram implements GPGPUProgram
 {
     variableNames = ['A', 'B']
     outputShape: [number, number, number]
@@ -255,7 +255,7 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
             return min(min(min(a, b), c), d);
         }
 
-        float computeVertexMinmax(ivec3 sliceCoords)
+        float computeVertexMinmaxValues(ivec3 sliceCoords)
         {
             float v111 =  currentSliceAt(sliceCoords + ivec3(${sliceOffset( 0,  0,  0, axis, octant)}));
             float v110 = previousSliceAt(sliceCoords + ivec3(${sliceOffset( 0,  0, -1, axis, octant)}));
@@ -263,14 +263,14 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
             float v010 = previousSliceAt(sliceCoords + ivec3(${sliceOffset(-1,  0, -1, axis, octant)}));
             float v000 = previousSliceAt(sliceCoords + ivec3(${sliceOffset(-1, -1, -1, axis, octant)}));
 
-            float bottleneck = min4(v000, v010, v100, v110);
+            float minValue = min4(v000, v010, v100, v110);
 
-            return max(v111, bottleneck);
+            return max(v111, minValue);
         }
 
         void main()
         {
-            setOutput(computeVertexMinmax(outputCoords()));
+            setOutput(computeVertexMinmaxValues(outputCoords()));
         }
         `
     }
@@ -280,7 +280,7 @@ class PropagateVertexMinmaxProgram implements GPGPUProgram
  * Classifies vertices for one oriented ray class.
  *
  * A contains the original vertex values. B contains propagated minmax values.
- * A vertex is shadowed when its value is within tolerance of the bottleneck
+ * A vertex is shadowed when its value is within tolerance of the minValues
  * already available from the previous face.
  */
 class ComputeVertexShadowsProgram implements GPGPUProgram
@@ -323,7 +323,7 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
             return getA(voxelCoords.z, voxelCoords.y, voxelCoords.x);
         }
 
-        float vertexMinmaxAt(ivec3 voxelCoords)
+        float vertexMinmaxValueAt(ivec3 voxelCoords)
         {
             return insideVolume(voxelCoords) ? getB(voxelCoords.z, voxelCoords.y, voxelCoords.x) : 0.0;
         }
@@ -335,14 +335,14 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
 
         bool computeVertexShadow(ivec3 voxelCoords)
         {
-            float v111 =  vertexValueAt(voxelCoords + ivec3(${voxelOffset( 0,  0,  0, axis, octant)}));
-            float v110 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset( 0,  0, -1, axis, octant)}));
-            float v100 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset( 0, -1, -1, axis, octant)}));
-            float v010 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset(-1,  0, -1, axis, octant)}));
-            float v000 = vertexMinmaxAt(voxelCoords + ivec3(${voxelOffset(-1, -1, -1, axis, octant)}));
+            float v111 =        vertexValueAt(voxelCoords + ivec3(${voxelOffset( 0,  0,  0, axis, octant)}));
+            float v110 = vertexMinmaxValueAt(voxelCoords + ivec3(${voxelOffset( 0,  0, -1, axis, octant)}));
+            float v100 = vertexMinmaxValueAt(voxelCoords + ivec3(${voxelOffset( 0, -1, -1, axis, octant)}));
+            float v010 = vertexMinmaxValueAt(voxelCoords + ivec3(${voxelOffset(-1,  0, -1, axis, octant)}));
+            float v000 = vertexMinmaxValueAt(voxelCoords + ivec3(${voxelOffset(-1, -1, -1, axis, octant)}));
 
-            float bottleneck = min4(v000, v010, v100, v110);
-            float margin = v111 - bottleneck;
+            float minValue = min4(v000, v010, v100, v110);
+            float margin = v111 - minValue;
 
             return (margin < tolerance);
         }
@@ -471,7 +471,7 @@ class ComputeCellShadowsProgram implements GPGPUProgram
 /**
  * Slow reference implementation of directional minmax propagation.
  */
-async function iterateVertexMinmax(
+async function iterateVertexMinmaxValues(
     volume: tf.Tensor3D,
     axis: su.Axis,
     octant: su.Octant,
@@ -482,7 +482,7 @@ async function iterateVertexMinmax(
     const length = volume.shape[dimension]
     
     const shape = volume.shape as [number, number, number]
-    const propagate = new IterateVertexMinmaxProgram(shape, axis, octant)
+    const propagate = new IterateVertexMinmaxValuesProgram(shape, axis, octant)
 
     let prev = volume.clone() 
     for (let i = 1; i !== length; i += 1)
@@ -494,17 +494,17 @@ async function iterateVertexMinmax(
         await tf.nextFrame()
     }
 
-    const vertexMinmax = prev
-    if (verbose) logMean3d('vertexMinmax', vertexMinmax)
+    const vertexMinmaxValues = prev
+    if (verbose) logMean3d('vertexMinmaxValues', vertexMinmaxValues)
 
-    return vertexMinmax as tf.Tensor3D
+    return vertexMinmaxValues as tf.Tensor3D
 }
 
 /**
  * Propagates directional minmax values one slice at a time along the selected
  * axis and octant. This is the fast path used by the public shadow-map helpers.
  */
-function propagateVertexMinmax(
+function propagateVertexMinmaxValues(
     volume: tf.Tensor3D,
     axis: su.Axis,
     octant: su.Octant,
@@ -512,11 +512,11 @@ function propagateVertexMinmax(
 ): tf.Tensor3D
 {
     const dimension = su.axisToDimension(axis)
-    const sign = su.getOctantSign(octant, dimension)
+    const sign = su.getOctantSign(octant, axis)
     
     const slices = unstack3d(volume, dimension)
     const shape = slices[0].shape as [number, number, number]
-    const propagate = new PropagateVertexMinmaxProgram(shape, axis, octant)
+    const propagate = new PropagateVertexMinmaxValuesProgram(shape, axis, octant)
 
     const backwards = sign === '-'
     const start = backwards ? slices.length - 2 : 1
@@ -530,11 +530,11 @@ function propagateVertexMinmax(
         slices[i] = next
     }
 
-    const vertexMinmax = stack3d(slices, dimension) 
+    const vertexMinmaxValues = stack3d(slices, dimension) 
     tf.dispose(slices)
-    if (verbose) logMean3d('vertexMinmax', vertexMinmax)
+    if (verbose) logMean3d('vertexMinmaxValues', vertexMinmaxValues)
 
-    return vertexMinmax as tf.Tensor3D
+    return vertexMinmaxValues as tf.Tensor3D
 }
 
 /**
@@ -542,7 +542,7 @@ function propagateVertexMinmax(
  */
 function computeVertexShadows(
     vertexValues: tf.Tensor3D,
-    vertexMinmax: tf.Tensor3D,
+    vertexMinmaxValues: tf.Tensor3D,
     axis: su.Axis,
     octant: su.Octant,
     tolerance: number,
@@ -550,7 +550,7 @@ function computeVertexShadows(
 ): tf.Tensor3D
 {
     const program = new ComputeVertexShadowsProgram(vertexValues.shape, axis, octant)
-    const vertexShadows = runWebGLProgram(program, [vertexValues, vertexMinmax], 'bool', [[tolerance]], true) 
+    const vertexShadows = runWebGLProgram(program, [vertexValues, vertexMinmaxValues], 'bool', [[tolerance]], true) 
     if (verbose) logMean3d('vertexShadows', vertexShadows)
 
     return vertexShadows as tf.Tensor3D
@@ -601,9 +601,9 @@ export function computeUnidirectionalShadowMap(
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const vertexMinmax = propagateVertexMinmax(volume, axis, octant, verbose)
-    const vertexShadows = computeVertexShadows(volume, vertexMinmax, axis, octant, tolerance, verbose)
-    tf.dispose(vertexMinmax)
+    const vertexMinmaxValues = propagateVertexMinmaxValues(volume, axis, octant, verbose)
+    const vertexShadows = computeVertexShadows(volume, vertexMinmaxValues, axis, octant, tolerance, verbose)
+    tf.dispose(vertexMinmaxValues)
 
     const cellShadows = computeCellShadows(vertexShadows, axis, octant, verbose)
     tf.dispose(vertexShadows)
@@ -624,9 +624,9 @@ export function computeBidirectionalShadowMap(
 {
     // Forward 
     const forwardOctant = octant
-    const forwardVertexMinmax = propagateVertexMinmax(volume, axis, forwardOctant, verbose)
-    const forwardVertexShadows = computeVertexShadows(volume, forwardVertexMinmax, axis, forwardOctant, tolerance, verbose)
-    tf.dispose(forwardVertexMinmax)
+    const forwardVertexMinmaxValues = propagateVertexMinmaxValues(volume, axis, forwardOctant, verbose)
+    const forwardVertexShadows = computeVertexShadows(volume, forwardVertexMinmaxValues, axis, forwardOctant, tolerance, verbose)
+    tf.dispose(forwardVertexMinmaxValues)
 
     const forwardCellShadows = computeCellShadows(forwardVertexShadows, axis, forwardOctant, false)
     tf.dispose(forwardVertexShadows)
@@ -638,9 +638,9 @@ export function computeBidirectionalShadowMap(
     const backwardVertexValues = tf.where(backwardVertexHoles, 0, volume) 
     tf.dispose(backwardVertexHoles)
 
-    const backwardVertexMinmax = propagateVertexMinmax(backwardVertexValues, axis, backwardOctant, verbose)
-    const backwardVertexShadows = computeVertexShadows(backwardVertexValues, backwardVertexMinmax, axis, backwardOctant, tolerance, verbose)
-    tf.dispose([backwardVertexValues, backwardVertexMinmax])
+    const backwardVertexMinmaxValues = propagateVertexMinmaxValues(backwardVertexValues, axis, backwardOctant, verbose)
+    const backwardVertexShadows = computeVertexShadows(backwardVertexValues, backwardVertexMinmaxValues, axis, backwardOctant, tolerance, verbose)
+    tf.dispose([backwardVertexValues, backwardVertexMinmaxValues])
 
     const backwardCellShadows = computeCellShadows(backwardVertexShadows, axis, backwardOctant, false)
     tf.dispose(backwardVertexShadows)
@@ -699,9 +699,9 @@ export function computeBidirectionalBlockShadowMap(
     const forwardMinVertexValues = minVertexValues
     const forwardMaxVertexValues = maxVertexValues
 
-    const forwardVertexMinmax = propagateVertexMinmax(forwardMinVertexValues, axis, forwardOctant, verbose)
-    const forwardVertexShadows = computeVertexShadows(forwardMaxVertexValues, forwardVertexMinmax, axis, forwardOctant, tolerance, verbose)
-    tf.dispose(forwardVertexMinmax)
+    const forwardVertexMinmaxValues = propagateVertexMinmaxValues(forwardMinVertexValues, axis, forwardOctant, verbose)
+    const forwardVertexShadows = computeVertexShadows(forwardMaxVertexValues, forwardVertexMinmaxValues, axis, forwardOctant, tolerance, verbose)
+    tf.dispose(forwardVertexMinmaxValues)
 
     const forwardCellShadows = computeCellShadows(forwardVertexShadows, axis, forwardOctant, false)
     tf.dispose(forwardVertexShadows)
@@ -714,11 +714,11 @@ export function computeBidirectionalBlockShadowMap(
     const backwardMaxVertexValues = tf.where(backwardVertexHoles, 0, maxVertexValues) 
     tf.dispose([backwardVertexHoles, minVertexValues, maxVertexValues])
 
-    const backwardVertexMinmax = propagateVertexMinmax(backwardMinVertexValues, axis, backwardOctant, verbose)
+    const backwardVertexMinmaxValues = propagateVertexMinmaxValues(backwardMinVertexValues, axis, backwardOctant, verbose)
     tf.dispose(backwardMinVertexValues)
 
-    const backwardVertexShadows = computeVertexShadows(backwardMaxVertexValues, backwardVertexMinmax, axis, backwardOctant, tolerance, verbose)
-    tf.dispose([backwardMaxVertexValues, backwardVertexMinmax])
+    const backwardVertexShadows = computeVertexShadows(backwardMaxVertexValues, backwardVertexMinmaxValues, axis, backwardOctant, tolerance, verbose)
+    tf.dispose([backwardMaxVertexValues, backwardVertexMinmaxValues])
 
     const backwardCellShadows = computeCellShadows(backwardVertexShadows, axis, backwardOctant, false)
     tf.dispose(backwardVertexShadows)
