@@ -45,17 +45,20 @@ function computeOutSizeAndPad(
         return { outSize: Math.max(0, outSize), padBefore: pad }
     }
 
-    if (pad === 'valid')
+    else if (pad === 'valid')
     {
         const outSize = applyDimRoundingMode((inputSize - filterSize) / stride + 1, dimRoundingMode)
         return { outSize: Math.max(0, outSize), padBefore: 0 }
     }
+    
+    else // (pad === 'same')
+    {
+        const outSize = Math.ceil(inputSize / stride)
+        const padNeeded = Math.max(0, (outSize - 1) * stride + filterSize - inputSize)
+        const padBefore = Math.floor(padNeeded / 2)
 
-    const outSize = Math.ceil(inputSize / stride)
-    const padNeeded = Math.max(0, (outSize - 1) * stride + filterSize - inputSize)
-    const padBefore = Math.floor(padNeeded / 2)
-
-    return { outSize, padBefore }
+        return { outSize, padBefore }
+    }
 }
 
 

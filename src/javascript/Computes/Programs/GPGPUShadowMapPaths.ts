@@ -471,27 +471,24 @@ class ComputeCellShadowsProgram implements GPGPUProgram
 /**
  * Slow reference implementation of directional minmax propagation.
  */
-async function iterateVertexMinmaxValues(
+function iterateVertexMinmaxValues(
     volume: tf.Tensor3D,
     axis: su.Axis,
     octant: su.Octant,
+    iterations: number,
     verbose: boolean = false
-): Promise<tf.Tensor3D>
+): tf.Tensor3D
 {
-    const dimension = su.axisToDimension(axis)
-    const length = volume.shape[dimension]
-    
     const shape = volume.shape as [number, number, number]
     const propagate = new IterateVertexMinmaxValuesProgram(shape, axis, octant)
 
     let prev = volume.clone() 
-    for (let i = 1; i !== length; i += 1)
+
+    for (let i = 0; i < iterations; i += 1)
     {
         const next = runWebGLProgram(propagate, [prev], 'float32', [], true)
         tf.dispose(prev)
         prev = next  as tf.Tensor3D
-
-        await tf.nextFrame()
     }
 
     const vertexMinmaxValues = prev
@@ -659,7 +656,7 @@ export function computeBidirectionalShadowMap(
  *
  * Min pooling keeps a block rejected only when every covered cell is rejected.
  */
-export function computeBidirectionalBlockShadowMap2(
+export function computeBidirectionalBlockShadowMap1(
     volume: tf.Tensor3D,
     axis: su.Axis,
     octant: su.Octant,
@@ -681,7 +678,7 @@ export function computeBidirectionalBlockShadowMap2(
  * Alternative block-first variant. It pools the input value bounds first, then
  * computes the bidirectional mask at block resolution.
  */
-export function computeBidirectionalBlockShadowMap(
+export function computeBidirectionalBlockShadowMap2(
     volume: tf.Tensor3D,
     axis: su.Axis,
     octant: su.Octant,
@@ -691,7 +688,9 @@ export function computeBidirectionalBlockShadowMap(
 ): tf.Tensor3D
 {
     // Reduce 
-    const minVertexValues = minPool3d(volume, blockSize, blockSize, 'valid')
+    const vertexMinmaxValues = iterateVertexMinmaxValues(volume, axis, octant, 0)
+    const minVertexValues = minPool3d(vertexMinmaxValues, blockSize, blockSize, 'valid')
+    tf.dispose(vertexMinmaxValues)
     const maxVertexValues = maxPool3d(volume, blockSize, blockSize, 'valid')
 
     // Forward
@@ -730,4 +729,66 @@ export function computeBidirectionalBlockShadowMap(
     if (verbose) logMean3d('bidirectionalCellShadows', bidirectionalCellShadows)
 
     return bidirectionalCellShadows as tf.Tensor3D
+}
+
+export function computeBidirectionalBlockShadowMap(
+    volume: tf.Tensor3D,
+    axis: su.Axis,
+    octant: su.Octant,
+    tolerance: number,
+    blockSize: number,
+    verbose: boolean = false
+): tf.Tensor3D
+{
+    // Reduce 
+    const dimension = su.axisToDimension(axis)
+    
+    const blockDimensions = [1, 1, 1] as [number, number, number]
+    blockDimensions[dimension] = blockSize
+
+    const complementBlockDimensions = [blockSize, blockSize, blockSize] as [number, number, number]
+    complementBlockDimensions[dimension] = 1
+
+    const minVertexValues = minPool3d(volume, blockDimensions, blockDimensions, 'valid')
+    const maxVertexValues = maxPool3d(volume, blockDimensions, blockDimensions, 'valid')
+
+    // Forward
+    const forwardOctant = octant
+    const forwardMinVertexValues = minVertexValues
+    const forwardMaxVertexValues = maxVertexValues
+
+    const forwardVertexMinmaxValues = propagateVertexMinmaxValues(forwardMinVertexValues, axis, forwardOctant, verbose)
+    const forwardVertexShadows = computeVertexShadows(forwardMaxVertexValues, forwardVertexMinmaxValues, axis, forwardOctant, tolerance, verbose)
+    tf.dispose(forwardVertexMinmaxValues)
+
+    const forwardCellShadows = computeCellShadows(forwardVertexShadows, axis, forwardOctant, false)
+    tf.dispose(forwardVertexShadows)
+    if (verbose) logMean3d('forwardCellShadows', forwardCellShadows)
+
+    // Backward 
+    const backwardOctant = su.reverseOctant(forwardOctant)
+    const backwardVertexHoles = computeVertexHoles(forwardCellShadows, axis, backwardOctant, verbose)
+    const backwardMinVertexValues = tf.where(backwardVertexHoles, 0, minVertexValues) 
+    const backwardMaxVertexValues = tf.where(backwardVertexHoles, 0, maxVertexValues) 
+    tf.dispose([backwardVertexHoles, minVertexValues, maxVertexValues])
+
+    const backwardVertexMinmaxValues = propagateVertexMinmaxValues(backwardMinVertexValues, axis, backwardOctant, verbose)
+    tf.dispose(backwardMinVertexValues)
+
+    const backwardVertexShadows = computeVertexShadows(backwardMaxVertexValues, backwardVertexMinmaxValues, axis, backwardOctant, tolerance, verbose)
+    tf.dispose([backwardMaxVertexValues, backwardVertexMinmaxValues])
+
+    const backwardCellShadows = computeCellShadows(backwardVertexShadows, axis, backwardOctant, false)
+    tf.dispose(backwardVertexShadows)
+    if (verbose) logMean3d('backwardCellShadows', backwardCellShadows)
+
+    // Bidirectional 
+    const bidirectionalCellShadows = tf.logicalOr(forwardCellShadows, backwardCellShadows) as tf.Tensor3D
+    tf.dispose([forwardCellShadows, backwardCellShadows])
+    if (verbose) logMean3d('bidirectionalCellShadows', bidirectionalCellShadows)
+
+    const bidirectionalBlockShadows = minPool3d(bidirectionalCellShadows, complementBlockDimensions, complementBlockDimensions, 'same')
+    tf.dispose(bidirectionalCellShadows)
+
+    return bidirectionalBlockShadows as tf.Tensor3D
 }

@@ -25,6 +25,21 @@ import { minPool3dPacked, maxPool3dPacked } from './pool3dPacked'
 import { where3dPacked } from './where3dPacked'
 import { type Sign, type Octant, type Axis } from '../../Utils/ShadowMapUtils'
 
+function packedOctantsFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Octant, Octant]
+{
+    const PACKED_OCTANTS_FROM_SIGN_AXIS: Record<string, [Octant, Octant, Octant, Octant]> = 
+    {
+        "+x" : ['+++', '+-+', '++-', '+--'] , "-x" : ['---', '-+-', '--+', '-++'] ,
+        "+y" : ['+++', '-++', '++-', '-+-'] , "-y" : ['---', '+--', '--+', '+-+'] ,
+        "+z" : ['+++', '+-+', '-++', '--+'] , "-z" : ['---', '-+-', '+--', '++-'] ,
+    }
+
+    const key = `${sign}${axis}`
+    const octants = PACKED_OCTANTS_FROM_SIGN_AXIS[key]
+
+    return [...octants] as [Octant, Octant, Octant, Octant]
+}
+
 /**
  * Emits GLSL ivec3 constructor arguments from an internal [z, y, x] tuple.
  */
@@ -103,21 +118,6 @@ function cellOffset(
     for (const dimension of reverse) zyx[dimension] = 1 - zyx[dimension]
 
     return xyz(zyx)
-}
-
-function packedOctantsFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Octant, Octant]
-{
-    const PACKED_OCTANTS_FROM_SIGN_AXIS: Record<string, [Octant, Octant, Octant, Octant]> = 
-    {
-        "+x" : ['+++', '+-+', '++-', '+--'] , "-x" : ['---', '-+-', '--+', '-++'] ,
-        "+y" : ['+++', '-++', '++-', '-+-'] , "-y" : ['---', '+--', '--+', '+-+'] ,
-        "+z" : ['+++', '+-+', '-++', '--+'] , "-z" : ['---', '-+-', '+--', '++-'] ,
-    }
-
-    const key = `${sign}${axis}`
-    const octants = PACKED_OCTANTS_FROM_SIGN_AXIS[key]
-
-    return [...octants] as [Octant, Octant, Octant, Octant]
 }
 
 /**
@@ -924,28 +924,24 @@ function propagateVertexMinmaxValues(
     return vertexMinmaxValues as tf.Tensor5D
 }
 
-async function iterateVertexMinmaxValues(
+function iterateVertexMinmaxValues(
     vertexValues: tf.Tensor5D,
     axis: su.Axis,
     sign: Sign,
+    iterations: number,
     verbose: boolean = false
-): Promise<tf.Tensor5D>
-{
-    const dimension = su.axisToDimension(axis)
-    const length = vertexValues.shape[dimension]
-    
+): tf.Tensor5D
+{    
     const shape = vertexValues.shape as [number, number, number, 2, 2]
     const propagate = new IterateVertexMinmaxValuesProgram(shape, axis, sign)
 
     let prev = vertexValues.clone() 
-    
-    for (let i = 1; i !== length; i += 1)
+
+    for (let i = 0; i < iterations; i += 1)
     {
         const next = runWebGLProgram(propagate, [prev], 'float32', [], true)
         tf.dispose(prev)
-        prev = next  as tf.Tensor5D
-
-        await tf.nextFrame()
+        prev = next as tf.Tensor5D
     }
 
     const vertexMinmaxValues = prev
@@ -1229,8 +1225,8 @@ export function computeShadowDistanceMap(
 {
     const shadowMap = computeBidirectionalBlockShadowMap(volume, dominantAxis, dominantSign, errorTolerance, blockSize, verbose)
     
-    const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
     const sweepOctants = packedOctantsFromSignAxis(dominantSign, dominantAxis)
+    const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
     const sweepSigns = sweepAxes.map((axis) => sweepOctants.map((octant) => su.getOctantSign(octant, axis)) as [Sign, Sign, Sign, Sign]) 
 
     const setupDistances = setupChebyshevDistancePass(shadowMap, maxDistance, verbose)
