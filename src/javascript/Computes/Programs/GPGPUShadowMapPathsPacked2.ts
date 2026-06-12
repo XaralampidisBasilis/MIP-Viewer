@@ -22,9 +22,14 @@ import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 import { unstack3dPacked } from './unstack3dPacked'
 import { stack3dPacked } from './stack3dPacked'
 import { minPool3dPacked, maxPool3dPacked } from './pool3dPacked'
+import { logicalOr3dPacked } from './logicalOr3dPacked'
 import { where3dPacked } from './where3dPacked'
 import { type Sign, type Octant, type Axis } from '../../Utils/ShadowMapUtils'
 
+/**
+ * This function returns the order of the packed octants that the packed
+ *  gpgpu programs bellow generate given as input the dominant axis and sign
+ */
 function packedOctantsFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Octant, Octant]
 {
     const PACKED_OCTANTS_FROM_SIGN_AXIS: Record<string, [Octant, Octant, Octant, Octant]> = 
@@ -1107,11 +1112,9 @@ export function computeBidirectionalShadowMap(
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const vertexValues = computeVertexValues(volume)
-
     // Forward
     const forwardSign = dominantSign
-    const forwardVertexValues = vertexValues
+    const forwardVertexValues = computeVertexValues(volume)
     
     const forwardVertexMinmaxValues = propagateVertexMinmaxValues(forwardVertexValues, dominantAxis, forwardSign, verbose)
     const forwardVertexShadows = computeVertexShadows(forwardVertexValues, forwardVertexMinmaxValues, dominantAxis, forwardSign, tolerance, verbose)
@@ -1124,8 +1127,8 @@ export function computeBidirectionalShadowMap(
     // Backwards
     const backwardSign = su.reverseSign(forwardSign)
     const backwardVertexHoles = computeVertexHoles(forwardCellShadows, dominantAxis, backwardSign, verbose)
-    const backwardVertexValues = where3dPacked(backwardVertexHoles, 0, vertexValues)
-    tf.dispose([backwardVertexHoles, vertexValues])
+    const backwardVertexValues = where3dPacked(backwardVertexHoles, 0, forwardVertexValues)
+    tf.dispose([backwardVertexHoles, forwardVertexValues])
 
     const backwardVertexMinmaxValues = propagateVertexMinmaxValues(backwardVertexValues, dominantAxis, backwardSign, verbose)
     const backwardVertexShadows = computeVertexShadows(backwardVertexValues, backwardVertexMinmaxValues, dominantAxis, backwardSign, tolerance, verbose)
@@ -1136,7 +1139,7 @@ export function computeBidirectionalShadowMap(
     if (verbose) logMean3d('backwardCellShadows', backwardCellShadows)
 
     // Bidirectional
-    const bidirectionalCellShadows = tf.logicalOr(forwardCellShadows, backwardCellShadows)
+    const bidirectionalCellShadows = logicalOr3dPacked(forwardCellShadows, backwardCellShadows)
     tf.dispose([forwardCellShadows, backwardCellShadows])
     if (verbose) logMean3d('bidirectionalCellShadows', bidirectionalCellShadows)
 
@@ -1223,7 +1226,7 @@ export function computeBidirectionalBlockShadowMap1(
     tf.dispose(backwardVertexShadows)
 
     // Bidirectional
-    const bidirectionalCellShadows = tf.logicalOr(forwardCellShadows, backwardCellShadows)
+    const bidirectionalCellShadows = logicalOr3dPacked(forwardCellShadows, backwardCellShadows)
     tf.dispose([forwardCellShadows, backwardCellShadows])
     if (verbose) logMean3d('bidirectionalCellShadows', bidirectionalCellShadows)
 

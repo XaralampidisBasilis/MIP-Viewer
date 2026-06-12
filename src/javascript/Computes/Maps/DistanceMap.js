@@ -3,9 +3,10 @@ import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import * as GPGPU from '../Programs/GPGPUShadowDistanceMap'
 
-// import * as A from '../Programs/GPGPUShadowMapPaths'
-// import * as B from '../Programs/GPGPUShadowMapPathsPacked'
-// import * as C from '../Programs/GPGPUShadowDistanceMap'
+import * as A from '../Programs/GPGPUShadowMapPaths'
+import * as B from '../Programs/GPGPUShadowMapPathsPacked'
+import * as C from '../Programs/GPGPUShadowDistanceMap'
+// import * as B2 from '../Programs/GPGPUShadowMapPathsPacked2'
 
 export default class DistanceMap 
 {
@@ -23,7 +24,15 @@ export default class DistanceMap
     {
         const volume = this.computes.volumeMap.tensor
 
-        // tf.tidy(() => console.log(B.computeBidirectionalShadowMap(volume, 'z',   '+', 0.01, true).mean([0,1,2]).dataSync()))
+        // const t1 =  B.computeUnidirectionalShadowMaps(volume, 'z', '+', 0, false)
+        // const t2 = B2.computeUnidirectionalShadowMap(volume, 'z', '+', 0, false)
+        // const error = tf.abs(tf.sub(t1, t2))
+        // console.log(t1.mean([0,1,2]).dataSync())
+        // console.log(t2.mean([0,1,2]).dataSync())
+        // console.log(error.mean([0,1,2]).dataSync())
+        // tf.whereAsync(error.cast('bool')).then((coords) => console.log(coords.arraySync()))
+
+        // tf.tidy(() => console.log(B.computeBidirectionalShadowMaps(volume, 'z',  '+', 0.01, 1, false).mean([0,1,2]).dataSync()))
         // tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '+++', 0.01, false).mean([0,1,2]).dataSync()))
         // tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '+-+', 0.01, false).mean([0,1,2]).dataSync()))
         // tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '-++', 0.01, false).mean([0,1,2]).dataSync()))
@@ -35,20 +44,20 @@ export default class DistanceMap
         // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '-++', 0.01, 1, 64, true))
         // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '--+', 0.01, 1, 64, true))
 
-        // console.time('B')
-        // tf.tidy(() => B.computeShadowDistanceMap(volume, 'z','+', 0.01, 1, 64, false).dataSync())
-        // console.timeEnd('B')
-        // console.time('C')
-        // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+++', 0.01, 1, 64, false))
-        // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+-+', 0.01, 1, 64, false))
-        // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '-++', 0.01, 1, 64, false))
-        // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '--+', 0.01, 1, 64, false))
-        // console.timeEnd('C')
+        console.time('A')
+        A.computeUnidirectionalDistanceMap(volume, 'z', '+++', 0.01, 1, 64, false).dispose()
+        A.computeUnidirectionalDistanceMap(volume, 'z', '+-+', 0.01, 1, 64, false).dispose()
+        A.computeUnidirectionalDistanceMap(volume, 'z', '-++', 0.01, 1, 64, false).dispose()
+        A.computeUnidirectionalDistanceMap(volume, 'z', '--+', 0.01, 1, 64, false).dispose()
+        console.timeEnd('A')
+        console.time('B')
+        B.computeUnidirectionalDistanceMaps(volume, 'z','+', 0.01, 1, 64, false).dispose()
+        console.timeEnd('B')
 
-        if (this.distanceVariation ===  '1bit') this.compute1BitDistanceTexture()
-        if (this.distanceVariation ===  '5bit') this.compute5BitDistanceTexture()
-        if (this.distanceVariation ===  '8bit') this.compute8BitDistanceTexture()
-        if (this.distanceVariation === '10bit') this.compute10BitDistanceTexture()
+        // if (this.distanceVariation ===  '1bit') this.compute1BitDistanceTexture()
+        // if (this.distanceVariation ===  '5bit') this.compute5BitDistanceTexture()
+        // if (this.distanceVariation ===  '8bit') this.compute8BitDistanceTexture()
+        // if (this.distanceVariation === '10bit') this.compute10BitDistanceTexture()
     }
  
     compute1BitDistanceTexture()
