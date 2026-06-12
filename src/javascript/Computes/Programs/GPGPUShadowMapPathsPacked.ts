@@ -27,6 +27,41 @@ import { where3dPacked } from './where3dPacked'
 import { logicalOr3dPacked } from './logicalOr3dPacked'
 import { type Sign, type Octant, type Axis } from '../../Utils/ShadowMapUtils'
 
+
+/**
+ * This function returns the order of the packed octants that the packed
+ *  gpgpu programs bellow generate given as input the dominant axis and sign
+ */
+function packedOctantsFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Octant, Octant]
+{
+    const PACKED_OCTANTS_FROM_SIGN_AXIS: Record<string, [Octant, Octant, Octant, Octant]> = 
+    {
+        "+x" : ['+++', '+-+', '++-', '+--'] , "-x" : ['---', '-+-', '--+', '-++'] ,
+        "+y" : ['+++', '-++', '++-', '-+-'] , "-y" : ['---', '+--', '--+', '+-+'] ,
+        "+z" : ['+++', '+-+', '-++', '--+'] , "-z" : ['---', '-+-', '+--', '++-'] ,
+    }
+
+    const key = `${sign}${axis}`
+    const octants = PACKED_OCTANTS_FROM_SIGN_AXIS[key]
+
+    return [...octants] as [Octant, Octant, Octant, Octant]
+}
+
+function unpackTensorFromAxisOctant(
+    tensor: tf.Tensor5D,
+    dominantAxis: Axis,
+    directionOctant: Octant,
+): tf.Tensor3D
+{
+    const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
+    const octants = packedOctantsFromSignAxis(dominantSign, dominantAxis)
+    const index = octants.findIndex((octant) => octant === directionOctant)
+    const row = Math.floor(index / 2);
+    const col = index % 2;
+
+    return tf.tidy(() => tensor.slice([0, 0, 0, row, col], [-1, -1, -1, 1, 1]).squeeze([3, 4]))
+}
+
 /**
  * Emits GLSL ivec3 constructor arguments from an internal [z, y, x] tuple.
  */
@@ -105,40 +140,6 @@ function cellOffset(
     for (const dimension of reverse) zyx[dimension] = 1 - zyx[dimension]
 
     return xyz(zyx)
-}
-
-/**
- * This function returns the order of the packed octants that the packed
- *  gpgpu programs bellow generate given as input the dominant axis and sign
- */
-function packedOctantsFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Octant, Octant]
-{
-    const PACKED_OCTANTS_FROM_SIGN_AXIS: Record<string, [Octant, Octant, Octant, Octant]> = 
-    {
-        "+x" : ['+++', '+-+', '++-', '+--'] , "-x" : ['---', '-+-', '--+', '-++'] ,
-        "+y" : ['+++', '-++', '++-', '-+-'] , "-y" : ['---', '+--', '--+', '+-+'] ,
-        "+z" : ['+++', '+-+', '-++', '--+'] , "-z" : ['---', '-+-', '+--', '++-'] ,
-    }
-
-    const key = `${sign}${axis}`
-    const octants = PACKED_OCTANTS_FROM_SIGN_AXIS[key]
-
-    return [...octants] as [Octant, Octant, Octant, Octant]
-}
-
-function unpackTensorFromAxisOctant(
-    tensor: tf.Tensor5D,
-    dominantAxis: Axis,
-    directionOctant: Octant,
-): tf.Tensor3D
-{
-    const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
-    const octants = packedOctantsFromSignAxis(dominantSign, dominantAxis)
-    const index = octants.findIndex((octant) => octant === directionOctant)
-    const row = Math.floor(index / 2);
-    const col = index % 2;
-
-    return tf.tidy(() => tensor.slice([0, 0, 0, row, col], [-1, -1, -1, 1, 1]).squeeze([3, 4]))
 }
 
 /**

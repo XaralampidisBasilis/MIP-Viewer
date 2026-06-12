@@ -17,6 +17,7 @@
 
 import * as tf from '@tensorflow/tfjs'
 import * as su from '../../Utils/ShadowMapUtils'
+import * as DistanceUtils from './GPGPUDistanceMapPacked'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 import { unstack3dPacked } from './unstack3dPacked'
@@ -25,6 +26,7 @@ import { minPool3dPacked, maxPool3dPacked } from './pool3dPacked'
 import { logicalOr3dPacked } from './logicalOr3dPacked'
 import { where3dPacked } from './where3dPacked'
 import { type Sign, type Octant, type Axis } from '../../Utils/ShadowMapUtils'
+
 
 /**
  * This function returns the order of the packed octants that the packed
@@ -44,6 +46,22 @@ function packedOctantsFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Oct
 
     return [...octants] as [Octant, Octant, Octant, Octant]
 }
+
+function unpackTensorFromAxisOctant(
+    tensor: tf.Tensor5D,
+    dominantAxis: Axis,
+    directionOctant: Octant,
+): tf.Tensor3D
+{
+    const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
+    const octants = packedOctantsFromSignAxis(dominantSign, dominantAxis)
+    const index = octants.findIndex((octant) => octant === directionOctant)
+    const row = Math.floor(index / 2);
+    const col = index % 2;
+
+    return tf.tidy(() => tensor.slice([0, 0, 0, row, col], [-1, -1, -1, 1, 1]).squeeze([3, 4]))
+}
+
 
 /**
  * Emits GLSL ivec3 constructor arguments from an internal [z, y, x] tuple.
@@ -576,316 +594,6 @@ class ComputeCellShadowsProgram implements GPGPUProgram
     }
 }
 
-class SetupChebyshevDistancePass implements GPGPUProgram 
-{
-    variableNames = ['A'] 
-    outputShape: [number, number, number, 2, 2]
-    userCode: string
-    packedInputs = true
-    packedOutput = true
-
-    constructor(
-        shape: [number, number, number, 2, 2],
-        maxDistance: number,
-    ) {
-        this.outputShape = shape
-        this.userCode = `
-
-        ivec3 outputCoords() 
-        {
-            ivec5 cellCoords = getOutputCoords();
-            return ivec3(cellCoords.z, cellCoords.y, cellCoords.x);
-        }
-
-        vec4 cellShadowsAt(ivec3 coords) 
-        {
-            return step(0.5, getA(coords.z, coords.y, coords.x, 0, 0));
-        }
-
-        void main() 
-        {
-            vec4 cellShadows = cellShadowsAt(outputCoords());
-            vec4 cellDistances = mix(vec4(0), vec4(${maxDistance}), cellShadows);
-            
-            setOutput(cellDistances);
-        }
-        `
-    }
-}
-
-class IsotropicChebyshevDistancePass implements GPGPUProgram
-{
-    variableNames = ['A']
-    outputShape: [number, number, number, 2, 2]
-    userCode: string
-    packedInputs = true
-    packedOutput = true
-
-    constructor(
-        shape: [number, number, number, 2, 2],
-        sweepAxis: Axis,
-        maxDistance: number, 
-    ) { 
-        const [depth, height, width,] = shape
-
-        this.outputShape = shape
-        this.userCode = /* glsl */ `
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
-
-        const int maxRadius = clamp(${maxDistance}, minCoords.${sweepAxis}, maxCoords.${sweepAxis});
-
-        bool insideAxis(ivec3 cellCoords)
-        {
-            return (cellCoords.${sweepAxis} >= minCoords.${sweepAxis} && cellCoords.${sweepAxis} <= maxCoords.${sweepAxis});
-        }
-
-        ivec3 outputCoords()
-        {
-            ivec5 cellCoords = getOutputCoords();
-            return ivec3(cellCoords.z, cellCoords.y, cellCoords.x);
-        }
-
-        ivec4 sampleChebyshevDistancesAt(ivec3 cellCoords)
-        {
-            return ivec4(getA(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0));
-        }
-    
-        void main()
-        {
-            ivec3 outCoords = outputCoords();
-            ivec3 sampleCoords = outCoords;
-
-            ivec4 minDistances = sampleChebyshevDistancesAt(sampleCoords);
-
-            if (all(lessThanEqual(minDistances, ivec4(0)))
-            {
-                setOutput(vec4(minDistances));
-                return;
-            }
-
-            for (int radius = 1; radius <= maxRadius; ++radius)
-            {
-                ivec4 radius4 = ivec4(radius);
-
-                sampleCoords.${sweepAxis} = outCoords.${sweepAxis} - radius;
-                
-                if (insideAxis(sampleCoords))
-                {
-                    ivec4 sampleDistances = sampleChebyshevDistancesAt(sampleCoords);
-                    ivec4 candidateDistances = max(sampleDistances, radius4);
-
-                    minDistances = min(minDistances, candidateDistances);
-
-                    if (all(lessThanEqual(minDistances, radius4))) 
-                    {
-                        break;
-                    }
-                }
-
-                sampleCoords.${sweepAxis} = outCoords.${sweepAxis} + radius;
-
-                if (insideAxis(sampleCoords))
-                {
-                    ivec4 sampleDistances = sampleChebyshevDistancesAt(sampleCoords);
-                    ivec4 candidateDistances = max(sampleDistances, radius4);
-
-                    minDistances = min(minDistances, candidateDistances);
-
-                    if (all(lessThanEqual(minDistances, radius4)))
-                    {
-                        break;
-                    }
-                }
-            }
-
-            setOutput(vec4(minDistances));
-        }
-        `
-    }
-}
-
-class AnisotropicChebyshevDistancePass implements GPGPUProgram
-{
-    variableNames = ['A']
-    outputShape: [number, number, number, 2, 2]
-    userCode: string
-    packedInputs = true
-    packedOutput = true
-
-    constructor(
-        shape: [number, number, number, 2, 2],
-        sweepAxis: Axis,
-        sweepSigns: [Sign, Sign, Sign, Sign],
-        maxDistance: number,
-    ) {
-        
-        const channels = (sign: Sign) => 
-        'rgba'.split('').filter((_, i) => sweepSigns[i] === sign).join('')
-        
-        const [depth, height, width,] = shape
-
-        const negChannels = channels('-')
-        const posChannels = channels('+')
-
-        this.outputShape = shape
-        this.userCode = /* glsl */ `
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
-
-        const int maxRadius = clamp(${maxDistance}, minCoords.${sweepAxis}, maxCoords.${sweepAxis});
-
-        bool insideAxis(ivec3 cellCoords)
-        {
-            return (cellCoords.${sweepAxis} >= minCoords.${sweepAxis} && cellCoords.${sweepAxis} <= maxCoords.${sweepAxis});
-        }
-
-        ivec3 outputCoords()
-        {
-            ivec5 cellCoords = getOutputCoords();
-            return ivec3(cellCoords.z, cellCoords.y, cellCoords.x);
-        }
-
-        ivec4 sampleChebyshevDistancesAt(ivec3 cellCoords)
-        {
-            return ivec4(getA(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0));
-        }
-
-        void main()
-        {
-            ivec3 outCoords = outputCoords();
-            ivec3 sampleCoords = outCoords;
-
-            ivec4 minDistances = sampleChebyshevDistancesAt(sampleCoords);
-
-            if (all(lessThanEqual(minDistances, ivec4(0))))
-            {
-                setOutput(vec4(minDistances));
-                return;
-            }
-
-            for (int radius = 1; radius <= maxRadius; ++radius)
-            {
-                ivec4 radius4 = ivec4(radius);
-
-                sampleCoords.${sweepAxis} = outCoords.${sweepAxis} - radius;
-                
-                if (insideAxis(sampleCoords))
-                {
-                    ivec4 sampleDistances = sampleChebyshevDistancesAt(sampleCoords);
-                    ivec4 candidateDistances = max(sampleDistances, radius4);
-
-                    minDistances.${negChannels} = min(minDistances.${negChannels}, candidateDistances.${negChannels});
-
-                    if (all(lessThanEqual(minDistances, radius4))) 
-                    {
-                        break;
-                    }
-                }
-
-                sampleCoords.${sweepAxis} = outCoords.${sweepAxis} + radius;
-
-                if (insideAxis(sampleCoords))
-                {
-                    ivec4 sampleDistances = sampleChebyshevDistancesAt(sampleCoords);
-                    ivec4 candidateDistances = max(sampleDistances, radius4);
-
-                    minDistances.${posChannels} = min(minDistances.${posChannels}, candidateDistances.${posChannels});
-
-                    if (all(lessThanEqual(minDistances, radius4))) 
-                    {
-                        break;
-                    }
-                }
-            }
-
-            setOutput(vec4(minDistances));
-        }
-        `
-    }
-}
-
-class ExtendedChebyshevDistancePass implements GPGPUProgram 
-{
-    variableNames = ['A']
-    outputShape: [number, number, number, 2, 2]
-    userCode: string
-    packedInputs = true
-    packedOutput = true
-
-    constructor(
-        shape: [number, number, number, 2, 2],
-        dominantAxis: Axis,
-        dominantSign: Sign,   
-        maxDistance: number,     
-    ) {
-        const [depth, height, width,] = shape
-
-        this.outputShape = shape
-        this.userCode = /* glsl */ `
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
-
-        const int maxRadius = clamp(${maxDistance}, minCoords.${dominantAxis}, maxCoords.${dominantAxis});
-
-        bool insideAxis(ivec3 cellCoords)
-        {
-            return (cellCoords.${dominantAxis} >= minCoords.${dominantAxis} && cellCoords.${dominantAxis} <= maxCoords.${dominantAxis});
-        }
-
-        ivec3 outputCoords()
-        {
-            ivec5 cellCoords = getOutputCoords();
-            return ivec3(cellCoords.z, cellCoords.y, cellCoords.x);
-        }
-
-        ivec4 sampleChebyshevDistancesAt(ivec3 cellCoords)
-        {
-            return ivec4(getA(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0));
-        }
-
-        ivec4 getCandidateDistances(ivec4 sampleDistances, int radius)
-        {
-            return ivec4(
-                sampleDistances.r <= radius ? radius : ${maxDistance},
-                sampleDistances.g <= radius ? radius : ${maxDistance},
-                sampleDistances.b <= radius ? radius : ${maxDistance},
-                sampleDistances.a <= radius ? radius : ${maxDistance}
-            );
-        }
-
-        void main() 
-        {
-            ivec3 outCoords = outputCoords();
-            ivec3 sampleCoords = outCoords;
-
-            ivec4 minDistances = ivec4(${maxDistance});
-
-            for (int radius = 0; radius <= maxRadius; ++radius) 
-            {
-                ivec4 radius4 = ivec4(radius);
-
-                sampleCoords.${dominantAxis} = outCoords.${dominantAxis} ${dominantSign} radius;
-
-                if (insideAxis(sampleCoords)) 
-                {
-                    ivec4 sampleDistances = sampleChebyshevDistancesAt(sampleCoords);
-                    ivec4 candidateDistances = getCandidateDistances(sampleDistances, radius);
-                    
-                    minDistances = min(minDistances, candidateDistances); 
-                    
-                    if (all(lessThanEqual(minDistances, radius4))) 
-                    {
-                        break;
-                    }
-                }
-            }
-
-            setOutput(vec4(minDistances));
-        }
-        `
-    }
-}
 
 /**
  * Converts scalar volume values into packed RGBA vertex values.
@@ -1018,97 +726,46 @@ function computeVertexHoles(
     return vertexHoles as tf.Tensor5D
 }
 
-function setupChebyshevDistancePass(
-    cellShadows: tf.Tensor5D,
-    maxDistance: number,
-    verbose: boolean = false
-): tf.Tensor5D
-{
-    const shape = cellShadows.shape as [number, number, number, 2, 2]
-    const program = new SetupChebyshevDistancePass(shape, maxDistance)
-    const initialDistances = runWebGLProgram(program, [cellShadows], 'int32', [], true) 
-    if (verbose) logMean3d('initialDistances', initialDistances)
-
-    return initialDistances as tf.Tensor5D
-}
-
-function isotropicChebyshevDistancePass(
-    distances: tf.Tensor5D,
-    sweepAxis: Axis,
-    maxDistance: number,
-    verbose: boolean = false
-): tf.Tensor5D
-{
-    const shape = distances.shape as [number, number, number, 2, 2]
-    const program = new IsotropicChebyshevDistancePass(shape, sweepAxis, maxDistance)
-    const isotropicDistances = runWebGLProgram(program, [distances], 'int32', [], true) 
-    if (verbose) logMean3d('isotropicDistances', isotropicDistances)
-
-    return isotropicDistances as tf.Tensor5D
-}
-
-function anisotropicChebyshevDistancePass(
-    distances: tf.Tensor5D,
-    sweepAxis: Axis,
-    sweepSigns: [Sign, Sign, Sign, Sign],
-    maxDistance: number,
-    verbose: boolean = false
-): tf.Tensor5D
-{
-    const shape = distances.shape as [number, number, number, 2, 2]
-    const program = new AnisotropicChebyshevDistancePass(shape, sweepAxis, sweepSigns, maxDistance)
-    const anisotropicDistances = runWebGLProgram(program, [distances], 'int32', [], true) 
-    if (verbose) logMean3d('anisotropicDistances', anisotropicDistances)
-
-    return anisotropicDistances as tf.Tensor5D
-}
-
-function extendedChebyshevDistancePass(
-    distances: tf.Tensor5D,
-    dominantAxis: Axis,
-    dominantSign: Sign,
-    maxDistance: number,
-    verbose: boolean = false
-): tf.Tensor5D
-{
-    const shape = distances.shape as [number, number, number, 2, 2]
-    const program = new ExtendedChebyshevDistancePass(shape, dominantAxis, dominantSign, maxDistance)
-    const extendedDistances = runWebGLProgram(program, [distances], 'int32', [], true) 
-    if (verbose) logMean3d('extendedDistances', extendedDistances)
-
-    return extendedDistances as tf.Tensor5D
-}
 
 /**
  * Computes four unidirectional conservative cell-rejection masks in packed lanes.
  */
-export function computeUnidirectionalShadowMap(
+export function computeUnidirectionalShadowMaps(
     volume: tf.Tensor3D,
     dominantAxis: Axis,
     dominantSign: Sign,
-    tolerance: number,
+    errorTolerance: number,
+    blockSize: number,
     verbose: boolean = false
 ): tf.Tensor5D
 {
     const vertexValues = computeVertexValues(volume)
     const vertexMinmax = propagateVertexMinmaxValues(vertexValues, dominantAxis, dominantSign, verbose)
-    const vertexShadows = computeVertexShadows(vertexValues, vertexMinmax, dominantAxis, dominantSign, tolerance, verbose)
+    const vertexShadows = computeVertexShadows(vertexValues, vertexMinmax, dominantAxis, dominantSign, errorTolerance, verbose)
     tf.dispose([vertexValues, vertexMinmax])
 
     const cellShadows = computeCellShadows(vertexShadows, dominantAxis, dominantSign, verbose)
     tf.dispose(vertexShadows)
 
-    return cellShadows as tf.Tensor5D
+    if (verbose) logMean3d('cellShadows', cellShadows)
+    if (blockSize === 1) return cellShadows
+
+    const blockShadows = minPool3dPacked(cellShadows, blockSize, blockSize, 0, 'ceil') 
+    tf.dispose(cellShadows)
+
+    if (verbose) logMean3d('blockShadows', blockShadows)
+    return blockShadows 
 }
 
 /**
  * Computes packed conservative masks for both directions of the same ray family.
  */
-export function computeBidirectionalShadowMap(
+export function computeBidirectionalShadowMaps(
     volume: tf.Tensor3D,
     dominantAxis: Axis,
     dominantSign: Sign,
-    tolerance: number,
+    errorTolerance: number,
+    blockSize: number,
     verbose: boolean = false
 ): tf.Tensor5D
 {
@@ -1117,7 +774,7 @@ export function computeBidirectionalShadowMap(
     const forwardVertexValues = computeVertexValues(volume)
     
     const forwardVertexMinmaxValues = propagateVertexMinmaxValues(forwardVertexValues, dominantAxis, forwardSign, verbose)
-    const forwardVertexShadows = computeVertexShadows(forwardVertexValues, forwardVertexMinmaxValues, dominantAxis, forwardSign, tolerance, verbose)
+    const forwardVertexShadows = computeVertexShadows(forwardVertexValues, forwardVertexMinmaxValues, dominantAxis, forwardSign, errorTolerance, verbose)
     tf.dispose(forwardVertexMinmaxValues)
 
     const forwardCellShadows = computeCellShadows(forwardVertexShadows, dominantAxis, forwardSign, false)
@@ -1131,7 +788,7 @@ export function computeBidirectionalShadowMap(
     tf.dispose([backwardVertexHoles, forwardVertexValues])
 
     const backwardVertexMinmaxValues = propagateVertexMinmaxValues(backwardVertexValues, dominantAxis, backwardSign, verbose)
-    const backwardVertexShadows = computeVertexShadows(backwardVertexValues, backwardVertexMinmaxValues, dominantAxis, backwardSign, tolerance, verbose)
+    const backwardVertexShadows = computeVertexShadows(backwardVertexValues, backwardVertexMinmaxValues, dominantAxis, backwardSign, errorTolerance, verbose)
     tf.dispose([backwardVertexValues, backwardVertexMinmaxValues])
 
     const backwardCellShadows = computeCellShadows(backwardVertexShadows, dominantAxis, backwardSign, false)
@@ -1141,99 +798,19 @@ export function computeBidirectionalShadowMap(
     // Bidirectional
     const bidirectionalCellShadows = logicalOr3dPacked(forwardCellShadows, backwardCellShadows)
     tf.dispose([forwardCellShadows, backwardCellShadows])
+
     if (verbose) logMean3d('bidirectionalCellShadows', bidirectionalCellShadows)
+    if (blockSize === 1) return bidirectionalCellShadows
 
-    return bidirectionalCellShadows as tf.Tensor5D
+    const bidirectionalBlockShadows = minPool3dPacked(bidirectionalCellShadows, blockSize, blockSize, 0, 'ceil') 
+    tf.dispose(bidirectionalCellShadows)
+
+    if (verbose) logMean3d('bidirectionalBlockShadows', bidirectionalBlockShadows)
+    return bidirectionalBlockShadows as tf.Tensor5D
 }
 
-/**
- * Computes a packed bidirectional mask and min-pools it into traversal blocks.
- */
-export function computeBidirectionalBlockShadowMap(
-    volume: tf.Tensor3D,
-    dominantAxis: Axis,
-    dominantSign: Sign,
-    tolerance: number,
-    blockSize: number,
-    verbose: boolean = false
-): tf.Tensor5D
-{
-    const cellShadows = computeBidirectionalShadowMap(volume, dominantAxis, dominantSign, tolerance, verbose)
-    if (blockSize === 1) return cellShadows
 
-    const blockShadows = minPool3dPacked(cellShadows, blockSize, blockSize, 0, 'ceil') 
-    tf.dispose(cellShadows)
-    if (verbose) logMean3d('blockShadows', blockShadows)
-
-    return blockShadows
-}
-
-/**
- * Alternative block-first variant. It pools packed input value bounds first,
- * then computes the bidirectional mask at block resolution.
- */
-export function computeBidirectionalBlockShadowMap1(
-    volume: tf.Tensor3D,
-    dominantAxis: Axis,
-    dominantSign: Sign,
-    tolerance: number,
-    blockSize: number,
-    verbose: boolean = false
-): tf.Tensor5D
-{
-    // Reduce
-    const vertexValues = computeVertexValues(volume)
-    const paddings = [
-        [0, blockSize],
-        [0, blockSize],
-        [0, blockSize],
-        [0, 0],
-        [0, 0],
-    ] as [[number, number], [number, number], [number, number], [number, number], [number, number]]
-    const paddedVertexValues = tf.pad(vertexValues, paddings, 0) as tf.Tensor5D
-
-    const minVertexValues = minPool3dPacked(paddedVertexValues, blockSize + 1, blockSize, 0, 'ceil')
-    const maxVertexValues = maxPool3dPacked(paddedVertexValues, blockSize + 1, blockSize, 0, 'ceil')
-    tf.dispose([vertexValues, paddedVertexValues])
-
-    // Forward
-    const forwardSign = dominantSign
-    const forwardMinVertexValues = minVertexValues
-    const forwardMaxVertexValues = maxVertexValues
-   
-    const forwardVertexMinmax = propagateVertexMinmaxValues(forwardMinVertexValues, dominantAxis, forwardSign, verbose)
-    const forwardVertexShadows = computeVertexShadows(forwardMaxVertexValues, forwardVertexMinmax, dominantAxis, forwardSign, tolerance, verbose)
-    tf.dispose(forwardVertexMinmax)
-
-    const forwardCellShadows = computeCellShadows(forwardVertexShadows, dominantAxis, forwardSign, verbose)
-    tf.dispose(forwardVertexShadows)
-
-    // Backwards
-    const backwardSign = su.reverseSign(dominantSign)
-    const backwardVertexHoles = computeVertexHoles(forwardCellShadows, dominantAxis, backwardSign, verbose)
-    const backwardMinVertexValues = where3dPacked(backwardVertexHoles, 0, minVertexValues)
-    tf.dispose(minVertexValues)
-    const backwardMaxVertexValues = where3dPacked(backwardVertexHoles, 0, maxVertexValues)
-    tf.dispose([maxVertexValues, backwardVertexHoles])
-
-    const backwardVertexMinmax = propagateVertexMinmaxValues(backwardMinVertexValues, dominantAxis, backwardSign, verbose)
-    tf.dispose(backwardMinVertexValues)
-
-    const backwardVertexShadows = computeVertexShadows(backwardMaxVertexValues, backwardVertexMinmax, dominantAxis, backwardSign, tolerance, verbose)
-    tf.dispose([backwardMaxVertexValues, backwardVertexMinmax])
-
-    const backwardCellShadows = computeCellShadows(backwardVertexShadows, dominantAxis, backwardSign, verbose)
-    tf.dispose(backwardVertexShadows)
-
-    // Bidirectional
-    const bidirectionalCellShadows = logicalOr3dPacked(forwardCellShadows, backwardCellShadows)
-    tf.dispose([forwardCellShadows, backwardCellShadows])
-    if (verbose) logMean3d('bidirectionalCellShadows', bidirectionalCellShadows)
-
-    return bidirectionalCellShadows as tf.Tensor5D
-}
-
-export function computeShadowDistanceMap(
+export function computeUnidirectionalDistanceMaps(
     volume: tf.Tensor3D,
     dominantAxis: Axis,
     dominantSign: Sign,
@@ -1243,23 +820,61 @@ export function computeShadowDistanceMap(
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const shadowMap = computeBidirectionalBlockShadowMap(volume, dominantAxis, dominantSign, errorTolerance, blockSize, verbose)
-    
-    const sweepOctants = packedOctantsFromSignAxis(dominantSign, dominantAxis)
-    const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
-    const sweepSigns = sweepAxes.map((axis) => sweepOctants.map((octant) => su.getOctantSign(octant, axis)) as [Sign, Sign, Sign, Sign]) 
+    const shadowMaps = computeBidirectionalShadowMaps(volume, dominantAxis, dominantSign, errorTolerance, blockSize, verbose)
+    const distanceMaps = DistanceUtils.computeUnidirectionalDistanceMaps(shadowMaps, dominantAxis, dominantSign, maxDistance, verbose)
+    tf.dispose(shadowMaps)
 
-    const setupDistances = setupChebyshevDistancePass(shadowMap, maxDistance, verbose)
-    tf.dispose(shadowMap)
+    return distanceMaps
+}
 
-    const anisotropicDistances0 = anisotropicChebyshevDistancePass(setupDistances, sweepAxes[0], sweepSigns[0], maxDistance, verbose)
-    tf.dispose(shadowMap)
+export function computeBidirectionalDistanceMaps(
+    volume: tf.Tensor3D,
+    dominantAxis: Axis,
+    dominantSign: Sign,
+    errorTolerance: number,
+    blockSize: number,
+    maxDistance: number,
+    verbose: boolean = false
+): tf.Tensor5D
+{
+    const shadowMaps = computeBidirectionalShadowMaps(volume, dominantAxis, dominantSign, errorTolerance, blockSize, verbose)
+    const distanceMaps = DistanceUtils.computeBidirectionalDistanceMaps(shadowMaps, dominantAxis, dominantSign, maxDistance, verbose)
+    tf.dispose(shadowMaps)
 
-    const anisotropicDistances1 = anisotropicChebyshevDistancePass(anisotropicDistances0, sweepAxes[1], sweepSigns[1], maxDistance, verbose)
-    tf.dispose(anisotropicDistances0)
+    return distanceMaps
+}
 
-    const distanceMap = extendedChebyshevDistancePass(anisotropicDistances1, dominantAxis, dominantSign, maxDistance, verbose)
-    tf.dispose(anisotropicDistances1)
 
-    return distanceMap
+export function computeUnidirectionalShadowMap(
+    volume: tf.Tensor3D,
+    dominantAxis: Axis,
+    directionOctant: Octant,
+    errorTolerance: number,
+    blockSize: number,
+    verbose: boolean = false
+): tf.Tensor3D
+{
+    const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
+    const shadowMaps = computeUnidirectionalShadowMaps(volume, dominantAxis, dominantSign, errorTolerance, blockSize, verbose)
+    const shadowMap = unpackTensorFromAxisOctant(shadowMaps, dominantAxis, directionOctant)
+    tf.dispose(shadowMaps)
+
+    return shadowMap as tf.Tensor3D
+}
+
+export function computeBidirectionalShadowMap(
+    volume: tf.Tensor3D,
+    dominantAxis: Axis,
+    directionOctant: Octant,
+    errorTolerance: number,
+    blockSize: number,
+    verbose: boolean = false
+): tf.Tensor3D
+{
+    const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
+    const shadowMaps = computeBidirectionalShadowMaps(volume, dominantAxis, dominantSign, errorTolerance, blockSize, verbose)
+    const shadowMap = unpackTensorFromAxisOctant(shadowMaps, dominantAxis, directionOctant)
+    tf.dispose(shadowMaps)
+
+    return shadowMap as tf.Tensor3D
 }

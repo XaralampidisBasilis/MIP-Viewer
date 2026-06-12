@@ -726,6 +726,44 @@ export function computeBidirectionalShadowMap(
 }
 
 /**
+ * Computes four unidirectionaly conservative cell-rejection distance maps in packed lanes.
+ */
+export function computeUnidirectionalDistanceMap(
+    volume: tf.Tensor3D,
+    dominantAxis: Axis,
+    directionOctant: Octant,
+    errorTolerance: number,
+    blockSize: number,
+    maxDistance: number,
+    verbose: boolean = false
+): tf.Tensor3D
+{
+    const shadowMask = computeBidirectionalShadowMap(volume, dominantAxis, directionOctant, errorTolerance, blockSize, verbose)
+    const distanceMap = DistanceUtils.computeUnidirectionalDistanceMap(shadowMask, dominantAxis, directionOctant, maxDistance, verbose)
+    tf.dispose(shadowMask)
+
+    return distanceMap
+}
+
+export function computeBidirectionalDistanceMap(
+    volume: tf.Tensor3D,
+    dominantAxis: Axis,
+    directionOctant: Octant,
+    errorTolerance: number,
+    blockSize: number,
+    maxDistance: number,
+    verbose: boolean = false
+): tf.Tensor3D
+{
+    const shadowMask = computeBidirectionalShadowMap(volume, dominantAxis, directionOctant, errorTolerance, blockSize, verbose)
+    const distanceMap = DistanceUtils.computeBidirectionalDistanceMap(shadowMask, dominantAxis, directionOctant, maxDistance, verbose)
+    tf.dispose(shadowMask)
+
+    return distanceMap
+}
+
+
+/**
  * Alternative block-first variant. It pools the input value bounds first, then
  * computes the bidirectional mask at block resolution.
  */
@@ -775,41 +813,4 @@ export function computeBidirectionalShadowMap2(
     if (verbose) logMean3d('bidirectionalCellShadows', bidirectionalCellShadows)
 
     return bidirectionalCellShadows as tf.Tensor3D
-}
-
-/**
- * Computes four unidirectionaly conservative cell-rejection distance maps in packed lanes.
- */
-export function computeUnidirectionalDistanceMap(
-    volume: tf.Tensor3D,
-    dominantAxis: Axis,
-    directionOctant: Octant,
-    errorTolerance: number,
-    blockSize: number,
-    maxDistance: number,
-    verbose: boolean = false
-): tf.Tensor3D
-{
-    const shadowMask = computeBidirectionalShadowMap(volume, dominantAxis, directionOctant, errorTolerance, blockSize, verbose)
-    const distanceMap = DistanceUtils.computeUnidirectionalDistanceMap(shadowMask, dominantAxis, directionOctant, maxDistance, verbose)
-    tf.dispose(shadowMask)
-
-    return distanceMap
-}
-
-export function computeBidirectionalDistanceMap(
-    volume: tf.Tensor3D,
-    dominantAxis: Axis,
-    directionOctant: Octant,
-    errorTolerance: number,
-    blockSize: number,
-    maxDistance: number,
-    verbose: boolean = false
-): tf.Tensor3D
-{
-    const shadowMask = computeBidirectionalShadowMap(volume, dominantAxis, directionOctant, errorTolerance, blockSize, verbose)
-    const distanceMap = DistanceUtils.computeBidirectionalDistanceMap(shadowMask, dominantAxis, directionOctant, maxDistance, verbose)
-    tf.dispose(shadowMask)
-
-    return distanceMap
 }
