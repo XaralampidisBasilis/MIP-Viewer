@@ -443,6 +443,7 @@ function extendedChebyshevDistancePass(
     return extendedDistances as tf.Tensor5D
 }
 
+
 export function computeIsotropicDistanceMaps(
     mask: tf.Tensor5D,
     maxDistance: number,
@@ -537,6 +538,7 @@ export function computeUnidirectionalDistanceMaps(
 
     return distances3d
 }
+
 
 export function computeIsotropicDistanceMap(
     mask: tf.Tensor5D,
