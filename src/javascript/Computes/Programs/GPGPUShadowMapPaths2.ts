@@ -145,7 +145,7 @@ class ComputeVertexValuesProgram implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
-        bool insideVolume(ivec3 voxelCoords)
+        bool insideVoxelSpace(ivec3 voxelCoords)
         {
             return 
                 voxelCoords.x >= minCoords.x && voxelCoords.x <= maxCoords.x &&
@@ -162,7 +162,7 @@ class ComputeVertexValuesProgram implements GPGPUProgram
         float vertexValueAt(ivec3 vertexCoords)
         {
             ivec3 voxelCoords = vertexCoords - 1;
-            return insideVolume(voxelCoords) ? getA(voxelCoords.z, voxelCoords.y, voxelCoords.x) : 0.0;
+            return insideVoxelSpace(voxelCoords) ? getA(voxelCoords.z, voxelCoords.y, voxelCoords.x) : 0.0;
         }
 
         void main()
@@ -200,7 +200,7 @@ class IterateVertexMinmaxValuesProgram implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
-        bool insideVolume(ivec3 vertexCoords)
+        bool insideVertexSpace(ivec3 vertexCoords)
         {
             return 
                 vertexCoords.x >= minCoords.x && vertexCoords.x <= maxCoords.x &&
@@ -216,7 +216,7 @@ class IterateVertexMinmaxValuesProgram implements GPGPUProgram
 
         float vertexMinmaxValueAt(ivec3 vertexCoords)
         {            
-            return insideVolume(vertexCoords) ? getA(vertexCoords.z, vertexCoords.y, vertexCoords.x) : 0.0;
+            return insideVertexSpace(vertexCoords) ? getA(vertexCoords.z, vertexCoords.y, vertexCoords.x) : 0.0;
         }
 
         float min4(float a, float b, float c, float d)
@@ -273,7 +273,7 @@ class PropagateVertexMinmaxValuesProgram implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
-        bool insideSlice(ivec3 sliceCoords)
+        bool insideSliceSpace(ivec3 sliceCoords)
         {
             return 
                 ${(width  > 1) ? 'sliceCoords.x >= minCoords.x && sliceCoords.x <= maxCoords.x' : 'true'} &&
@@ -294,7 +294,7 @@ class PropagateVertexMinmaxValuesProgram implements GPGPUProgram
 
         float previousSliceAt(ivec3 sliceCoords)
         {            
-            return insideSlice(sliceCoords) ? getB(sliceCoords.z, sliceCoords.y, sliceCoords.x) : 0.0;
+            return insideSliceSpace(sliceCoords) ? getB(sliceCoords.z, sliceCoords.y, sliceCoords.x) : 0.0;
         }
 
         float min4(float a, float b, float c, float d)
@@ -351,7 +351,7 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
-        bool insideVolume(ivec3 vertexCoords)
+        bool insideVertexSpace(ivec3 vertexCoords)
         {
             return 
                 vertexCoords.x >= minCoords.x && vertexCoords.x <= maxCoords.x &&
@@ -372,7 +372,7 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
 
         float vertexMinmaxAt(ivec3 vertexCoords)
         {
-            return insideVolume(vertexCoords) ? getB(vertexCoords.z, vertexCoords.y, vertexCoords.x) : 0.0;
+            return insideVertexSpace(vertexCoords) ? getB(vertexCoords.z, vertexCoords.y, vertexCoords.x) : 0.0;
         }
 
         float min4(float a, float b, float c, float d)
@@ -658,9 +658,10 @@ export function computeUnidirectionalShadowMap(
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const vertexMinmaxValues = propagateVertexMinmaxValues(volume, dominantAxis, directionOctant, verbose)
-    const vertexShadows = computeVertexShadows(volume, vertexMinmaxValues, dominantAxis, directionOctant, errorTolerance, verbose)
-    tf.dispose(vertexMinmaxValues)
+    const vertexValues = computeVertexValues(volume, verbose)
+    const vertexMinmaxValues = propagateVertexMinmaxValues(vertexValues, dominantAxis, directionOctant, verbose)
+    const vertexShadows = computeVertexShadows(vertexValues, vertexMinmaxValues, dominantAxis, directionOctant, errorTolerance, verbose)
+    tf.dispose([vertexValues, vertexMinmaxValues])
 
     const cellShadows = computeCellShadows(vertexShadows, dominantAxis, directionOctant, verbose)
     tf.dispose(vertexShadows)
@@ -689,9 +690,10 @@ export function computeBidirectionalShadowMap(
 {
     // Forward 
     const forwardOctant = directionOctant
-    const forwardVertexMinmaxValues = propagateVertexMinmaxValues(volume, dominantAxis, forwardOctant, verbose)
-    const forwardVertexShadows = computeVertexShadows(volume, forwardVertexMinmaxValues, dominantAxis, forwardOctant, errorTolerance, verbose)
-    tf.dispose(forwardVertexMinmaxValues)
+    const forwardVertexValues = computeVertexValues(volume, verbose)
+    const forwardVertexMinmaxValues = propagateVertexMinmaxValues(forwardVertexValues, dominantAxis, forwardOctant, verbose)
+    const forwardVertexShadows = computeVertexShadows(forwardVertexValues, forwardVertexMinmaxValues, dominantAxis, forwardOctant, errorTolerance, verbose)
+    tf.dispose([forwardVertexValues, forwardVertexMinmaxValues])
 
     const forwardCellShadows = computeCellShadows(forwardVertexShadows, dominantAxis, forwardOctant, false)
     tf.dispose(forwardVertexShadows)
@@ -700,8 +702,8 @@ export function computeBidirectionalShadowMap(
     // Backward 
     const backwardOctant = su.reverseOctant(forwardOctant)
     const backwardVertexHoles = computeVertexHoles(forwardCellShadows, dominantAxis, backwardOctant, verbose)
-    const backwardVertexValues = tf.where(backwardVertexHoles, 0, volume) 
-    tf.dispose(backwardVertexHoles)
+    const backwardVertexValues = tf.where(backwardVertexHoles, 0, forwardVertexValues) 
+    tf.dispose([backwardVertexHoles, forwardVertexValues])
 
     const backwardVertexMinmaxValues = propagateVertexMinmaxValues(backwardVertexValues, dominantAxis, backwardOctant, verbose)
     const backwardVertexShadows = computeVertexShadows(backwardVertexValues, backwardVertexMinmaxValues, dominantAxis, backwardOctant, errorTolerance, verbose)
