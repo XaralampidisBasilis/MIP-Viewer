@@ -73,7 +73,7 @@ export default class DistanceMap
         // {
         //     B.computeUnidirectionalDistanceMaps(volume, 'z','+', 0.01, 1, 255, false).dispose()
         // })
-        // .then((info) => console.log(`kernelMs: ${info.kernelMs}, wallTimeMs: ${info.wallMs}`))
+        // .then((info) => console.log(`kernelMs: ${info.kernelMs}, wallTimeMs: ${info.wallMs}, uploadWaitMs: ${uploadWaitMs}, downloadWaitMs: ${downloadWaitMs}`))
         // tf.time(() => 
         // {
         //     A.computeUnidirectionalDistanceMap(volume, 'z', '+++', 0.01, 1, 255, false).dispose()
@@ -81,13 +81,13 @@ export default class DistanceMap
         //     A.computeUnidirectionalDistanceMap(volume, 'z', '-++', 0.01, 1, 255, false).dispose()
         //     A.computeUnidirectionalDistanceMap(volume, 'z', '--+', 0.01, 1, 255, false).dispose()
         // })
-        // .then((info) => console.log(`kernelMs: ${info.kernelMs}, wallTimeMs: ${info.wallMs}`))
+        // .then((info) => console.log(`kernelMs: ${info.kernelMs}, wallTimeMs: ${info.wallMs}, uploadWaitMs: ${uploadWaitMs}, downloadWaitMs: ${downloadWaitMs}`))
 
    
-        if (this.distanceVariation ===  '1bit') this.compute1BitDistanceTexture()
-        if (this.distanceVariation ===  '5bit') this.compute5BitDistanceTexture()
-        if (this.distanceVariation ===  '8bit') this.compute8BitDistanceTexture()
-        if (this.distanceVariation === '10bit') this.compute10BitDistanceTexture()
+        // if (this.distanceVariation ===  '1bit') this.compute1BitDistanceTexture()
+        // if (this.distanceVariation ===  '5bit') this.compute5BitDistanceTexture()
+        // if (this.distanceVariation ===  '8bit') this.compute8BitDistanceTexture()
+        // if (this.distanceVariation === '10bit') this.compute10BitDistanceTexture()
     }
  
     compute1BitDistanceTexture()

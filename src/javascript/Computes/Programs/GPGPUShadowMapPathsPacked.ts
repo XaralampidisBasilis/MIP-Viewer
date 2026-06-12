@@ -126,6 +126,21 @@ function packedOctantsFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Oct
     return [...octants] as [Octant, Octant, Octant, Octant]
 }
 
+function unpackTensorFromAxisOctant(
+    tensor: tf.Tensor5D,
+    dominantAxis: Axis,
+    directionOctant: Octant,
+): tf.Tensor3D
+{
+    const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
+    const octants = packedOctantsFromSignAxis(dominantSign, dominantAxis)
+    const index = octants.findIndex((octant) => octant === directionOctant)
+    const row = Math.floor(index / 2);
+    const col = index % 2;
+
+    return tf.tidy(() => tensor.slice([0, 0, 0, row, col], [-1, -1, -1, 1, 1]).squeeze([3, 4]))
+}
+
 /**
  * Logs the mean over spatial axes without downloading the full tensor.
  */
@@ -1083,21 +1098,6 @@ function extendedChebyshevDistancePass(
     return extendedDistances as tf.Tensor5D
 }
 
-function extractOctantTensor(
-    tensor: tf.Tensor5D,
-    dominantAxis: Axis,
-    directionOctant: Octant,
-): tf.Tensor3D
-{
-    const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
-    const octants = packedOctantsFromSignAxis(dominantSign, dominantAxis)
-    const index = octants.findIndex((octant) => octant === directionOctant)
-    const row = Math.floor(index / 2);
-    const col = index % 2;
-
-    return tf.tidy(() => tensor.slice([0, 0, 0, row, col], [-1, -1, -1, 1, 1]).squeeze([3, 4]))
-}
-
 /**
  * Computes four unidirectional conservative cell-rejection masks in packed lanes.
  */
@@ -1269,7 +1269,6 @@ export function computeBidirectionalDistanceMaps(
 }
 
 
-
 export function computeUnidirectionalShadowMap(
     volume: tf.Tensor3D,
     dominantAxis: Axis,
@@ -1281,7 +1280,7 @@ export function computeUnidirectionalShadowMap(
 {
     const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
     const shadowMaps = computeUnidirectionalShadowMaps(volume, dominantAxis, dominantSign, errorTolerance, blockSize, verbose)
-    const shadowMap = extractOctantTensor(shadowMaps, dominantAxis, directionOctant)
+    const shadowMap = unpackTensorFromAxisOctant(shadowMaps, dominantAxis, directionOctant)
     tf.dispose(shadowMaps)
 
     return shadowMap as tf.Tensor3D
@@ -1298,7 +1297,7 @@ export function computeBidirectionalShadowMap(
 {
     const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
     const shadowMaps = computeBidirectionalShadowMaps(volume, dominantAxis, dominantSign, errorTolerance, blockSize, verbose)
-    const shadowMap = extractOctantTensor(shadowMaps, dominantAxis, directionOctant)
+    const shadowMap = unpackTensorFromAxisOctant(shadowMaps, dominantAxis, directionOctant)
     tf.dispose(shadowMaps)
 
     return shadowMap as tf.Tensor3D
