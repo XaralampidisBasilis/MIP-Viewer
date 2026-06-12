@@ -540,7 +540,7 @@ class IsotropicChebyshevDistancePass implements GPGPUProgram
 
         int sampleChebyshevDistanceAt(ivec3 cellCoords)
         {
-            return int(getA(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0));
+            return int(getA(cellCoords.z, cellCoords.y, cellCoords.x));
         }
     
         void main()
@@ -601,8 +601,8 @@ class AnisotropicChebyshevDistancePass implements GPGPUProgram
     variableNames = ['A']
     outputShape: [number, number, number]
     userCode: string
-    packedInputs = true
-    packedOutput = true
+    packedInputs = false
+    packedOutput = false
 
     constructor(
         shape: [number, number, number],
@@ -680,8 +680,8 @@ class ExtendedChebyshevDistancePass implements GPGPUProgram
     variableNames = ['A']
     outputShape: [number, number, number]
     userCode: string
-    packedInputs = true
-    packedOutput = true
+    packedInputs = false
+    packedOutput = false
 
     constructor(
         shape: [number, number, number],
@@ -716,7 +716,7 @@ class ExtendedChebyshevDistancePass implements GPGPUProgram
 
         int getCandidateDistance(int sampleDistance, int radius)
         {
-            return sampleDistance <= radius ? radius : ${maxDistance}
+            return sampleDistance <= radius ? radius : ${maxDistance};
         }
 
         void main() 
@@ -724,7 +724,7 @@ class ExtendedChebyshevDistancePass implements GPGPUProgram
             ivec3 outCoords = outputCoords();
             ivec3 sampleCoords = outCoords;
 
-            ivec4 minDistance = ivec4(${maxDistance});
+            int minDistance = ${maxDistance};
 
             for (int radius = 0; radius <= maxRadius; ++radius) 
             {
@@ -747,7 +747,7 @@ class ExtendedChebyshevDistancePass implements GPGPUProgram
                 
             }
 
-            setOutput(vec4(minDistance));
+            setOutput(float(minDistance));
         }
         `
     }

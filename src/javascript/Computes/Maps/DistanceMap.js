@@ -32,32 +32,62 @@ export default class DistanceMap
         // console.log(error.mean([0,1,2]).dataSync())
         // tf.whereAsync(error.cast('bool')).then((coords) => console.log(coords.arraySync()))
 
-        // tf.tidy(() => console.log(B.computeBidirectionalShadowMaps(volume, 'z',  '+', 0.01, 1, false).mean([0,1,2]).dataSync()))
-        // tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '+++', 0.01, false).mean([0,1,2]).dataSync()))
-        // tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '+-+', 0.01, false).mean([0,1,2]).dataSync()))
-        // tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '-++', 0.01, false).mean([0,1,2]).dataSync()))
-        // tf.tidy(() => console.log(A.computeBidirectionalShadowMap(volume, 'z', '--+', 0.01, false).mean([0,1,2]).dataSync()))
+        // tf.tidy(() => console.log( A.computeBidirectionalShadowMap(volume, 'z', '+++', 0.01, 1, false).mean([0,1,2]).dataSync()))
+        // tf.tidy(() => console.log( A.computeBidirectionalShadowMap(volume, 'z', '+-+', 0.01, 1, false).mean([0,1,2]).dataSync()))
+        // tf.tidy(() => console.log( A.computeBidirectionalShadowMap(volume, 'z', '-++', 0.01, 1, false).mean([0,1,2]).dataSync()))
+        // tf.tidy(() => console.log( A.computeBidirectionalShadowMap(volume, 'z', '--+', 0.01, 1, false).mean([0,1,2]).dataSync()))
+        // tf.tidy(() => console.log(B.computeBidirectionalShadowMaps(volume, 'z',   '+', 0.01, 1, false).mean([0,1,2]).dataSync()))
 
-        // tf.tidy(() =>                   console.log(B.computeShadowDistanceMap(volume, 'z',   '+', 0.01, 1, 64, false).mean([0,1,2]).dataSync()))
-        // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+++', 0.01, 1, 64, true))
-        // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '+-+', 0.01, 1, 64, true))
-        // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '-++', 0.01, 1, 64, true))
-        // tf.tidy(() => C.extendedAnisotropicUnidirectionalDistanceMapInt32Array(volume, 'z', '--+', 0.01, 1, 64, true))
+        // tf.tidy(() => console.log( A.computeUnidirectionalDistanceMap(volume, 'z', '+++', 0.01, 1, 64, false).mean([0,1,2]).dataSync()))
+        // tf.tidy(() => console.log( A.computeUnidirectionalDistanceMap(volume, 'z', '+-+', 0.01, 1, 64, false).mean([0,1,2]).dataSync()))
+        // tf.tidy(() => console.log( A.computeUnidirectionalDistanceMap(volume, 'z', '-++', 0.01, 1, 64, false).mean([0,1,2]).dataSync()))
+        // tf.tidy(() => console.log( A.computeUnidirectionalDistanceMap(volume, 'z', '--+', 0.01, 1, 64, false).mean([0,1,2]).dataSync()))
+        // tf.tidy(() => console.log(B.computeUnidirectionalDistanceMaps(volume, 'z',   '+', 0.01, 1, 64, false).mean([0,1,2]).dataSync()))
+    
+        // console.time('B')
+        // B.computeBidirectionalShadowMaps(volume, 'z','+', 0.01, 1, false).dispose()
+        // console.timeEnd('B')
 
-        console.time('A')
-        A.computeUnidirectionalDistanceMap(volume, 'z', '+++', 0.01, 1, 64, false).dispose()
-        A.computeUnidirectionalDistanceMap(volume, 'z', '+-+', 0.01, 1, 64, false).dispose()
-        A.computeUnidirectionalDistanceMap(volume, 'z', '-++', 0.01, 1, 64, false).dispose()
-        A.computeUnidirectionalDistanceMap(volume, 'z', '--+', 0.01, 1, 64, false).dispose()
-        console.timeEnd('A')
-        console.time('B')
-        B.computeUnidirectionalDistanceMaps(volume, 'z','+', 0.01, 1, 64, false).dispose()
-        console.timeEnd('B')
+        // console.time('A')
+        // A.computeBidirectionalShadowMap(volume, 'z', '+++', 0.01, 1, false).dispose()
+        // A.computeBidirectionalShadowMap(volume, 'z', '+-+', 0.01, 1, false).dispose()
+        // A.computeBidirectionalShadowMap(volume, 'z', '-++', 0.01, 1, false).dispose()
+        // A.computeBidirectionalShadowMap(volume, 'z', '--+', 0.01, 1, false).dispose()
+        // console.timeEnd('A')
 
-        // if (this.distanceVariation ===  '1bit') this.compute1BitDistanceTexture()
-        // if (this.distanceVariation ===  '5bit') this.compute5BitDistanceTexture()
-        // if (this.distanceVariation ===  '8bit') this.compute8BitDistanceTexture()
-        // if (this.distanceVariation === '10bit') this.compute10BitDistanceTexture()
+        // tf.time(() => 
+        // {
+        //     A.computeBidirectionalShadowMap(volume, 'z', '+++', 0.01, 1, false).dispose()
+        //     A.computeBidirectionalShadowMap(volume, 'z', '+-+', 0.01, 1, false).dispose()
+        //     A.computeBidirectionalShadowMap(volume, 'z', '-++', 0.01, 1, false).dispose()
+        //     A.computeBidirectionalShadowMap(volume, 'z', '--+', 0.01, 1, false).dispose()
+        // })
+        // .then((info) => console.log(`kernelMs: ${info.kernelMs}, wallTimeMs: ${info.wallMs}`))
+        // tf.time(() => 
+        // {
+        //     B.computeBidirectionalShadowMaps(volume, 'z','+', 0.01, 1, false).dispose()
+        // })
+        // .then((info) => console.log(`kernelMs: ${info.kernelMs}, wallTimeMs: ${info.wallMs}`))
+
+        // tf.time(() => 
+        // {
+        //     B.computeUnidirectionalDistanceMaps(volume, 'z','+', 0.01, 1, 255, false).dispose()
+        // })
+        // .then((info) => console.log(`kernelMs: ${info.kernelMs}, wallTimeMs: ${info.wallMs}`))
+        // tf.time(() => 
+        // {
+        //     A.computeUnidirectionalDistanceMap(volume, 'z', '+++', 0.01, 1, 255, false).dispose()
+        //     A.computeUnidirectionalDistanceMap(volume, 'z', '+-+', 0.01, 1, 255, false).dispose()
+        //     A.computeUnidirectionalDistanceMap(volume, 'z', '-++', 0.01, 1, 255, false).dispose()
+        //     A.computeUnidirectionalDistanceMap(volume, 'z', '--+', 0.01, 1, 255, false).dispose()
+        // })
+        // .then((info) => console.log(`kernelMs: ${info.kernelMs}, wallTimeMs: ${info.wallMs}`))
+
+   
+        if (this.distanceVariation ===  '1bit') this.compute1BitDistanceTexture()
+        if (this.distanceVariation ===  '5bit') this.compute5BitDistanceTexture()
+        if (this.distanceVariation ===  '8bit') this.compute8BitDistanceTexture()
+        if (this.distanceVariation === '10bit') this.compute10BitDistanceTexture()
     }
  
     compute1BitDistanceTexture()

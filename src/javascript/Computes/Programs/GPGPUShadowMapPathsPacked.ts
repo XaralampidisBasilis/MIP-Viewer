@@ -651,7 +651,7 @@ class IsotropicChebyshevDistancePass implements GPGPUProgram
 
             ivec4 minDistances = sampleChebyshevDistancesAt(sampleCoords);
 
-            if (all(lessThanEqual(minDistances, ivec4(0)))
+            if (all(equal(minDistances, ivec4(0))))
             {
                 setOutput(vec4(minDistances));
                 return;
@@ -750,7 +750,7 @@ class AnisotropicChebyshevDistancePass implements GPGPUProgram
 
             ivec4 minDistances = sampleChebyshevDistancesAt(sampleCoords);
 
-            if (all(lessThanEqual(minDistances, ivec4(0))))
+            if (all(equal(minDistances, ivec4(0))))
             {
                 setOutput(vec4(minDistances));
                 return;
@@ -871,7 +871,7 @@ class ExtendedChebyshevDistancePass implements GPGPUProgram
 
                 ivec4 radius4 = ivec4(radius);
                 ivec4 sampleDistances = sampleChebyshevDistancesAt(sampleCoords);
-                ivec4 candidateDistances = getCandidateDistances(sampleDistances, radius4);
+                ivec4 candidateDistances = getCandidateDistances(sampleDistances, radius);
                 
                 minDistances = min(minDistances, candidateDistances); 
                 
@@ -1083,6 +1083,21 @@ function extendedChebyshevDistancePass(
     return extendedDistances as tf.Tensor5D
 }
 
+function extractOctantTensor(
+    tensor: tf.Tensor5D,
+    dominantAxis: Axis,
+    directionOctant: Octant,
+): tf.Tensor3D
+{
+    const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
+    const octants = packedOctantsFromSignAxis(dominantSign, dominantAxis)
+    const index = octants.findIndex((octant) => octant === directionOctant)
+    const row = Math.floor(index / 2);
+    const col = index % 2;
+
+    return tf.tidy(() => tensor.slice([0, 0, 0, row, col], [-1, -1, -1, 1, 1]).squeeze([3, 4]))
+}
+
 /**
  * Computes four unidirectional conservative cell-rejection masks in packed lanes.
  */
@@ -1145,7 +1160,7 @@ export function computeBidirectionalShadowMaps(
 
     const backwardVertexMinmaxValues = propagateVertexMinmaxValues(backwardVertexValues, dominantAxis, backwardSign, verbose)
     const backwardVertexShadows = computeVertexShadows(backwardVertexValues, backwardVertexMinmaxValues, dominantAxis, backwardSign, errorTolerance, verbose)
-    tf.dispose(backwardVertexMinmaxValues)
+    tf.dispose([backwardVertexValues, backwardVertexMinmaxValues])
 
     const backwardCellShadows = computeCellShadows(backwardVertexShadows, dominantAxis, backwardSign, false)
     tf.dispose(backwardVertexShadows)
@@ -1163,64 +1178,6 @@ export function computeBidirectionalShadowMaps(
 
     if (verbose) logMean3d('bidirectionalBlockShadows', bidirectionalBlockShadows)
     return bidirectionalBlockShadows as tf.Tensor5D
-}
-
-/**
- * Alternative block-first variant. It pools packed input value bounds first,
- * then computes the bidirectional mask at block resolution.
- */
-export function computeBidirectionalShadowMaps2(
-    volume: tf.Tensor3D,
-    dominantAxis: Axis,
-    dominantSign: Sign,
-    tolerance: number,
-    blockSize: number,
-    verbose: boolean = false
-): tf.Tensor5D
-{
-    // Reduce
-    const vertexValues = computeVertexValues(volume)
-    const minVertexValues = minPool3dPacked(vertexValues, blockSize, blockSize, 'valid')
-    const maxVertexValues = maxPool3dPacked(vertexValues, blockSize, blockSize, 'valid')
-    tf.dispose(vertexValues)
-
-    // Forward
-    const forwardSign = dominantSign
-    const forwardMinVertexValues = minVertexValues
-    const forwardMaxVertexValues = maxVertexValues
-   
-    const forwardVertexMinmax = propagateVertexMinmaxValues(forwardMinVertexValues, dominantAxis, forwardSign, verbose)
-    const forwardVertexShadows = computeVertexShadows(forwardMaxVertexValues, forwardVertexMinmax, dominantAxis, forwardSign, tolerance, verbose)
-    tf.dispose(forwardVertexMinmax)
-
-    const forwardCellShadows = computeCellShadows(forwardVertexShadows, dominantAxis, forwardSign, verbose)
-    tf.dispose(forwardVertexShadows)
-
-    // Backwards
-    const backwardSign = su.reverseSign(dominantSign)
-    const backwardVertexHoles = computeVertexHoles(forwardCellShadows, dominantAxis, backwardSign, verbose)
-    
-    const backwardMinVertexValues = where3dPacked(backwardVertexHoles, 0, minVertexValues)
-    tf.dispose(minVertexValues)
-
-    const backwardMaxVertexValues = where3dPacked(backwardVertexHoles, 0, maxVertexValues)
-    tf.dispose([maxVertexValues, backwardVertexHoles])
-
-    const backwardVertexMinmax = propagateVertexMinmaxValues(backwardMinVertexValues, dominantAxis, backwardSign, verbose)
-    tf.dispose(backwardMinVertexValues)
-
-    const backwardVertexShadows = computeVertexShadows(backwardMaxVertexValues, backwardVertexMinmax, dominantAxis, backwardSign, tolerance, verbose)
-    tf.dispose([backwardMaxVertexValues, backwardVertexMinmax])
-
-    const backwardCellShadows = computeCellShadows(backwardVertexShadows, dominantAxis, backwardSign, verbose)
-    tf.dispose(backwardVertexShadows)
-
-    // Bidirectional
-    const bidirectionalBlockShadows = logicalOr3dPacked(forwardCellShadows, backwardCellShadows)
-    tf.dispose([forwardCellShadows, backwardCellShadows])
-    if (verbose) logMean3d('bidirectionalBlockShadows', bidirectionalBlockShadows)
-
-    return bidirectionalBlockShadows
 }
 
 /**
@@ -1309,4 +1266,40 @@ export function computeBidirectionalDistanceMaps(
     if (verbose) logMean3d('bidirectionalDistanceMap', bidirectionalDistanceMap)
 
     return bidirectionalDistanceMap as tf.Tensor5D
+}
+
+
+
+export function computeUnidirectionalShadowMap(
+    volume: tf.Tensor3D,
+    dominantAxis: Axis,
+    directionOctant: Octant,
+    errorTolerance: number,
+    blockSize: number,
+    verbose: boolean = false
+): tf.Tensor3D
+{
+    const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
+    const shadowMaps = computeUnidirectionalShadowMaps(volume, dominantAxis, dominantSign, errorTolerance, blockSize, verbose)
+    const shadowMap = extractOctantTensor(shadowMaps, dominantAxis, directionOctant)
+    tf.dispose(shadowMaps)
+
+    return shadowMap as tf.Tensor3D
+}
+
+export function computeBidirectionalShadowMap(
+    volume: tf.Tensor3D,
+    dominantAxis: Axis,
+    directionOctant: Octant,
+    errorTolerance: number,
+    blockSize: number,
+    verbose: boolean = false
+): tf.Tensor3D
+{
+    const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
+    const shadowMaps = computeBidirectionalShadowMaps(volume, dominantAxis, dominantSign, errorTolerance, blockSize, verbose)
+    const shadowMap = extractOctantTensor(shadowMaps, dominantAxis, directionOctant)
+    tf.dispose(shadowMaps)
+
+    return shadowMap as tf.Tensor3D
 }
