@@ -485,7 +485,6 @@ class IterateFaceMinmaxValuesProgram implements GPGPUProgram
     userCode: string
     packedInputs = true
     packedOutput = true
-    customUniforms = [{ name: 'slice', type: 'int' as const }]
 
     constructor(
         shape: [number, number, number, 2, 2],
@@ -521,9 +520,15 @@ class IterateFaceMinmaxValuesProgram implements GPGPUProgram
                 getA(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).xyz : vec3(NEG_INF);
         }
 
-        float computeYFaceMinmaxValue(vec3 c111, vec3 c110, vec3 c011, vec3 c010)
+        float computeXFaceMinmaxValue(vec3 c111, vec3 c110, vec3 c101)
         {
-            float minValues = min(c110.z, max(c011.x, c010.z));
+            float minValues = min(c110.z, c101.y);
+            return max(c111.x, minValues);
+        }
+
+        float computeYFaceMinmaxValue(vec3 c111, vec3 c110, vec3 c011)
+        {
+            float minValues = min(c110.z, c011.x);
             return max(c111.y, minValues);
         }
 
@@ -544,11 +549,11 @@ class IterateFaceMinmaxValuesProgram implements GPGPUProgram
             vec3 c100 = faceMinmaxValuesAt(sliceCoords + ivec3(${sliceOffset( 0, -1, -1, dominantAxis, directionOctant)}));
             vec3 c000 = faceMinmaxValuesAt(sliceCoords + ivec3(${sliceOffset(-1, -1, -1, dominantAxis, directionOctant)}));
 
-            c111.x = computeXFaceMinmaxValue(c111, c110, c101, c100);
-            c111.y = computeYFaceMinmaxValue(c111, c110, c011, c010);
-            c111.z = computeZFaceMinmaxValue(c111, c110, c101, c011);
+            float xFaceMinmaxValue = computeXFaceMinmaxValue(c111, c110, c101);
+            float yFaceMinmaxValue = computeYFaceMinmaxValue(c111, c110, c011);
+            float zFaceMinmaxValue = computeZFaceMinmaxValue(c111, c110, c101, c011);
 
-            return c111;
+            return vec3(xFaceMinmaxValue, yFaceMinmaxValue, zFaceMinmaxValue);
         }
 
         void main()
@@ -807,12 +812,12 @@ function iterateFaceMinmaxValues(
     const dimension = su.axisToDimension(dominantAxis)
     const iterations = shape[dimension]
 
-    const propagate = new IterateFaceMinmaxValuesProgram(shape, dominantAxis, directionOctant)
+    const iterate = new IterateFaceMinmaxValuesProgram(shape, dominantAxis, directionOctant)
     let prev = faceMinValues.clone() 
 
     for (let i = 0; i < iterations; i += 1)
     {
-        const next = runWebGLProgram(propagate, [prev], 'float32', [], true)
+        const next = runWebGLProgram(iterate, [prev], 'float32', [], true)
         tf.dispose(prev)
         prev = next as tf.Tensor5D
     }
@@ -895,7 +900,7 @@ export function computeUnidirectionalShadowMap(
 ): tf.Tensor3D
 {
     const faceMinValues = computeFaceMinValues(volume, dominantAxis, directionOctant, verbose)
-    const faceMinmaxValues = propagateFaceMinmaxValues(faceMinValues, dominantAxis, directionOctant, verbose)
+    const faceMinmaxValues = iterateFaceMinmaxValues(faceMinValues, dominantAxis, directionOctant, verbose)
     tf.dispose(faceMinValues)
     
     const faceMaxValues = computeFaceMaxValues(volume, dominantAxis, directionOctant, verbose)
