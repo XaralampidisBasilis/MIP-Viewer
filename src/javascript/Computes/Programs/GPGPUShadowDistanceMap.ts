@@ -2,10 +2,10 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMap'
+// import { computeBidirectionalShadowMap as computeBidirectionalBlockShadowMap } from './GPGPUShadowMapFaces'
 import { computeBidirectionalShadowMap as computeBidirectionalBlockShadowMap } from './GPGPUShadowMapPaths'
 // import { computeBidirectionalShadowMap as computeBidirectionalBlockShadowMap } from './GPGPUShadowMapPathsPacked'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapMargins'
-// import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapFaces'
 // import { computeBidirectionalBlockShadowMap } from './GPGPUShadowMapDifferences'
 import {
     type Axis,

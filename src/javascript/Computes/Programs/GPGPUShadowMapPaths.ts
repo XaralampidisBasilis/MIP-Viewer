@@ -148,7 +148,7 @@ class ComputeVertexValuesProgram implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
-        bool insideVoxelSpace(ivec3 voxelCoords)
+        bool validVoxelCoords(ivec3 voxelCoords)
         {
             return 
                 voxelCoords.x >= minCoords.x && voxelCoords.x <= maxCoords.x &&
@@ -211,7 +211,7 @@ class IterateVertexMinmaxValuesProgram implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
-        bool insideVertexSpace(ivec3 vertexCoords)
+        bool validVertexCoords(ivec3 vertexCoords)
         {
             return 
                 vertexCoords.x >= minCoords.x && vertexCoords.x <= maxCoords.x &&
@@ -227,7 +227,7 @@ class IterateVertexMinmaxValuesProgram implements GPGPUProgram
 
         float vertexMinmaxValueAt(ivec3 vertexCoords)
         {            
-            return insideVertexSpace(vertexCoords) ? 
+            return validVertexCoords(vertexCoords) ? 
                 getA(vertexCoords.z, vertexCoords.y, vertexCoords.x) : NEG_INF;
         }
 
@@ -287,7 +287,7 @@ class PropagateVertexMinmaxValuesProgram implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
-        bool insideSliceSpace(ivec3 sliceCoords)
+        bool validSliceCoords(ivec3 sliceCoords)
         {
             return 
                 ${(width  > 1) ? 'sliceCoords.x >= minCoords.x && sliceCoords.x <= maxCoords.x' : 'true'} &&
@@ -308,7 +308,7 @@ class PropagateVertexMinmaxValuesProgram implements GPGPUProgram
 
         float previousSliceAt(ivec3 sliceCoords)
         {            
-            return insideSliceSpace(sliceCoords) ? 
+            return validSliceCoords(sliceCoords) ? 
                 getB(sliceCoords.z, sliceCoords.y, sliceCoords.x) : NEG_INF;
         }
 
@@ -368,7 +368,7 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
-        bool insideVertexSpace(ivec3 vertexCoords)
+        bool validVertexCoords(ivec3 vertexCoords)
         {
             return 
                 vertexCoords.x >= minCoords.x && vertexCoords.x <= maxCoords.x &&
@@ -389,7 +389,7 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
 
         float vertexMinmaxAt(ivec3 vertexCoords)
         {
-            return insideVertexSpace(vertexCoords) ? 
+            return validVertexCoords(vertexCoords) ? 
                 getB(vertexCoords.z, vertexCoords.y, vertexCoords.x) : NEG_INF;
         }
 
@@ -687,13 +687,14 @@ export function computeUnidirectionalShadowMap(
     tf.dispose(vertexShadows)
     if (verbose) logMean3d('cellShadows', cellShadows)
         
-    if (blockSize === 1) return cellShadows
+    if (blockSize === 1) 
+        return cellShadows as tf.Tensor3D
 
     const blockShadows = minPool3d(cellShadows, blockSize, blockSize, 0, 'ceil') 
     tf.dispose(cellShadows)
     if (verbose) logMean3d('blockShadows', blockShadows)
         
-    return blockShadows 
+    return blockShadows as tf.Tensor3D
 }
 
 /**
@@ -738,7 +739,8 @@ export function computeBidirectionalShadowMap(
     tf.dispose([forwardCellShadows, backwardCellShadows])
     if (verbose) logMean3d('bidirectionalCellShadows', bidirectionalCellShadows)
 
-    if (blockSize === 1) return bidirectionalCellShadows
+    if (blockSize === 1) 
+        return bidirectionalCellShadows as tf.Tensor3D
 
     const bidirectionalBlockShadows = minPool3d(bidirectionalCellShadows, blockSize, blockSize, 0, 'ceil') 
     tf.dispose(bidirectionalCellShadows)

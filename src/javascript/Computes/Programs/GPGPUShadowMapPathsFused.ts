@@ -27,14 +27,13 @@ import { logicalOr3dPacked } from './logicalOr3dPacked'
 import { where3dPacked } from './where3dPacked'
 import { type Sign, type Octant, type Axis } from '../../Utils/ShadowMapUtils'
 
-
 /**
  * This function returns the order of the packed octants that the packed
  *  gpgpu programs bellow generate given as input the dominant axis and sign
  */
-function fusedOctantsFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Octant, Octant]
+function octantsLayoutFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Octant, Octant]
 {
-    const FUSED_OCTANTS_FROM_SIGN_AXIS: Record<string, [Octant, Octant, Octant, Octant]> = 
+    const OCTANTS_LAYOUT_FROM_SIGN_AXIS: Record<string, [Octant, Octant, Octant, Octant]> = 
     {
         "+x" : ['+++', '+-+', '++-', '+--'] , "-x" : ['---', '-+-', '--+', '-++'] ,
         "+y" : ['+++', '-++', '++-', '-+-'] , "-y" : ['---', '+--', '--+', '+-+'] ,
@@ -42,7 +41,7 @@ function fusedOctantsFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Octa
     }
 
     const key = `${sign}${axis}`
-    const octants = FUSED_OCTANTS_FROM_SIGN_AXIS[key]
+    const octants = OCTANTS_LAYOUT_FROM_SIGN_AXIS[key]
 
     return [...octants] as [Octant, Octant, Octant, Octant]
 }
@@ -54,7 +53,8 @@ function extractTensorFromAxisOctant(
 ): tf.Tensor3D
 {
     const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
-    const octants = fusedOctantsFromSignAxis(dominantSign, dominantAxis)
+    const octants = octantsLayoutFromSignAxis(dominantSign, dominantAxis)
+
     const index = octants.findIndex((octant) => octant === directionOctant)
     const row = Math.floor(index / 2);
     const col = index % 2;
@@ -188,7 +188,7 @@ class ComputeVertexValuesProgram implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
-        bool insideVoxelSpace(ivec3 voxelCoords)
+        bool validVoxelCoords(ivec3 voxelCoords)
         {
             return 
                 voxelCoords.x >= minCoords.x && voxelCoords.x <= maxCoords.x &&
@@ -252,7 +252,7 @@ class PropagateVertexMinmaxValuesProgram implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
-        bool insideSliceSpace(ivec3 sliceCoords)
+        bool validSliceCoords(ivec3 sliceCoords)
         {
             return 
                 ${(width  > 1) ? 'sliceCoords.x >= minCoords.x && sliceCoords.x <= maxCoords.x' : 'true'} &&
@@ -273,7 +273,7 @@ class PropagateVertexMinmaxValuesProgram implements GPGPUProgram
 
         vec4 previousSliceAt(ivec3 sliceCoords)
         {            
-            return insideSliceSpace(sliceCoords) ? 
+            return validSliceCoords(sliceCoords) ? 
                 getB(sliceCoords.z, sliceCoords.y, sliceCoords.x, 0, 0) : vec4(NEG_INF);
         }
 
@@ -335,12 +335,12 @@ class IterateVertexMinmaxValuesProgram implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
-        bool insideVertexSpace(ivec3 vertexCoords)
+        bool validVertexCoords(ivec3 vertexCoords)
         {
             return 
-                (vertexCoords.x >= minCoords.x && vertexCoords.x <= maxCoords.x) &&
-                (vertexCoords.y >= minCoords.y && vertexCoords.y <= maxCoords.y) &&
-                (vertexCoords.z >= minCoords.z && vertexCoords.z <= maxCoords.z);
+                vertexCoords.x >= minCoords.x && vertexCoords.x <= maxCoords.x &&
+                vertexCoords.y >= minCoords.y && vertexCoords.y <= maxCoords.y &&
+                vertexCoords.z >= minCoords.z && vertexCoords.z <= maxCoords.z;
         }
 
         ivec3 outputCoords()
@@ -351,7 +351,7 @@ class IterateVertexMinmaxValuesProgram implements GPGPUProgram
 
         vec4 vertexMinmaxValuesAt(ivec3 vertexCoords)
         {            
-            return insideVertexSpace(vertexCoords) ? 
+            return validVertexCoords(vertexCoords) ? 
                 getA(vertexCoords.z, vertexCoords.y, vertexCoords.x, 0, 0) : vec4(NEG_INF);
         }
 
@@ -420,7 +420,7 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
-        bool insideVertexSpace(ivec3 vertexCoords)
+        bool validVertexCoords(ivec3 vertexCoords)
         {
             return 
                 vertexCoords.x >= minCoords.x && vertexCoords.x <= maxCoords.x &&
@@ -441,7 +441,7 @@ class ComputeVertexShadowsProgram implements GPGPUProgram
 
         vec4 vertexMinmaxAt(ivec3 vertexCoords)
         {
-            return insideVertexSpace(vertexCoords) ? 
+            return validVertexCoords(vertexCoords) ? 
                 getB(vertexCoords.z, vertexCoords.y, vertexCoords.x, 0, 0) : vec4(NEG_INF);
         }
 
@@ -524,14 +524,12 @@ class ComputeVertexHolesProgram implements GPGPUProgram
 
         bvec4 computeVertexHoles(ivec3 vertexCoords)
         {
-            bvec4 vertexHoles = bvec4(
+            return bvec4(
                 cellShadowAt(vertexCoords - ivec3(${cellOffset(0, 0, 0, dominantAxis, dominantSign)})).r,
                 cellShadowAt(vertexCoords - ivec3(${cellOffset(0, 1, 0, dominantAxis, dominantSign)})).g,
                 cellShadowAt(vertexCoords - ivec3(${cellOffset(1, 0, 0, dominantAxis, dominantSign)})).b,
                 cellShadowAt(vertexCoords - ivec3(${cellOffset(1, 1, 0, dominantAxis, dominantSign)})).a 
             );
-   
-            return vertexHoles;
         }
 
         void main()
@@ -761,14 +759,15 @@ export function computeUnidirectionalShadowMaps(
 
     const cellShadows = computeCellShadows(vertexShadows, dominantAxis, dominantSign, verbose)
     tf.dispose(vertexShadows)
-
     if (verbose) logMean3d('cellShadows', cellShadows)
-    if (blockSize === 1) return cellShadows
+
+    if (blockSize === 1) 
+        return cellShadows
 
     const blockShadows = minPool3dPacked(cellShadows, blockSize, blockSize, 0, 'ceil') 
     tf.dispose(cellShadows)
-
     if (verbose) logMean3d('blockShadows', blockShadows)
+        
     return blockShadows 
 }
 
@@ -813,14 +812,15 @@ export function computeBidirectionalShadowMaps(
     // Bidirectional
     const bidirectionalCellShadows = logicalOr3dPacked(forwardCellShadows, backwardCellShadows)
     tf.dispose([forwardCellShadows, backwardCellShadows])
-
     if (verbose) logMean3d('bidirectionalCellShadows', bidirectionalCellShadows)
-    if (blockSize === 1) return bidirectionalCellShadows
+
+    if (blockSize === 1) 
+        return bidirectionalCellShadows
 
     const bidirectionalBlockShadows = minPool3dPacked(bidirectionalCellShadows, blockSize, blockSize, 0, 'ceil') 
     tf.dispose(bidirectionalCellShadows)
-
     if (verbose) logMean3d('bidirectionalBlockShadows', bidirectionalBlockShadows)
+
     return bidirectionalBlockShadows as tf.Tensor5D
 }
 
