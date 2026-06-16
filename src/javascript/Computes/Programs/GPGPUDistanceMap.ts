@@ -33,7 +33,7 @@ function runWebGLProgram(
     return tf.engine().makeTensorFromTensorInfo(info)
 }
 
-class BinaryChebyshevDistancePass implements GPGPUProgram 
+class InitialChebyshevDistancePass implements GPGPUProgram 
 {
     variableNames = ['A'] 
     outputShape: [number, number, number]
@@ -317,14 +317,14 @@ class ExtendedChebyshevDistancePass implements GPGPUProgram
     }
 }
 
-function binaryChebyshevDistancePass(
+function initialChebyshevDistancePass(
     cellShadows: tf.Tensor3D,
     maxDistance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
     const shape = cellShadows.shape as [number, number, number]
-    const program = new BinaryChebyshevDistancePass(shape, maxDistance)
+    const program = new InitialChebyshevDistancePass(shape, maxDistance)
     const initialDistances = runWebGLProgram(program, [cellShadows], 'int32', [], true) 
     if (verbose) logMean3d('initialDistances', initialDistances)
 
@@ -384,7 +384,7 @@ export function computeIsotropicDistanceMap(
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const distances0d = binaryChebyshevDistancePass(mask, maxDistance, verbose)
+    const distances0d = initialChebyshevDistancePass(mask, maxDistance, verbose)
 
     const distances1d = isotropicChebyshevDistancePass(distances0d, 'x', maxDistance, verbose)
     tf.dispose(distances0d)
@@ -393,6 +393,32 @@ export function computeIsotropicDistanceMap(
     tf.dispose(distances1d)
 
     const distances3d = isotropicChebyshevDistancePass(distances2d, 'z', maxDistance, verbose)
+    tf.dispose(distances2d)
+
+    return distances3d
+}
+
+export function computeUnidirectionalDistanceMap(
+    mask: tf.Tensor3D,
+    dominantAxis: Axis,
+    directionOctant: Octant,
+    maxDistance: number,
+    verbose: boolean = false
+): tf.Tensor3D
+{
+    const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
+    const sweepSigns = sweepAxes.map((sweepAxis) => su.getOctantSign(directionOctant, sweepAxis)) as [Sign, Sign]
+    const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
+
+    const distances0d = initialChebyshevDistancePass(mask, maxDistance, verbose)
+
+    const distances1d = anisotropicChebyshevDistancePass(distances0d, sweepAxes[0], sweepSigns[0], maxDistance, verbose)
+    tf.dispose(distances0d)
+
+    const distances2d = anisotropicChebyshevDistancePass(distances1d, sweepAxes[1], sweepSigns[1], maxDistance, verbose)
+    tf.dispose(distances1d)
+
+    const distances3d = extendedChebyshevDistancePass(distances2d, dominantAxis, dominantSign, maxDistance, verbose)
     tf.dispose(distances2d)
 
     return distances3d
@@ -408,7 +434,7 @@ export function computeBidirectionalDistanceMap(
 {
 
     const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
-    const distances0d = binaryChebyshevDistancePass(mask, maxDistance, verbose)
+    const distances0d = initialChebyshevDistancePass(mask, maxDistance, verbose)
 
     // Forward
     const forwardDominantSign = su.getOctantSign(directionOctant, dominantAxis)
@@ -445,30 +471,4 @@ export function computeBidirectionalDistanceMap(
     return bidirectionalDistanceMap as tf.Tensor3D
 }
 
-export function computeUnidirectionalDistanceMap(
-    mask: tf.Tensor3D,
-    dominantAxis: Axis,
-    directionOctant: Octant,
-    maxDistance: number,
-    verbose: boolean = false
-): tf.Tensor3D
-{
-
-    const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
-    const sweepSigns = sweepAxes.map((sweepAxis) => su.getOctantSign(directionOctant, sweepAxis)) as [Sign, Sign]
-    const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
-
-    const distances0d = binaryChebyshevDistancePass(mask, maxDistance, verbose)
-
-    const distances1d = anisotropicChebyshevDistancePass(distances0d, sweepAxes[0], sweepSigns[0], maxDistance, verbose)
-    tf.dispose(distances0d)
-
-    const distances2d = anisotropicChebyshevDistancePass(distances1d, sweepAxes[1], sweepSigns[1], maxDistance, verbose)
-    tf.dispose(distances1d)
-
-    const distances3d = extendedChebyshevDistancePass(distances2d, dominantAxis, dominantSign, maxDistance, verbose)
-    tf.dispose(distances2d)
-
-    return distances3d
-}
 

@@ -65,7 +65,7 @@ function runWebGLProgram(
     return tf.engine().makeTensorFromTensorInfo(info)
 }
 
-class BinaryChebyshevDistancePass implements GPGPUProgram 
+class InitialChebyshevDistancePass implements GPGPUProgram 
 {
     variableNames = ['A'] 
     outputShape: [number, number, number, 2, 2]
@@ -382,14 +382,15 @@ class ExtendedChebyshevDistancePass implements GPGPUProgram
     }
 }
 
-function binaryChebyshevDistancePass(
+
+function initialChebyshevDistancePass(
     cellShadows: tf.Tensor5D,
     maxDistance: number,
     verbose: boolean = false
 ): tf.Tensor5D
 {
     const shape = cellShadows.shape as [number, number, number, 2, 2]
-    const program = new BinaryChebyshevDistancePass(shape, maxDistance)
+    const program = new InitialChebyshevDistancePass(shape, maxDistance)
     const initialDistances = runWebGLProgram(program, [cellShadows], 'int32', [], true) 
     if (verbose) logMean3d('initialDistances', initialDistances)
 
@@ -443,13 +444,14 @@ function extendedChebyshevDistancePass(
     return extendedDistances as tf.Tensor5D
 }
 
+
 export function computeIsotropicDistanceMaps(
     mask: tf.Tensor5D,
     maxDistance: number,
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const distance0d = binaryChebyshevDistancePass(mask, maxDistance, verbose)
+    const distance0d = initialChebyshevDistancePass(mask, maxDistance, verbose)
 
     const distances1d = isotropicChebyshevDistancePass(distance0d, 'x', maxDistance, verbose)
     tf.dispose(distance0d)
@@ -475,7 +477,7 @@ export function computeBidirectionalDistanceMaps(
     const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
     const sweepOctants = packedOctantsFromSignAxis(dominantSign, dominantAxis)
 
-    const distances0d = binaryChebyshevDistancePass(mask, maxDistance)
+    const distances0d = initialChebyshevDistancePass(mask, maxDistance)
 
     // Forward
     const forwardDominantSign = dominantSign
@@ -524,7 +526,7 @@ export function computeUnidirectionalDistanceMaps(
     const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
     const sweepSigns = sweepAxes.map((axis) => sweepOctants.map((octant) => su.getOctantSign(octant, axis)) as [Sign, Sign, Sign, Sign]) 
 
-    const distance0d = binaryChebyshevDistancePass(mask, maxDistance, verbose)
+    const distance0d = initialChebyshevDistancePass(mask, maxDistance, verbose)
 
     const distances1d = anisotropicChebyshevDistancePass(distance0d, sweepAxes[0], sweepSigns[0], maxDistance, verbose)
     tf.dispose(distance0d)
@@ -554,6 +556,22 @@ export function computeIsotropicDistanceMap(
     return distanceMap as tf.Tensor3D
 }
 
+export function computeUnidirectionalDistanceMap(
+    mask: tf.Tensor5D,
+    dominantAxis: Axis,
+    directionOctant: Octant,
+    maxDistance: number,
+    verbose: boolean = false
+): tf.Tensor3D
+{
+    const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
+    const distanceMaps = computeUnidirectionalDistanceMaps(mask, dominantAxis, dominantSign, maxDistance, verbose)
+    const distanceMap = unpackTensorFromAxisOctant(distanceMaps, dominantAxis, directionOctant)
+    tf.dispose(distanceMaps)
+
+    return distanceMap as tf.Tensor3D
+}
+
 export function computeBidirectionalDistanceMap(
     mask: tf.Tensor5D,
     dominantAxis: Axis,
@@ -570,20 +588,5 @@ export function computeBidirectionalDistanceMap(
     return distanceMap as tf.Tensor3D
 }
 
-export function computeUnidirectionalDistanceMap(
-    mask: tf.Tensor5D,
-    dominantAxis: Axis,
-    directionOctant: Octant,
-    maxDistance: number,
-    verbose: boolean = false
-): tf.Tensor3D
-{
-    const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
-    const distanceMaps = computeUnidirectionalDistanceMaps(mask, dominantAxis, dominantSign, maxDistance, verbose)
-    const distanceMap = unpackTensorFromAxisOctant(distanceMaps, dominantAxis, directionOctant)
-    tf.dispose(distanceMaps)
-
-    return distanceMap as tf.Tensor3D
-}
 
 

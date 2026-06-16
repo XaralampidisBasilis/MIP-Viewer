@@ -153,16 +153,51 @@ class ComputeVertexValuesProgram implements GPGPUProgram
                 voxelCoords.z >= minCoords.z && voxelCoords.z <= maxCoords.z;
         }
 
+        float min4(float a, float b, float c, float d)
+        {
+            return min(min(min(a, b), c), d);
+        }
+
+        float avg2(float a, float b)
+        {
+            return (a + b) / 2.0;
+        }
+
         ivec3 outputCoords()
         {
             ivec3 vertexCoords = getOutputCoords();
             return ivec3(vertexCoords.z, vertexCoords.y, vertexCoords.x);
         }
 
+        float voxelValueAt(ivec3 voxelCoords)
+        {
+            voxelCoords = clamp(voxelCoords, minCoords, maxCoords);
+            return getA(voxelCoords.z, voxelCoords.y, voxelCoords.x);
+        }
+
         float vertexValueAt(ivec3 vertexCoords)
         {
             ivec3 voxelCoords = vertexCoords - 1;
-            return insideVoxelSpace(voxelCoords) ? getA(voxelCoords.z, voxelCoords.y, voxelCoords.x) : 0.0;
+            return insideVoxelSpace(voxelCoords) ? voxelValueAt(voxelCoords) : 0.0;
+        }
+
+        float outsideValueAt(ivec3 voxelCoords)
+        {
+            float v111 = voxelValueAt(vertexCoords + ivec3(${cellOffset(1, 1, 1, axis, octant)}));
+            float v110 = voxelValueAt(vertexCoords + ivec3(${cellOffset(1, 1, 0, axis, octant)}));
+            float v101 = voxelValueAt(vertexCoords + ivec3(${cellOffset(1, 0, 1, axis, octant)}));
+            float v100 = voxelValueAt(vertexCoords + ivec3(${cellOffset(1, 0, 0, axis, octant)}));
+            float v011 = voxelValueAt(vertexCoords + ivec3(${cellOffset(0, 1, 1, axis, octant)}));
+            float v010 = voxelValueAt(vertexCoords + ivec3(${cellOffset(0, 1, 0, axis, octant)}));
+            float v001 = voxelValueAt(vertexCoords + ivec3(${cellOffset(0, 0, 1, axis, octant)}));
+            float v000 = voxelValueAt(vertexCoords + ivec3(${cellOffset(0, 0, 0, axis, octant)}));
+
+            float a00 = avg2(v000, v001);
+            float a01 = avg2(v010, v011);
+            float a10 = avg2(v100, v101);
+            float a11 = avg2(v110, v111);
+
+            return min4(a00, a01, a10, a11);
         }
 
         void main()
