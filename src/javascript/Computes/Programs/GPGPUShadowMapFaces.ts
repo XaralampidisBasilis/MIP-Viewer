@@ -568,7 +568,7 @@ class IterateFaceMinmaxValuesProgram implements GPGPUProgram
     }
 }
 
-class ComputeFaceShadowsProgram implements GPGPUProgram
+class ComputeFaceShadowsProgram2 implements GPGPUProgram
 {
     variableNames = ['A', 'B']
     outputShape: [number, number, number, 2, 2]
@@ -630,7 +630,102 @@ class ComputeFaceShadowsProgram implements GPGPUProgram
 
         void main()
         {   
-            setOutput(vec4(computeFaceShadows(outputCoords()), 1.0));
+            setOutput(vec4(computeFaceShadows(outputCoords()), 0.0));
+        }
+        `
+    }
+}
+
+class ComputeFaceShadowsProgram implements GPGPUProgram
+{
+    variableNames = ['A', 'B']
+    outputShape: [number, number, number, 2, 2]
+    userCode: string
+    packedInputs = true
+    packedOutput = true
+    customUniforms = [{ name: 'tolerance', type: 'float' as const }]
+
+    constructor(
+        shape: [number, number, number, 2, 2],
+        dominantAxis: Axis = 'z',
+        directionOctant: Octant = '+++'
+    ) {
+        const [depth, height, width] = shape
+
+        this.outputShape = shape
+        this.userCode = `
+        const float NEG_INF = -3.402823466e+38;
+
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
+
+        bool validCellCoords(ivec3 cellCoords)
+        {
+            return 
+                cellCoords.x >= minCoords.x && cellCoords.x <= maxCoords.x &&
+                cellCoords.y >= minCoords.y && cellCoords.y <= maxCoords.y &&
+                cellCoords.z >= minCoords.z && cellCoords.z <= maxCoords.z;
+        }
+
+        ivec3 outputCoords()
+        {
+            ivec5 cellCoords = getOutputCoords();
+            return ivec3(cellCoords.z, cellCoords.y, cellCoords.x);
+        }
+
+        vec3 faceMaxValuesAt(ivec3 cellCoords)
+        {
+            return getA(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).xyz;
+        }
+
+        vec3 faceMinmaxValuesAt(ivec3 cellCoords)
+        {
+            return validCellCoords(cellCoords) ? 
+                getB(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).xyz : vec3(NEG_INF);
+        }
+
+        float computeXFaceMargin(vec3 c111, vec3 c110, vec3 c101)
+        {
+            float minValues = min(c110.z, c101.y);
+            return c111.x - minValues;
+        }
+
+        float computeYFaceMargin(vec3 c111, vec3 c110, vec3 c011)
+        {
+            float minValues = min(c110.z, c011.x);
+            return c111.y - minValues;
+        }
+
+        float computeZFaceMargin(vec3 c111, vec3 c110, vec3 c101, vec3 c011)
+        {
+            float minValues = min(c110.z, min(c101.y, c011.x));
+            return c111.z - minValues;
+        }
+
+        vec3 computeFaceMargins(vec3 c111, vec3 c110, vec3 c101, vec3 c011)
+        {
+            float xFaceMargin = computeXFaceMargin(c111, c110, c101);
+            float yFaceMargin = computeYFaceMargin(c111, c110, c011);
+            float zFaceMargin = computeZFaceMargin(c111, c110, c101, c011);
+
+            return vec3(xFaceMargin, yFaceMargin, zFaceMargin);
+        }
+
+        bvec3 computeFaceShadows(ivec3 cellCoords)
+        {
+            vec3 c111 =    faceMaxValuesAt(cellCoords + ivec3(${cellOffset( 0,  0,  0, dominantAxis, directionOctant)}));
+            vec3 c110 = faceMinmaxValuesAt(cellCoords + ivec3(${cellOffset( 0,  0, -1, dominantAxis, directionOctant)}));
+            vec3 c101 = faceMinmaxValuesAt(cellCoords + ivec3(${cellOffset( 0, -1,  0, dominantAxis, directionOctant)}));
+            vec3 c011 = faceMinmaxValuesAt(cellCoords + ivec3(${cellOffset(-1,  0,  0, dominantAxis, directionOctant)}));
+
+            vec3 faceMargins = computeFaceMargins(c111, c110, c101, c011);
+
+            return lessThanEqual(faceMargins, vec3(tolerance));
+        }
+
+        void main()
+        {
+            setOutput(vec4(computeFaceShadows(outputCoords()), 0.0));
         }
         `
     }
