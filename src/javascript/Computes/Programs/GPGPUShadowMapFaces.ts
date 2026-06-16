@@ -126,6 +126,8 @@ class HollowFaceMinValuesProgram implements GPGPUProgram
 
         this.outputShape = shape
         this.userCode = `
+        const float NEG_INF = -3.402823466e+38;
+
         const ivec3 minCoords = ivec3(0);
         const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
 
@@ -148,9 +150,9 @@ class HollowFaceMinValuesProgram implements GPGPUProgram
             return getA(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).xyz;
         }
 
-        vec3 faceHolesAt(ivec3 cellCoords)
+        bvec3 faceHolesAt(ivec3 cellCoords)
         {
-            return step(0.5, getB(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).xyz);
+            return greaterThan(getB(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).xyz, vec3(0.5));
         }
 
         void main()
@@ -158,11 +160,13 @@ class HollowFaceMinValuesProgram implements GPGPUProgram
             ivec3 cellCoords = outputCoords();
 
             vec3 faceMinValues = faceMinValueAt(cellCoords);
-            vec3 faceHoles = faceHolesAt(cellCoords);
+            bvec3 faceHoles    = faceHolesAt(cellCoords);
             
-            vec3 hollowMinima = mix(faceMinValues, vec3(0.0), faceHoles);
+            faceMinValues.x = faceHoles.x ? NEG_INF : faceMinValues.x;
+            faceMinValues.y = faceHoles.y ? NEG_INF : faceMinValues.y;
+            faceMinValues.z = faceHoles.z ? NEG_INF : faceMinValues.z;
 
-            setOutput(vec4(hollowMinima, 0.0));
+            setOutput(vec4(faceMinValues, 0.0));
         }
         `
     }
@@ -538,22 +542,22 @@ class IterateFaceMinmaxValuesProgram implements GPGPUProgram
             return max(c111.z, minValues);
         }
 
-        vec3 computeFaceMinmaxValues(ivec3 sliceCoords)
+        vec3 computeFaceMinmaxValues(ivec3 cellCoords)
         {
-            vec3 c111 = faceMinmaxValuesAt(sliceCoords + ivec3(${sliceOffset( 0,  0,  0, dominantAxis, directionOctant)}));
-            vec3 c011 = faceMinmaxValuesAt(sliceCoords + ivec3(${sliceOffset(-1,  0,  0, dominantAxis, directionOctant)}));
-            vec3 c101 = faceMinmaxValuesAt(sliceCoords + ivec3(${sliceOffset( 0, -1,  0, dominantAxis, directionOctant)}));
-            vec3 c001 = faceMinmaxValuesAt(sliceCoords + ivec3(${sliceOffset(-1, -1,  0, dominantAxis, directionOctant)}));
-            vec3 c110 = faceMinmaxValuesAt(sliceCoords + ivec3(${sliceOffset( 0,  0, -1, dominantAxis, directionOctant)}));
-            vec3 c010 = faceMinmaxValuesAt(sliceCoords + ivec3(${sliceOffset(-1,  0, -1, dominantAxis, directionOctant)}));
-            vec3 c100 = faceMinmaxValuesAt(sliceCoords + ivec3(${sliceOffset( 0, -1, -1, dominantAxis, directionOctant)}));
-            vec3 c000 = faceMinmaxValuesAt(sliceCoords + ivec3(${sliceOffset(-1, -1, -1, dominantAxis, directionOctant)}));
+            vec3 c111 = faceMinmaxValuesAt(cellCoords + ivec3(${cellOffset( 0,  0,  0, dominantAxis, directionOctant)}));
+            vec3 c011 = faceMinmaxValuesAt(cellCoords + ivec3(${cellOffset(-1,  0,  0, dominantAxis, directionOctant)}));
+            vec3 c101 = faceMinmaxValuesAt(cellCoords + ivec3(${cellOffset( 0, -1,  0, dominantAxis, directionOctant)}));
+            vec3 c110 = faceMinmaxValuesAt(cellCoords + ivec3(${cellOffset( 0,  0, -1, dominantAxis, directionOctant)}));
 
             float xFaceMinmaxValue = computeXFaceMinmaxValue(c111, c110, c101);
             float yFaceMinmaxValue = computeYFaceMinmaxValue(c111, c110, c011);
             float zFaceMinmaxValue = computeZFaceMinmaxValue(c111, c110, c101, c011);
 
-            return vec3(xFaceMinmaxValue, yFaceMinmaxValue, zFaceMinmaxValue);
+            return vec3(
+                xFaceMinmaxValue, 
+                yFaceMinmaxValue, 
+                zFaceMinmaxValue
+            );
         }
 
         void main()
@@ -900,7 +904,7 @@ export function computeUnidirectionalShadowMap(
 ): tf.Tensor3D
 {
     const faceMinValues = computeFaceMinValues(volume, dominantAxis, directionOctant, verbose)
-    const faceMinmaxValues = iterateFaceMinmaxValues(faceMinValues, dominantAxis, directionOctant, verbose)
+    const faceMinmaxValues = propagateFaceMinmaxValues(faceMinValues, dominantAxis, directionOctant, verbose)
     tf.dispose(faceMinValues)
     
     const faceMaxValues = computeFaceMaxValues(volume, dominantAxis, directionOctant, verbose)
