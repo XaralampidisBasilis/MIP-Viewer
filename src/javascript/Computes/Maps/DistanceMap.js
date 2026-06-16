@@ -3,9 +3,9 @@ import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import * as GPGPU from '../Programs/GPGPUShadowDistanceMap'
 
-import * as A from '../Programs/GPGPUShadowMapPaths'
-import * as B from '../Programs/GPGPUShadowMapPathsPacked'
-import * as C from '../Programs/GPGPUShadowDistanceMap'
+// import * as A from '../Programs/GPGPUShadowMapPaths'
+// import * as B from '../Programs/GPGPUShadowMapPathsPacked'
+// import * as C from '../Programs/GPGPUShadowDistanceMap'
 // import * as B2 from '../Programs/GPGPUShadowMapPathsPacked2'
 
 export default class DistanceMap 
@@ -84,10 +84,10 @@ export default class DistanceMap
         // .then((info) => console.log(`kernelMs: ${info.kernelMs}, wallTimeMs: ${info.wallMs}, uploadWaitMs: ${uploadWaitMs}, downloadWaitMs: ${downloadWaitMs}`))
 
    
-        // if (this.distanceVariation ===  '1bit') this.compute1BitDistanceTexture()
-        // if (this.distanceVariation ===  '5bit') this.compute5BitDistanceTexture()
-        // if (this.distanceVariation ===  '8bit') this.compute8BitDistanceTexture()
-        // if (this.distanceVariation === '10bit') this.compute10BitDistanceTexture()
+        if (this.distanceVariation ===  '1bit') this.compute1BitDistanceTexture()
+        if (this.distanceVariation ===  '5bit') this.compute5BitDistanceTexture()
+        if (this.distanceVariation ===  '8bit') this.compute8BitDistanceTexture()
+        if (this.distanceVariation === '10bit') this.compute10BitDistanceTexture()
     }
  
     compute1BitDistanceTexture()
