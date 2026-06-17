@@ -127,7 +127,11 @@ class HollowFaceMinValuesProgram implements GPGPUProgram
     packedInputs = true
     packedOutput = true
 
-    constructor(shape: [number, number, number, 2, 2]) 
+    constructor(
+        shape: [number, number, number, 2, 2],
+        dominantAxis: Axis = 'z',
+        directionOctant: Octant = '+++',
+    ) 
     {
         const [depth, height, width, ] = shape
 
@@ -167,7 +171,7 @@ class HollowFaceMinValuesProgram implements GPGPUProgram
             ivec3 cellCoords = outputCoords();
 
             vec3 faceMinValues = faceMinValueAt(cellCoords);
-            bvec3 faceHoles    = faceHolesAt(cellCoords);
+            bvec3 faceHoles = faceHolesAt(cellCoords);
             
             faceMinValues.x = faceHoles.x ? NEG_INF : faceMinValues.x;
             faceMinValues.y = faceHoles.y ? NEG_INF : faceMinValues.y;
@@ -884,11 +888,13 @@ class ComputeCellShadowsProgram implements GPGPUProgram
 function hollowFaceMinValues(
     faceMinValues: tf.Tensor5D,
     faceHoles: tf.Tensor5D,
+    dominantAxis: Axis,
+    directionOctant: Octant,
     verbose: boolean = false
 ): tf.Tensor5D  
 {
     const shape = faceMinValues.shape as [number, number, number, 2, 2]
-    const program = new HollowFaceMinValuesProgram(shape)
+    const program = new HollowFaceMinValuesProgram(shape, dominantAxis, directionOctant)
     const hollowFaceMinima = runWebGLProgram(program, [faceMinValues, faceHoles], 'float32', [], true) 
     if (verbose) logMean3d('hollowFaceMinima', hollowFaceMinima)
 
@@ -1100,7 +1106,7 @@ export function computeBidirectionalShadowMap(
     const backwardFaceHoles = computeFaceHoles(forwardCellShadows, dominantAxis, backwardOctant, verbose)
 
     const backwardFaceMinValues = computeFaceMinValues(volume, dominantAxis, backwardOctant, verbose)
-    const backwardHollowFaceMinValues = hollowFaceMinValues(backwardFaceMinValues, backwardFaceHoles, verbose)
+    const backwardHollowFaceMinValues = hollowFaceMinValues(backwardFaceMinValues, backwardFaceHoles, dominantAxis, backwardOctant, verbose)
     tf.dispose([backwardFaceMinValues, backwardFaceHoles])
 
     const backwardFaceMinmaxValues = propagateFaceMinmaxValues(backwardHollowFaceMinValues, dominantAxis, backwardOctant, verbose)
