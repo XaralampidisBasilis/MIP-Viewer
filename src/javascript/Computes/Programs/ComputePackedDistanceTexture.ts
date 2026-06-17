@@ -327,10 +327,10 @@ export function computePackedDistanceTexture(
         console.time('computePackedDistanceTexture')
     }
 
-    const data = computePackedDistanceMaps( volume, variant, tolerance, blockSize, encoding, verbose)
+    const data = computePackedDistanceMaps( volume, variant, tolerance, blockSize, encoding, false)
  
-    const texture = new THREE.Data3DTexture(data  as unknown as null, dimensions.x, dimensions.y, dimensions.z)
-    texture.format = textureFormat.format as unknown as number
+    const texture = new THREE.Data3DTexture(data as any, dimensions.x, dimensions.y, dimensions.z)
+    texture.format = textureFormat.format as any
     texture.type = textureFormat.type
     texture.internalFormat = textureFormat.internalFormat
     texture.minFilter = THREE.NearestFilter

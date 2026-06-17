@@ -1,5 +1,6 @@
 import Computes from '../Computes'
 import { computePackedDistanceTexture } from '../Programs/ComputePackedDistanceTexture'
+// import { computePackedDistanceTexture } from '../Programs/ComputeFusedPackedDistanceTexture'
 
 export default class DistanceMap
 {

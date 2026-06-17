@@ -482,71 +482,19 @@ export function computeIsotropicDistanceMaps(
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const distance0d = initialChebyshevDistancePass(shadowMaps, maxDistance, verbose)
+    if (verbose) logMean3d('shadowMaps', shadowMaps)
+    const distance0d = initialChebyshevDistancePass(shadowMaps, maxDistance)
 
-    const distances1d = isotropicChebyshevDistancePass(distance0d, 'x', maxDistance, verbose)
+    const distances1d = isotropicChebyshevDistancePass(distance0d, 'x', maxDistance)
     tf.dispose(distance0d)
 
-    const distances2d = isotropicChebyshevDistancePass(distances1d, 'y', maxDistance, verbose)
+    const distances2d = isotropicChebyshevDistancePass(distances1d, 'y', maxDistance)
     tf.dispose(distances1d)
 
-    const distances3d = isotropicChebyshevDistancePass(distances2d, 'z', maxDistance, verbose)
+    const distances3d = isotropicChebyshevDistancePass(distances2d, 'z', maxDistance)
     tf.dispose(distances2d)
 
     return distances3d
-}
-
-/**
- * Computes both dominant-axis directions for the packed ray family and keeps
- * the shorter distance per lane.
- */
-export function computeBidirectionalDistanceMaps(
-    shadowMaps: tf.Tensor5D,
-    dominantAxis: Axis,
-    dominantSign: Sign,
-    maxDistance: number,
-    verbose: boolean = false
-): tf.Tensor5D
-{
-
-    const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
-    const sweepOctants = octantsLayoutFromSignAxis(dominantSign, dominantAxis)
-
-    const distances0d = initialChebyshevDistancePass(shadowMaps, maxDistance)
-
-    // Forward
-    const forwardDominantSign = dominantSign
-    const forwardSweepSigns = sweepAxes.map((axis) => sweepOctants.map((octant) => su.getOctantSign(octant, axis)) as [Sign, Sign, Sign, Sign]) 
-
-    const forwardDistances1d = anisotropicChebyshevDistancePass(distances0d, sweepAxes[0], forwardSweepSigns[0], maxDistance)
-
-    const forwardDistances2d = anisotropicChebyshevDistancePass(forwardDistances1d, sweepAxes[1], forwardSweepSigns[1], maxDistance)
-    tf.dispose(forwardDistances1d)
-
-    const forwardDistances3d = extendedChebyshevDistancePass(forwardDistances2d, dominantAxis, forwardDominantSign, maxDistance)
-    tf.dispose(forwardDistances2d)
-    if (verbose) logMean3d('forwardDistanceMap', forwardDistances3d)
-
-    // Backward
-    const backwardDominantSign = su.reverseSign(forwardDominantSign)
-    const backwardSweepSigns = forwardSweepSigns.map((signs) => signs.map((sign) => su.reverseSign(sign)) as [Sign, Sign, Sign, Sign])
-
-    const backwardDistances1d = anisotropicChebyshevDistancePass(distances0d, sweepAxes[0], backwardSweepSigns[0], maxDistance)
-    tf.dispose(distances0d)
-
-    const backwardDistances2d = anisotropicChebyshevDistancePass(backwardDistances1d, sweepAxes[1], backwardSweepSigns[1], maxDistance)
-    tf.dispose(backwardDistances1d)
-
-    const backwardDistances3d = extendedChebyshevDistancePass(backwardDistances2d, dominantAxis, backwardDominantSign, maxDistance)
-    tf.dispose(backwardDistances2d)
-    if (verbose) logMean3d('backwardDistanceMap', backwardDistances3d)
-
-    // Bidirectional
-    const bidirectionalDistanceMap = minimum3dPacked(forwardDistances3d, backwardDistances3d)
-    tf.dispose([forwardDistances3d, backwardDistances3d])
-    if (verbose) logMean3d('bidirectionalDistanceMap', bidirectionalDistanceMap)
-
-    return bidirectionalDistanceMap as tf.Tensor5D
 }
 
 /**
@@ -565,18 +513,71 @@ export function computeUnidirectionalDistanceMaps(
     const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
     const sweepSigns = sweepAxes.map((axis) => sweepOctants.map((octant) => su.getOctantSign(octant, axis)) as [Sign, Sign, Sign, Sign]) 
 
-    const distance0d = initialChebyshevDistancePass(shadowMaps, maxDistance, verbose)
+    if (verbose) logMean3d('shadowMaps', shadowMaps)
+    const distance0d = initialChebyshevDistancePass(shadowMaps, maxDistance)
 
-    const distances1d = anisotropicChebyshevDistancePass(distance0d, sweepAxes[0], sweepSigns[0], maxDistance, verbose)
+    const distances1d = anisotropicChebyshevDistancePass(distance0d, sweepAxes[0], sweepSigns[0], maxDistance)
     tf.dispose(distance0d)
 
-    const distances2d = anisotropicChebyshevDistancePass(distances1d, sweepAxes[1], sweepSigns[1], maxDistance, verbose)
+    const distances2d = anisotropicChebyshevDistancePass(distances1d, sweepAxes[1], sweepSigns[1], maxDistance)
     tf.dispose(distances1d)
 
-    const distances3d = extendedChebyshevDistancePass(distances2d, dominantAxis, dominantSign, maxDistance, verbose)
+    const distances3d = extendedChebyshevDistancePass(distances2d, dominantAxis, dominantSign, maxDistance)
     tf.dispose(distances2d)
+    if (verbose) logMean3d('distanceMaps', distances3d)
 
     return distances3d
+}
+
+/**
+ * Computes both dominant-axis directions for the packed ray family and keeps
+ * the shorter distance per lane.
+ */
+export function computeBidirectionalDistanceMaps(
+    shadowMaps: tf.Tensor5D,
+    dominantAxis: Axis,
+    dominantSign: Sign,
+    maxDistance: number,
+    verbose: boolean = false
+): tf.Tensor5D
+{
+    if (verbose) logMean3d('shadowMaps', shadowMaps)
+    const distances0d = initialChebyshevDistancePass(shadowMaps, maxDistance)
+
+    // Forward
+    const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
+    const sweepOctants = octantsLayoutFromSignAxis(dominantSign, dominantAxis)
+
+    const forwardDominantSign = dominantSign
+    const forwardSweepSigns = sweepAxes.map((axis) => sweepOctants.map((octant) => su.getOctantSign(octant, axis)) as [Sign, Sign, Sign, Sign]) 
+
+    const forwardDistances1d = anisotropicChebyshevDistancePass(distances0d, sweepAxes[0], forwardSweepSigns[0], maxDistance)
+
+    const forwardDistances2d = anisotropicChebyshevDistancePass(forwardDistances1d, sweepAxes[1], forwardSweepSigns[1], maxDistance)
+    tf.dispose(forwardDistances1d)
+
+    const forwardDistances3d = extendedChebyshevDistancePass(forwardDistances2d, dominantAxis, forwardDominantSign, maxDistance)
+    tf.dispose(forwardDistances2d)
+
+    // Backward
+    const backwardDominantSign = su.reverseSign(forwardDominantSign)
+    const backwardSweepSigns = forwardSweepSigns.map((signs) => signs.map((sign) => su.reverseSign(sign)) as [Sign, Sign, Sign, Sign])
+
+    const backwardDistances1d = anisotropicChebyshevDistancePass(distances0d, sweepAxes[0], backwardSweepSigns[0], maxDistance)
+    tf.dispose(distances0d)
+
+    const backwardDistances2d = anisotropicChebyshevDistancePass(backwardDistances1d, sweepAxes[1], backwardSweepSigns[1], maxDistance)
+    tf.dispose(backwardDistances1d)
+
+    const backwardDistances3d = extendedChebyshevDistancePass(backwardDistances2d, dominantAxis, backwardDominantSign, maxDistance)
+    tf.dispose(backwardDistances2d)
+
+    // Bidirectional
+    const bidirectionalDistanceMap = minimum3dPacked(forwardDistances3d, backwardDistances3d)
+    tf.dispose([forwardDistances3d, backwardDistances3d])
+    if (verbose) logMean3d('distanceMaps', bidirectionalDistanceMap)
+
+    return bidirectionalDistanceMap as tf.Tensor5D
 }
 
 
