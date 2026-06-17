@@ -32,7 +32,7 @@ export default class Configs extends EventEmitter
         this.downscaleEnabled = true
         this.downscaleFactor = 0.8
 
-        this.errorTolerance = 0.01
+        this.errorTolerance = 0
         this.blockSize = 1
         
         this.distanceVariation = '5bit'

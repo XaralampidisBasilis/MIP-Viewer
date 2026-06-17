@@ -1,13 +1,4 @@
-/**
- * Extended anisotropic shadow maps for maximum intensity projection.
- *
- * This is the face-min/max version of the cell-based shadow-map idea from
- * Mroz, Hauser, and Groeller, "Interactive High-Quality Maximum Intensity
- * Projection". The implementation keeps the old GPGPUShadowMap behavior, but
- * uses the orientation notation from GPGPUShadowMapPaths2: shaders are written
- * in one canonical local +z sweep space and offsets are converted to the
- * physical TensorFlow [z, y, x] layout by a dominant-axis/octant pair.
- */
+
 import * as tf from '@tensorflow/tfjs'
 import * as su from '../../Utils/ShadowMapUtils'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
@@ -568,74 +559,6 @@ class IterateFaceMinmaxValuesProgram implements GPGPUProgram
     }
 }
 
-class ComputeFaceShadowsProgram2 implements GPGPUProgram
-{
-    variableNames = ['A', 'B']
-    outputShape: [number, number, number, 2, 2]
-    userCode: string
-    packedInputs = true
-    packedOutput = true
-    customUniforms = [{ name: 'tolerance', type: 'float' as const }]
-
-    constructor(
-        shape: [number, number, number, 2, 2],
-        dominantAxis: Axis = 'z',
-        directionOctant: Octant = '+++'
-    ) {
-        const [depth, height, width, ] = shape
-
-        this.outputShape = shape
-        this.userCode = `
-        const float NEG_INF = -3.402823466e+38;
-
-        const ivec3 minCoords = ivec3(0);
-        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
-
-        bool validCellCoords(ivec3 cellCoords)
-        {
-            return 
-                cellCoords.x >= minCoords.x && cellCoords.x <= maxCoords.x &&
-                cellCoords.y >= minCoords.y && cellCoords.y <= maxCoords.y &&
-                cellCoords.z >= minCoords.z && cellCoords.z <= maxCoords.z;
-        }
-
-        ivec3 outputCoords()
-        {
-            ivec5 cellCoords = getOutputCoords();
-            return ivec3(cellCoords.z, cellCoords.y, cellCoords.x);
-        }
-
-        vec3 faceMaxValuesAt(ivec3 cellCoords)
-        {
-            return getA(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).xyz;
-        }
-
-        vec3 faceMinmaxValuesAt(ivec3 cellCoords)
-        {
-            return validCellCoords(cellCoords) ? 
-                getB(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).xyz : vec3(NEG_INF);
-        }
-
-        bvec3 computeFaceShadows(ivec3 cellCoords)
-        {
-            vec3 c111 =    faceMaxValuesAt(cellCoords + ivec3(${cellOffset( 0,  0,  0, dominantAxis, directionOctant)}));
-            vec3 c011 = faceMinmaxValuesAt(cellCoords + ivec3(${cellOffset(-1,  0,  0, dominantAxis, directionOctant)}));
-            vec3 c101 = faceMinmaxValuesAt(cellCoords + ivec3(${cellOffset( 0, -1,  0, dominantAxis, directionOctant)}));
-            vec3 c110 = faceMinmaxValuesAt(cellCoords + ivec3(${cellOffset( 0,  0, -1, dominantAxis, directionOctant)}));
-
-            vec3 faceMargins = c111 - vec3(c011.x, c101.y, c110.z);
-
-            return lessThanEqual(faceMargins, vec3(tolerance));
-        }
-
-        void main()
-        {   
-            setOutput(vec4(computeFaceShadows(outputCoords()), 0.0));
-        }
-        `
-    }
-}
-
 class ComputeFaceShadowsProgram implements GPGPUProgram
 {
     variableNames = ['A', 'B']
@@ -725,6 +648,74 @@ class ComputeFaceShadowsProgram implements GPGPUProgram
 
         void main()
         {
+            setOutput(vec4(computeFaceShadows(outputCoords()), 0.0));
+        }
+        `
+    }
+}
+
+class ComputeFaceShadowsProgram2 implements GPGPUProgram
+{
+    variableNames = ['A', 'B']
+    outputShape: [number, number, number, 2, 2]
+    userCode: string
+    packedInputs = true
+    packedOutput = true
+    customUniforms = [{ name: 'tolerance', type: 'float' as const }]
+
+    constructor(
+        shape: [number, number, number, 2, 2],
+        dominantAxis: Axis = 'z',
+        directionOctant: Octant = '+++'
+    ) {
+        const [depth, height, width, ] = shape
+
+        this.outputShape = shape
+        this.userCode = `
+        const float NEG_INF = -3.402823466e+38;
+
+        const ivec3 minCoords = ivec3(0);
+        const ivec3 maxCoords = ivec3(${width - 1}, ${height - 1}, ${depth - 1});
+
+        bool validCellCoords(ivec3 cellCoords)
+        {
+            return 
+                cellCoords.x >= minCoords.x && cellCoords.x <= maxCoords.x &&
+                cellCoords.y >= minCoords.y && cellCoords.y <= maxCoords.y &&
+                cellCoords.z >= minCoords.z && cellCoords.z <= maxCoords.z;
+        }
+
+        ivec3 outputCoords()
+        {
+            ivec5 cellCoords = getOutputCoords();
+            return ivec3(cellCoords.z, cellCoords.y, cellCoords.x);
+        }
+
+        vec3 faceMaxValuesAt(ivec3 cellCoords)
+        {
+            return getA(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).xyz;
+        }
+
+        vec3 faceMinmaxValuesAt(ivec3 cellCoords)
+        {
+            return validCellCoords(cellCoords) ? 
+                getB(cellCoords.z, cellCoords.y, cellCoords.x, 0, 0).xyz : vec3(NEG_INF);
+        }
+
+        bvec3 computeFaceShadows(ivec3 cellCoords)
+        {
+            vec3 c111 =    faceMaxValuesAt(cellCoords + ivec3(${cellOffset( 0,  0,  0, dominantAxis, directionOctant)}));
+            vec3 c011 = faceMinmaxValuesAt(cellCoords + ivec3(${cellOffset(-1,  0,  0, dominantAxis, directionOctant)}));
+            vec3 c101 = faceMinmaxValuesAt(cellCoords + ivec3(${cellOffset( 0, -1,  0, dominantAxis, directionOctant)}));
+            vec3 c110 = faceMinmaxValuesAt(cellCoords + ivec3(${cellOffset( 0,  0, -1, dominantAxis, directionOctant)}));
+
+            vec3 faceMargins = c111 - vec3(c011.x, c101.y, c110.z);
+
+            return lessThanEqual(faceMargins, vec3(tolerance));
+        }
+
+        void main()
+        {   
             setOutput(vec4(computeFaceShadows(outputCoords()), 0.0));
         }
         `
@@ -908,10 +899,12 @@ function iterateFaceMinmaxValues(
 ): tf.Tensor5D
 {    
     const shape = faceMinValues.shape as [number, number, number, 2, 2]
-    const dimension = su.axisToDimension(dominantAxis)
-    const iterations = shape[dimension]
-
     const iterate = new IterateFaceMinmaxValuesProgram(shape, dominantAxis, directionOctant)
+
+    const [depth, height, width] = shape
+    const dimension = su.axisToDimension(dominantAxis)
+    const iterations = depth + height + width - 3
+
     let prev = faceMinValues.clone() 
 
     for (let i = 0; i < iterations; i += 1)
@@ -1027,11 +1020,11 @@ export function computeBidirectionalShadowMap(
     blockSize: number,
     verbose: boolean = false
 ): tf.Tensor3D
-{
+{   
     // Forward
     const forwardOctant = directionOctant
     const forwardFaceMinValues = computeFaceMinValues(volume, dominantAxis, forwardOctant, verbose)
-    const forwardFaceMinmaxValues = propagateFaceMinmaxValues(forwardFaceMinValues, dominantAxis, forwardOctant, verbose)
+    const forwardFaceMinmaxValues = iterateFaceMinmaxValues(forwardFaceMinValues, dominantAxis, forwardOctant, verbose)
     tf.dispose(forwardFaceMinValues)
     
     const forwardFaceMaxValues = computeFaceMaxValues(volume, dominantAxis, forwardOctant, verbose)
@@ -1049,7 +1042,7 @@ export function computeBidirectionalShadowMap(
     const backwardHollowFaceMinValues = hollowFaceMinValues(backwardFaceMinValues, backwardFaceHoles, verbose)
     tf.dispose([backwardFaceMinValues, backwardFaceHoles])
 
-    const backwardFaceMinmaxValues = propagateFaceMinmaxValues(backwardHollowFaceMinValues, dominantAxis, backwardOctant, verbose)
+    const backwardFaceMinmaxValues = iterateFaceMinmaxValues(backwardHollowFaceMinValues, dominantAxis, backwardOctant, verbose)
     tf.dispose(backwardHollowFaceMinValues)
     
     const backwardFaceMaxValues = computeFaceMaxValues(volume, dominantAxis, backwardOctant, verbose)
