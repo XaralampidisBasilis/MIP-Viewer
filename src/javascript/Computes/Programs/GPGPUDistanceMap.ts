@@ -6,6 +6,15 @@ import * as su from '../../Utils/ShadowMapUtils'
 import { type Sign, type Octant, type Axis } from '../../Utils/ShadowMapUtils'
 
 /**
+ * Scalar Chebyshev distance transforms for shadow masks.
+ *
+ * Masks are treated as binary fields where 0-valued cells are distance seeds
+ * and shadowed/rejected cells start at maxDistance. The passes then propagate
+ * the nearest seed distance either isotropically, in one octant direction, or
+ * in the extended anisotropic layout used by the MIP ray marcher.
+ */
+
+/**
  * Logs the mean over spatial axes without downloading the full tensor.
  */
 function logMean3d(
@@ -33,6 +42,10 @@ function runWebGLProgram(
     return tf.engine().makeTensorFromTensorInfo(info)
 }
 
+/**
+ * Converts a binary mask into initial distances: clear cells become zero-distance
+ * seeds, while masked cells start at the caller's maximum representable range.
+ */
 class InitialChebyshevDistancePass implements GPGPUProgram 
 {
     variableNames = ['A'] 
@@ -69,6 +82,11 @@ class InitialChebyshevDistancePass implements GPGPUProgram
     }
 }
 
+/**
+ * Symmetric 1D Chebyshev transform along one axis. A candidate at radius r
+ * contributes max(previousDistance, r), so chaining x/y/z produces a full
+ * isotropic Chebyshev distance map.
+ */
 class IsotropicChebyshevDistancePass implements GPGPUProgram
 {
     variableNames = ['A']
@@ -160,6 +178,11 @@ class IsotropicChebyshevDistancePass implements GPGPUProgram
     }
 }
 
+/**
+ * One-sided 1D Chebyshev transform for an octant direction. This is the same
+ * recurrence as the isotropic pass, but it only searches along the requested
+ * sign of the sweep axis.
+ */
 class AnisotropicChebyshevDistancePass implements GPGPUProgram
 {
     variableNames = ['A']
@@ -239,6 +262,11 @@ class AnisotropicChebyshevDistancePass implements GPGPUProgram
     }
 }
 
+/**
+ * Final dominant-axis pass for the extended anisotropic distance. A sample can
+ * support radius r only when the already-computed transverse distance reaches
+ * that radius; otherwise the candidate remains maxDistance.
+ */
 class ExtendedChebyshevDistancePass implements GPGPUProgram 
 {
     variableNames = ['A']
@@ -378,6 +406,10 @@ function extendedChebyshevDistancePass(
     return extendedDistances as tf.Tensor3D
 }
 
+/**
+ * Builds an ordinary 3D Chebyshev distance map by applying symmetric 1D
+ * transforms along x, then y, then z.
+ */
 export function computeIsotropicDistanceMap(
     mask: tf.Tensor3D,
     maxDistance: number,
@@ -398,6 +430,11 @@ export function computeIsotropicDistanceMap(
     return distances3d
 }
 
+/**
+ * Builds one octant-oriented extended anisotropic distance map. The two
+ * non-dominant axes are transformed first, then the dominant-axis pass extends
+ * only along the ray direction.
+ */
 export function computeUnidirectionalDistanceMap(
     mask: tf.Tensor3D,
     dominantAxis: Axis,
@@ -424,6 +461,10 @@ export function computeUnidirectionalDistanceMap(
     return distances3d
 }
 
+/**
+ * Computes both directions of the same ray family from the same initial mask
+ * and keeps the shorter distance at each cell.
+ */
 export function computeBidirectionalDistanceMap(
     mask: tf.Tensor3D,
     dominantAxis: Axis,

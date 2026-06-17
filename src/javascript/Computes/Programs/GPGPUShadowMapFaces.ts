@@ -8,6 +8,18 @@ import { stack3dPacked } from './stack3dPacked'
 import { minPool3d } from './pool3d'
 import { type Sign, type Octant, type Axis } from '../../Utils/ShadowMapUtils'
 
+/**
+ * Face-based directional shadow-map preprocessing for MIP distance maps.
+ *
+ * Each cell stores three face lanes: x, y, and z. The min pass stores the
+ * minimum source value touching each outgoing face; the propagation pass turns
+ * those local minima into directional bottleneck values along one ray family.
+ *
+ * Shader stencils are written in a canonical local space where rays advance
+ * through local +z. Offset helpers remap that stencil to the requested dominant
+ * axis and octant, while TensorFlow storage stays in [z, y, x] order.
+ */
+
 function xyz(zyx: [number, number, number]): string
 {
     return [zyx[2], zyx[1], zyx[0]].join(', ')
@@ -103,6 +115,10 @@ function runWebGLProgram(
     return tf.engine().makeTensorFromTensorInfo(info)
 }
 
+/**
+ * Removes backward-pass occluders that were already rejected by the forward
+ * pass. A holed face contributes NEG_INF, so it cannot raise later bottlenecks.
+ */
 class HollowFaceMinValuesProgram implements GPGPUProgram
 {
     variableNames = ['A', 'B']
@@ -163,6 +179,10 @@ class HollowFaceMinValuesProgram implements GPGPUProgram
     }
 }
 
+/**
+ * Initializes the face map from voxel data. Each output cell samples the eight
+ * neighboring voxel corners and stores one minimum per outgoing face.
+ */
 class ComputeFaceMinValuesProgram implements GPGPUProgram
 {
     variableNames = ['A']
@@ -270,6 +290,10 @@ class ComputeFaceMinValuesProgram implements GPGPUProgram
     }
 }
 
+/**
+ * Same cell-corner sampling as the min pass, but stores maxima for the final
+ * tolerance comparison against the propagated bottleneck values.
+ */
 class ComputeFaceMaxValuesProgram implements GPGPUProgram
 {
     variableNames = ['A']
@@ -377,6 +401,11 @@ class ComputeFaceMaxValuesProgram implements GPGPUProgram
     }
 }
 
+/**
+ * Ordered slice-sweep propagation. A is the current raw slice; B is the already
+ * propagated previous slice, so this behaves like a Gauss-Seidel-style dynamic
+ * program along the dominant axis.
+ */
 class PropagateFaceMinmaxValuesProgram implements GPGPUProgram
 {
     variableNames = ['A', 'B']
@@ -455,11 +484,11 @@ class PropagateFaceMinmaxValuesProgram implements GPGPUProgram
             vec3 c100 = previousSliceAt(sliceCoords + ivec3(${sliceOffset( 0, -1, -1, dominantAxis, directionOctant)}));
             vec3 c000 = previousSliceAt(sliceCoords + ivec3(${sliceOffset(-1, -1, -1, dominantAxis, directionOctant)}));
 
-            c011.x = computeXFaceMinmaxValue(c011, c010, c001, c000);
-            c101.y = computeYFaceMinmaxValue(c101, c100, c001, c000);
-
             c111.x = computeXFaceMinmaxValue(c111, c110, c101, c100);
             c111.y = computeYFaceMinmaxValue(c111, c110, c011, c010);
+
+            c011.x = computeXFaceMinmaxValue(c011, c010, c001, c000);
+            c101.y = computeYFaceMinmaxValue(c101, c100, c001, c000);
             c111.z = computeZFaceMinmaxValue(c111, c110, c101, c011);
 
             return c111;
@@ -473,6 +502,11 @@ class PropagateFaceMinmaxValuesProgram implements GPGPUProgram
     }
 }
 
+/**
+ * Whole-tensor fixed-point propagation. Every output reads only the previous
+ * tensor A, so one pass moves information across one dependency edge. This is
+ * useful as a Jacobi-style reference for the swept propagation above.
+ */
 class IterateFaceMinmaxValuesProgram implements GPGPUProgram
 {
     variableNames = ['A']
@@ -533,6 +567,15 @@ class IterateFaceMinmaxValuesProgram implements GPGPUProgram
             return max(c111.z, minValues);
         }
 
+        vec3 computeFaceMinmaxValues(vec3 c111, vec3 c110, vec3 c101, vec3 c011)
+        {
+            float xFaceMinmaxValue = computeXFaceMinmaxValue(c111, c110, c101);
+            float yFaceMinmaxValue = computeYFaceMinmaxValue(c111, c110, c011);
+            float zFaceMinmaxValue = computeZFaceMinmaxValue(c111, c110, c101, c011);
+
+            return vec3(xFaceMinmaxValue, yFaceMinmaxValue, zFaceMinmaxValue);
+        }
+
         vec3 computeFaceMinmaxValues(ivec3 cellCoords)
         {
             vec3 c111 = faceMinmaxValuesAt(cellCoords + ivec3(${cellOffset( 0,  0,  0, dominantAxis, directionOctant)}));
@@ -540,15 +583,9 @@ class IterateFaceMinmaxValuesProgram implements GPGPUProgram
             vec3 c101 = faceMinmaxValuesAt(cellCoords + ivec3(${cellOffset( 0, -1,  0, dominantAxis, directionOctant)}));
             vec3 c110 = faceMinmaxValuesAt(cellCoords + ivec3(${cellOffset( 0,  0, -1, dominantAxis, directionOctant)}));
 
-            float xFaceMinmaxValue = computeXFaceMinmaxValue(c111, c110, c101);
-            float yFaceMinmaxValue = computeYFaceMinmaxValue(c111, c110, c011);
-            float zFaceMinmaxValue = computeZFaceMinmaxValue(c111, c110, c101, c011);
+            vec3 faceMinmaxValues = computeFaceMinmaxValues(c111, c110, c101, c011);
 
-            return vec3(
-                xFaceMinmaxValue, 
-                yFaceMinmaxValue, 
-                zFaceMinmaxValue
-            );
+            return faceMinmaxValues;
         }
 
         void main()
@@ -559,6 +596,10 @@ class IterateFaceMinmaxValuesProgram implements GPGPUProgram
     }
 }
 
+/**
+ * Compares face maxima against propagated bottlenecks. A face is shadowed when
+ * the remaining margin is within tolerance, preserving conservative rejection.
+ */
 class ComputeFaceShadowsProgram implements GPGPUProgram
 {
     variableNames = ['A', 'B']
@@ -654,6 +695,10 @@ class ComputeFaceShadowsProgram implements GPGPUProgram
     }
 }
 
+/**
+ * Compact face-shadow variant that compares each face against its direct
+ * propagated neighbor lane. Kept beside the expanded version for experiments.
+ */
 class ComputeFaceShadowsProgram2 implements GPGPUProgram
 {
     variableNames = ['A', 'B']
@@ -722,6 +767,9 @@ class ComputeFaceShadowsProgram2 implements GPGPUProgram
     }
 }
 
+/**
+ * Converts forward cell rejections into reverse-pass face holes.
+ */
 class ComputeFaceHolesProgram implements GPGPUProgram
 {
     variableNames = ['A']
@@ -776,6 +824,10 @@ class ComputeFaceHolesProgram implements GPGPUProgram
     }
 }
 
+/**
+ * Promotes face shadows to cell shadows. A cell is rejected only when all three
+ * oriented faces are shadowed.
+ */
 class ComputeCellShadowsProgram implements GPGPUProgram
 {
     variableNames = ['A']
@@ -858,6 +910,10 @@ function computeFaceMinValues(
     return faceMinValues as tf.Tensor5D
 }
 
+/**
+ * Fast path: unstack along the sweep axis, process slices in dependency order,
+ * then stack them back into the original packed rank-5 layout.
+ */
 function propagateFaceMinmaxValues(
     faceMinValues: tf.Tensor5D,
     dominantAxis: Axis,
@@ -891,6 +947,11 @@ function propagateFaceMinmaxValues(
     return faceMinmaxValues as tf.Tensor5D
 }
 
+/**
+ * Reference path: repeated whole-volume updates from old tensor to new tensor.
+ * The dependency graph spans all three axes, so the safe finite count is the
+ * face-lattice diameter rather than only the dominant-axis length.
+ */
 function iterateFaceMinmaxValues(
     faceMinValues: tf.Tensor5D,
     dominantAxis: Axis,
@@ -1024,7 +1085,7 @@ export function computeBidirectionalShadowMap(
     // Forward
     const forwardOctant = directionOctant
     const forwardFaceMinValues = computeFaceMinValues(volume, dominantAxis, forwardOctant, verbose)
-    const forwardFaceMinmaxValues = iterateFaceMinmaxValues(forwardFaceMinValues, dominantAxis, forwardOctant, verbose)
+    const forwardFaceMinmaxValues = propagateFaceMinmaxValues(forwardFaceMinValues, dominantAxis, forwardOctant, verbose)
     tf.dispose(forwardFaceMinValues)
     
     const forwardFaceMaxValues = computeFaceMaxValues(volume, dominantAxis, forwardOctant, verbose)
@@ -1042,7 +1103,7 @@ export function computeBidirectionalShadowMap(
     const backwardHollowFaceMinValues = hollowFaceMinValues(backwardFaceMinValues, backwardFaceHoles, verbose)
     tf.dispose([backwardFaceMinValues, backwardFaceHoles])
 
-    const backwardFaceMinmaxValues = iterateFaceMinmaxValues(backwardHollowFaceMinValues, dominantAxis, backwardOctant, verbose)
+    const backwardFaceMinmaxValues = propagateFaceMinmaxValues(backwardHollowFaceMinValues, dominantAxis, backwardOctant, verbose)
     tf.dispose(backwardHollowFaceMinValues)
     
     const backwardFaceMaxValues = computeFaceMaxValues(volume, dominantAxis, backwardOctant, verbose)

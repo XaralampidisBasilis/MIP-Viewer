@@ -3,7 +3,7 @@ import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
 import { resizeTrilinear } from '../Programs/resizeTrillinear'
 import { resizeNearestNeighbor } from '../Programs/resizeNearestNeighbor'
-import { map } from '../Programs/map_packed'
+import { map3d } from '../Programs/map3d'
 import { toHalfFloat } from '../../Utils/DataUtils'
 import * as TensorUtils from '../../Utils/TensorUtils'
 
@@ -41,7 +41,7 @@ export default class VolumeMap
     normalizeTensor()
     {
         console.time('normalizeTensor') 
-        const mapped = map(this.tensor, this.minValue, this.maxValue)
+        const mapped = map3d(this.tensor, this.minValue, this.maxValue)
         this.tensor.dispose()
         this.tensor = mapped  
         console.timeEnd('normalizeTensor')  

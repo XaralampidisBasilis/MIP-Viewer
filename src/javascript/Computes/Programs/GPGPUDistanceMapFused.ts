@@ -8,12 +8,20 @@ import { minimum3dPacked } from './minimum3dPacked'
 import { type Sign, type Octant, type Axis } from '../../Utils/ShadowMapUtils'
 
 /**
- * This function returns the order of the packed octants that the packed
- *  gpgpu programs bellow generate given as input the dominant axis and sign
+ * Packed Chebyshev distance transforms for four octants at once.
+ *
+ * The tensor shape is [D, H, W, 2, 2], with RGBA lanes storing the four octants
+ * that share one dominant-axis sign. Clear cells are zero-distance seeds and
+ * masked cells start at maxDistance, matching the scalar distance-map pipeline.
  */
-function packedOctantsFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Octant, Octant]
+
+/**
+ * Returns the RGBA lane order for the four octants sharing one dominant-axis
+ * sign. This must match the fused shadow-map layout.
+ */
+function octantsLayoutFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Octant, Octant]
 {
-    const PACKED_OCTANTS_FROM_SIGN_AXIS: Record<string, [Octant, Octant, Octant, Octant]> = 
+    const OCTANTS_LAYOUT_FROM_SIGN_AXIS: Record<string, [Octant, Octant, Octant, Octant]> = 
     {
         "+x" : ['+++', '+-+', '++-', '+--'] , "-x" : ['---', '-+-', '--+', '-++'] ,
         "+y" : ['+++', '-++', '++-', '-+-'] , "-y" : ['---', '+--', '--+', '+-+'] ,
@@ -21,19 +29,23 @@ function packedOctantsFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Oct
     }
 
     const key = `${sign}${axis}`
-    const octants = PACKED_OCTANTS_FROM_SIGN_AXIS[key]
+    const octants = OCTANTS_LAYOUT_FROM_SIGN_AXIS[key]
 
     return [...octants] as [Octant, Octant, Octant, Octant]
 }
 
-function unpackTensorFromAxisOctant(
+/**
+ * Extracts one scalar octant map from the packed [D, H, W, 2, 2] tensor.
+ */
+function extractTensorFromAxisOctant(
     tensor: tf.Tensor5D,
     dominantAxis: Axis,
     directionOctant: Octant,
 ): tf.Tensor3D
 {
     const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
-    const octants = packedOctantsFromSignAxis(dominantSign, dominantAxis)
+    const octants = octantsLayoutFromSignAxis(dominantSign, dominantAxis)
+    
     const index = octants.findIndex((octant) => octant === directionOctant)
     const row = Math.floor(index / 2);
     const col = index % 2;
@@ -65,6 +77,10 @@ function runWebGLProgram(
     return tf.engine().makeTensorFromTensorInfo(info)
 }
 
+/**
+ * Converts a packed binary mask into initial packed distances. Each lane keeps
+ * its own seed state but shares the same spatial coordinates.
+ */
 class InitialChebyshevDistancePass implements GPGPUProgram 
 {
     variableNames = ['A'] 
@@ -101,6 +117,10 @@ class InitialChebyshevDistancePass implements GPGPUProgram
     }
 }
 
+/**
+ * Symmetric 1D Chebyshev transform along one axis, applied lane-wise to the
+ * packed octants.
+ */
 class IsotropicChebyshevDistancePass implements GPGPUProgram
 {
     variableNames = ['A']
@@ -193,6 +213,10 @@ class IsotropicChebyshevDistancePass implements GPGPUProgram
     }
 }
 
+/**
+ * One-sided 1D Chebyshev transform for packed octants. Lanes are grouped by
+ * sign so negative and positive directions can terminate independently.
+ */
 class AnisotropicChebyshevDistancePass implements GPGPUProgram
 {
     variableNames = ['A']
@@ -299,6 +323,10 @@ class AnisotropicChebyshevDistancePass implements GPGPUProgram
     }
 }
 
+/**
+ * Final dominant-axis pass for packed extended anisotropic distances. All lanes
+ * share the dominant sign, so one directional scan updates the full vec4.
+ */
 class ExtendedChebyshevDistancePass implements GPGPUProgram 
 {
     variableNames = ['A']
@@ -445,6 +473,9 @@ function extendedChebyshevDistancePass(
 }
 
 
+/**
+ * Builds four ordinary Chebyshev distance maps in packed lanes.
+ */
 export function computeIsotropicDistanceMaps(
     mask: tf.Tensor5D,
     maxDistance: number,
@@ -465,6 +496,10 @@ export function computeIsotropicDistanceMaps(
     return distances3d
 }
 
+/**
+ * Computes both dominant-axis directions for the packed ray family and keeps
+ * the shorter distance per lane.
+ */
 export function computeBidirectionalDistanceMaps(
     mask: tf.Tensor5D,
     dominantAxis: Axis,
@@ -475,7 +510,7 @@ export function computeBidirectionalDistanceMaps(
 {
 
     const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
-    const sweepOctants = packedOctantsFromSignAxis(dominantSign, dominantAxis)
+    const sweepOctants = octantsLayoutFromSignAxis(dominantSign, dominantAxis)
 
     const distances0d = initialChebyshevDistancePass(mask, maxDistance)
 
@@ -514,6 +549,10 @@ export function computeBidirectionalDistanceMaps(
     return bidirectionalDistanceMap as tf.Tensor5D
 }
 
+/**
+ * Builds four unidirectional extended anisotropic distance maps in packed
+ * lanes for one dominant-axis sign.
+ */
 export function computeUnidirectionalDistanceMaps(
     mask: tf.Tensor5D,
     dominantAxis: Axis,
@@ -522,7 +561,7 @@ export function computeUnidirectionalDistanceMaps(
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const sweepOctants = packedOctantsFromSignAxis(dominantSign, dominantAxis)
+    const sweepOctants = octantsLayoutFromSignAxis(dominantSign, dominantAxis)
     const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
     const sweepSigns = sweepAxes.map((axis) => sweepOctants.map((octant) => su.getOctantSign(octant, axis)) as [Sign, Sign, Sign, Sign]) 
 
@@ -541,6 +580,9 @@ export function computeUnidirectionalDistanceMaps(
 }
 
 
+/**
+ * Convenience wrapper that extracts one octant from packed isotropic maps.
+ */
 export function computeIsotropicDistanceMap(
     mask: tf.Tensor5D,
     dominantAxis: Axis,
@@ -550,12 +592,15 @@ export function computeIsotropicDistanceMap(
 ): tf.Tensor3D
 {
     const distanceMaps = computeIsotropicDistanceMaps(mask, maxDistance, verbose)
-    const distanceMap = unpackTensorFromAxisOctant(distanceMaps, dominantAxis, directionOctant)
+    const distanceMap = extractTensorFromAxisOctant(distanceMaps, dominantAxis, directionOctant)
     tf.dispose(distanceMaps)
 
     return distanceMap as tf.Tensor3D
 }
 
+/**
+ * Convenience wrapper that extracts one octant from packed unidirectional maps.
+ */
 export function computeUnidirectionalDistanceMap(
     mask: tf.Tensor5D,
     dominantAxis: Axis,
@@ -566,12 +611,15 @@ export function computeUnidirectionalDistanceMap(
 {
     const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
     const distanceMaps = computeUnidirectionalDistanceMaps(mask, dominantAxis, dominantSign, maxDistance, verbose)
-    const distanceMap = unpackTensorFromAxisOctant(distanceMaps, dominantAxis, directionOctant)
+    const distanceMap = extractTensorFromAxisOctant(distanceMaps, dominantAxis, directionOctant)
     tf.dispose(distanceMaps)
 
     return distanceMap as tf.Tensor3D
 }
 
+/**
+ * Convenience wrapper that extracts one octant from packed bidirectional maps.
+ */
 export function computeBidirectionalDistanceMap(
     mask: tf.Tensor5D,
     dominantAxis: Axis,
@@ -582,7 +630,7 @@ export function computeBidirectionalDistanceMap(
 {
     const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
     const distanceMaps = computeBidirectionalDistanceMaps(mask, dominantAxis, dominantSign, maxDistance, verbose)
-    const distanceMap = unpackTensorFromAxisOctant(distanceMaps, dominantAxis, directionOctant)
+    const distanceMap = extractTensorFromAxisOctant(distanceMaps, dominantAxis, directionOctant)
     tf.dispose(distanceMaps)
 
     return distanceMap as tf.Tensor3D

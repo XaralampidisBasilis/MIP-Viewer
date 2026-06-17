@@ -28,8 +28,8 @@ import { where3dPacked } from './where3dPacked'
 import { type Sign, type Octant, type Axis } from '../../Utils/ShadowMapUtils'
 
 /**
- * This function returns the order of the packed octants that the packed
- *  gpgpu programs bellow generate given as input the dominant axis and sign
+ * Returns the RGBA lane order for the four octants sharing one dominant-axis
+ * sign. The same layout is used by the packed shadow and distance programs.
  */
 function octantsLayoutFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Octant, Octant]
 {
@@ -46,6 +46,9 @@ function octantsLayoutFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Oct
     return [...octants] as [Octant, Octant, Octant, Octant]
 }
 
+/**
+ * Extracts one scalar octant map from the packed [D, H, W, 2, 2] tensor.
+ */
 function extractTensorFromAxisOctant(
     tensor: tf.Tensor5D,
     dominantAxis: Axis,
@@ -313,6 +316,11 @@ class PropagateVertexMinmaxValuesProgram implements GPGPUProgram
     }
 }
 
+/**
+ * Packed Jacobi-style reference pass. Every fragment reads from the previous
+ * packed tensor and writes a new packed tensor, so all four lanes advance by
+ * one dependency edge per iteration.
+ */
 class IterateVertexMinmaxValuesProgram implements GPGPUProgram
 {
     variableNames = ['A']
@@ -657,6 +665,9 @@ function propagateVertexMinmaxValues(
     return vertexMinmaxValues as tf.Tensor5D
 }
 
+/**
+ * Slow packed reference implementation of directional minmax propagation.
+ */
 function iterateVertexMinmaxValues(
     vertexValues: tf.Tensor5D,
     axis: su.Axis,
@@ -825,6 +836,10 @@ export function computeBidirectionalShadowMaps(
 }
 
 
+/**
+ * Computes packed conservative masks, then measures unidirectional distances
+ * while preserving the RGBA octant lane layout.
+ */
 export function computeUnidirectionalDistanceMaps(
     volume: tf.Tensor3D,
     dominantAxis: Axis,
@@ -842,6 +857,10 @@ export function computeUnidirectionalDistanceMaps(
     return distanceMaps
 }
 
+/**
+ * Computes packed conservative masks for both dominant-axis directions, then
+ * measures bidirectional distances in the same packed lane layout.
+ */
 export function computeBidirectionalDistanceMaps(
     volume: tf.Tensor3D,
     dominantAxis: Axis,
@@ -860,6 +879,10 @@ export function computeBidirectionalDistanceMaps(
 }
 
 
+/**
+ * Convenience wrapper that extracts one octant from the packed unidirectional
+ * shadow maps.
+ */
 export function computeUnidirectionalShadowMap(
     volume: tf.Tensor3D,
     dominantAxis: Axis,
@@ -877,6 +900,10 @@ export function computeUnidirectionalShadowMap(
     return shadowMap as tf.Tensor3D
 }
 
+/**
+ * Convenience wrapper that extracts one octant from the packed bidirectional
+ * shadow maps.
+ */
 export function computeBidirectionalShadowMap(
     volume: tf.Tensor3D,
     dominantAxis: Axis,

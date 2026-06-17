@@ -2,7 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 
-class MapPackedProgram implements GPGPUProgram 
+class NormalizePackedProgram implements GPGPUProgram 
 {
     variableNames = ['A']
     outputShape: number[]
@@ -11,8 +11,8 @@ class MapPackedProgram implements GPGPUProgram
     packedOutput = true
 
     customUniforms = [
-        { name: 'a', type: 'float' as const }, 
-        { name: 'b', type: 'float' as const }
+        { name: 'minValue', type: 'float' as const }, 
+        { name: 'maxValue', type: 'float' as const }
     ]
 
     constructor
@@ -24,23 +24,23 @@ class MapPackedProgram implements GPGPUProgram
         this.userCode = `
         void main() 
         {
-            float d = b - a;
-            vec4 x = getAAtOutCoords();
-            vec4 y = (x - vec4(a)) / vec4(d);
-            vec4 t = clamp(y, 0.0, 1.0);
-
-            setOutput(t);
+            float range = maxValue - minValue;
+            setOutput((getAAtOutCoords() - vec4(minValue)) / vec4(range));
         }
         `
     }
 }
 
-export function map(tensor: tf.Tensor3D, a: number, b: number): tf.Tensor3D  
+export function normalize3dPacked(tensor: tf.Tensor3D): { normalized: tf.Tensor3D, minValue: number, maxValue: number } 
 {
-    const program = new MapPackedProgram(tensor.shape)
-    const customValues = [[a], [b]]
+    const minValue = tf.tidy(() => tf.min(tensor).dataSync()[0])
+    const maxValue = tf.tidy(() => tf.max(tensor).dataSync()[0])
+    const customValues = [[minValue], [maxValue]]
 
-    return runWebGLProgram(program, [tensor], 'float32', customValues, false) as tf.Tensor3D   
+    const program = new NormalizePackedProgram(tensor.shape)
+    const normalized = runWebGLProgram(program, [tensor], 'float32', customValues, false) as tf.Tensor3D   
+
+    return { normalized, minValue, maxValue } 
 }
 
 function runWebGLProgram(prog: GPGPUProgram, inputs: tf.Tensor[], dtype?: tf.DataType, customValues?: number[][], preventEagerUnpackingOfOutput?: boolean): tf.Tensor

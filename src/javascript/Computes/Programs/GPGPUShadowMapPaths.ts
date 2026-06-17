@@ -128,6 +128,11 @@ function runWebGLProgram(
     return tf.engine().makeTensorFromTensorInfo(info)
 }
 
+/**
+ * Expands voxel intensities to a padded vertex lattice. Padding lets later
+ * stencils address cell corners uniformly while clamped voxel sampling keeps
+ * boundary values well-defined.
+ */
 class ComputeVertexValuesProgram implements GPGPUProgram
 {
     variableNames = ['A']
@@ -186,8 +191,9 @@ class ComputeVertexValuesProgram implements GPGPUProgram
  * Reference fixed-point relaxation pass. It recomputes the whole volume until
  * information has propagated across the selected sweep length.
  *
- * This is slower than PropagateVertexMinmaxValuesProgram, but useful as a conceptual
- * reference because every iteration applies the same local stencil everywhere.
+ * This is slower than PropagateVertexMinmaxValuesProgram, but useful as a
+ * conceptual reference because every iteration applies the same local stencil
+ * everywhere and reads only the previous tensor.
  */
 class IterateVertexMinmaxValuesProgram implements GPGPUProgram
 {
@@ -262,7 +268,7 @@ class IterateVertexMinmaxValuesProgram implements GPGPUProgram
  *
  * A is the current raw slice. B is the already-propagated previous slice in
  * the requested direction. The shader keeps the current vertex value unless
- * every incoming route has already seen a larger guaranteed minValues.
+ * every incoming route has already seen a larger guaranteed minimum.
  */
 class PropagateVertexMinmaxValuesProgram implements GPGPUProgram
 {
@@ -549,6 +555,9 @@ function computeVertexValues(
 
 /**
  * Slow reference implementation of directional minmax propagation.
+ *
+ * This is the Jacobi-style variant: each pass writes a new tensor from the old
+ * tensor, so information advances by one stencil edge per pass.
  */
 function iterateVertexMinmaxValues(
     volume: tf.Tensor3D,
@@ -578,7 +587,8 @@ function iterateVertexMinmaxValues(
 
 /**
  * Propagates directional minmax values one slice at a time along the selected
- * axis and octant. This is the fast path used by the public shadow-map helpers.
+ * axis and octant. This is the fast path used by the public shadow-map helpers:
+ * each slice sees the already-propagated slice behind it in the sweep order.
  */
 function propagateVertexMinmaxValues(
     vertexValues: tf.Tensor3D,
@@ -750,7 +760,8 @@ export function computeBidirectionalShadowMap(
 }
 
 /**
- * Computes four unidirectionaly conservative cell-rejection distance maps in packed lanes.
+ * Computes the conservative mask first, then measures a unidirectional distance
+ * map for the requested ray family.
  */
 export function computeUnidirectionalDistanceMap(
     volume: tf.Tensor3D,
@@ -769,6 +780,10 @@ export function computeUnidirectionalDistanceMap(
     return distanceMap
 }
 
+/**
+ * Computes the bidirectional conservative mask before measuring distance to the
+ * nearest non-rejected seed in either direction of the ray family.
+ */
 export function computeBidirectionalDistanceMap(
     volume: tf.Tensor3D,
     dominantAxis: Axis,
