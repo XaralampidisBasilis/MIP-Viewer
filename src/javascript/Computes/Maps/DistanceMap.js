@@ -1,14 +1,7 @@
-import * as THREE from 'three'
-import * as tf from '@tensorflow/tfjs'
 import Computes from '../Computes'
-import * as GPGPU from '../Programs/GPGPUShadowDistanceMap'
+import { computePackedDistanceTexture } from '../Programs/ComputePackedDistanceTexture'
 
-// import * as A from '../Programs/GPGPUShadowMapPaths'
-// import * as B from '../Programs/GPGPUShadowMapPathsPacked'
-// import * as C from '../Programs/GPGPUShadowDistanceMap'
-// import * as B2 from '../Programs/GPGPUShadowMapPathsPacked2'
-
-export default class DistanceMap 
+export default class DistanceMap
 {
     constructor()
     {
@@ -24,171 +17,26 @@ export default class DistanceMap
     {
         const volume = this.computes.volumeMap.tensor
 
-        // const t1 =  B.computeUnidirectionalShadowMaps(volume, 'z', '+', 0, false)
-        // const t2 = B2.computeUnidirectionalShadowMap(volume, 'z', '+', 0, false)
-        // const error = tf.abs(tf.sub(t1, t2))
-        // console.log(t1.mean([0,1,2]).dataSync())
-        // console.log(t2.mean([0,1,2]).dataSync())
-        // console.log(error.mean([0,1,2]).dataSync())
-        // tf.whereAsync(error.cast('bool')).then((coords) => console.log(coords.arraySync()))
+        const result = computePackedDistanceTexture(
+            volume,
+            'unidirectional',
+            this.errorTolerance,
+            this.blockSize,
+            this.distanceVariation,
+            true,
+        )
 
-        // tf.tidy(() => console.log( A.computeBidirectionalShadowMap(volume, 'z', '+++', 0.01, 1, false).mean([0,1,2]).dataSync()))
-        // tf.tidy(() => console.log( A.computeBidirectionalShadowMap(volume, 'z', '+-+', 0.01, 1, false).mean([0,1,2]).dataSync()))
-        // tf.tidy(() => console.log( A.computeBidirectionalShadowMap(volume, 'z', '-++', 0.01, 1, false).mean([0,1,2]).dataSync()))
-        // tf.tidy(() => console.log( A.computeBidirectionalShadowMap(volume, 'z', '--+', 0.01, 1, false).mean([0,1,2]).dataSync()))
-        // tf.tidy(() => console.log(B.computeBidirectionalShadowMaps(volume, 'z',   '+', 0.01, 1, false).mean([0,1,2]).dataSync()))
-
-        // tf.tidy(() => console.log( A.computeUnidirectionalDistanceMap(volume, 'z', '+++', 0.01, 1, 64, false).mean([0,1,2]).dataSync()))
-        // tf.tidy(() => console.log( A.computeUnidirectionalDistanceMap(volume, 'z', '+-+', 0.01, 1, 64, false).mean([0,1,2]).dataSync()))
-        // tf.tidy(() => console.log( A.computeUnidirectionalDistanceMap(volume, 'z', '-++', 0.01, 1, 64, false).mean([0,1,2]).dataSync()))
-        // tf.tidy(() => console.log( A.computeUnidirectionalDistanceMap(volume, 'z', '--+', 0.01, 1, 64, false).mean([0,1,2]).dataSync()))
-        // tf.tidy(() => console.log(B.computeUnidirectionalDistanceMaps(volume, 'z',   '+', 0.01, 1, 64, false).mean([0,1,2]).dataSync()))
-    
-        // console.time('B')
-        // B.computeBidirectionalShadowMaps(volume, 'z','+', 0.01, 1, false).dispose()
-        // console.timeEnd('B')
-
-        // console.time('A')
-        // A.computeBidirectionalShadowMap(volume, 'z', '+++', 0.01, 1, false).dispose()
-        // A.computeBidirectionalShadowMap(volume, 'z', '+-+', 0.01, 1, false).dispose()
-        // A.computeBidirectionalShadowMap(volume, 'z', '-++', 0.01, 1, false).dispose()
-        // A.computeBidirectionalShadowMap(volume, 'z', '--+', 0.01, 1, false).dispose()
-        // console.timeEnd('A')
-
-        // tf.time(() => 
-        // {
-        //     A.computeBidirectionalShadowMap(volume, 'z', '+++', 0.01, 1, false).dispose()
-        //     A.computeBidirectionalShadowMap(volume, 'z', '+-+', 0.01, 1, false).dispose()
-        //     A.computeBidirectionalShadowMap(volume, 'z', '-++', 0.01, 1, false).dispose()
-        //     A.computeBidirectionalShadowMap(volume, 'z', '--+', 0.01, 1, false).dispose()
-        // })
-        // .then((info) => console.log(`kernelMs: ${info.kernelMs}, wallTimeMs: ${info.wallMs}`))
-        // tf.time(() => 
-        // {
-        //     B.computeBidirectionalShadowMaps(volume, 'z','+', 0.01, 1, false).dispose()
-        // })
-        // .then((info) => console.log(`kernelMs: ${info.kernelMs}, wallTimeMs: ${info.wallMs}`))
-
-        // tf.time(() => 
-        // {
-        //     B.computeUnidirectionalDistanceMaps(volume, 'z','+', 0.01, 1, 255, false).dispose()
-        // })
-        // .then((info) => console.log(`kernelMs: ${info.kernelMs}, wallTimeMs: ${info.wallMs}, uploadWaitMs: ${uploadWaitMs}, downloadWaitMs: ${downloadWaitMs}`))
-        // tf.time(() => 
-        // {
-        //     A.computeUnidirectionalDistanceMap(volume, 'z', '+++', 0.01, 1, 255, false).dispose()
-        //     A.computeUnidirectionalDistanceMap(volume, 'z', '+-+', 0.01, 1, 255, false).dispose()
-        //     A.computeUnidirectionalDistanceMap(volume, 'z', '-++', 0.01, 1, 255, false).dispose()
-        //     A.computeUnidirectionalDistanceMap(volume, 'z', '--+', 0.01, 1, 255, false).dispose()
-        // })
-        // .then((info) => console.log(`kernelMs: ${info.kernelMs}, wallTimeMs: ${info.wallMs}, uploadWaitMs: ${uploadWaitMs}, downloadWaitMs: ${downloadWaitMs}`))
-
-   
-        if (this.distanceVariation ===  '1bit') this.compute1BitDistanceTexture()
-        if (this.distanceVariation ===  '5bit') this.compute5BitDistanceTexture()
-        if (this.distanceVariation ===  '8bit') this.compute8BitDistanceTexture()
-        if (this.distanceVariation === '10bit') this.compute10BitDistanceTexture()
+        this.textureData = result.data
+        this.texture = result.texture
+        this.dimensions = result.dimensions
     }
- 
-    compute1BitDistanceTexture()
-    {
-        console.time('computeR16UITexture') 
-        
-        const volumeTensor = this.computes.volumeMap.tensor
-        const blockShape = volumeTensor.shape.map(x => Math.ceil((x + 1) / this.blockSize))
-
-        this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
-        this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap1bit(volumeTensor, this.errorTolerance, this.blockSize, true)
-
-        this.texture = new THREE.Data3DTexture(this.textureData, ...this.dimensions)
-        this.texture.format = 'RED_INTEGER' // THREE.RedIntegerFormat
-        this.texture.type = THREE.UnsignedShortType
-        this.texture.internalFormat = 'R16UI'
-        this.texture.minFilter = THREE.NearestFilter
-        this.texture.magFilter = THREE.NearestFilter
-        this.texture.generateMipmaps = false
-        this.texture.unpackAlignment = 1
-        this.texture.needsUpdate = true
-
-        console.timeEnd('computeR16UITexture') 
-    }   
-
-    compute5BitDistanceTexture()
-    {
-        console.time('computeRGBA16UITexture') 
-
-        const volumeTensor = this.computes.volumeMap.tensor
-        const blockShape = volumeTensor.shape.map(x => Math.ceil((x + 1) / this.blockSize))
-
-        this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
-        this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap5bit(volumeTensor, this.errorTolerance, this.blockSize, true)
-
-        this.texture = new THREE.Data3DTexture(this.textureData, ...this.dimensions)
-        this.texture.format = 'RGBA_INTEGER' // THREE.RGBAIntegerFormat
-        this.texture.type = THREE.UnsignedShortType
-        this.texture.internalFormat = 'RGBA16UI'
-        this.texture.minFilter = THREE.NearestFilter
-        this.texture.magFilter = THREE.NearestFilter
-        this.texture.generateMipmaps = false
-        this.texture.unpackAlignment = 1
-        this.texture.needsUpdate = true
-
-        console.timeEnd('computeRGBA16UITexture') 
-    }   
-
-    compute8BitDistanceTexture()
-    {
-        console.time('computeRGB32UITexture') 
-
-        const volumeTensor = this.computes.volumeMap.tensor
-        const blockShape = volumeTensor.shape.map(x => Math.ceil((x + 1) / this.blockSize))
-
-        this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
-        this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap8bit(volumeTensor, this.errorTolerance, this.blockSize, true)
-
-        // Workaround: this Three.js version does not map THREE.RGBIntegerFormat to WebGL's RGB_INTEGER
-        // for Data3DTexture uploads, so use the raw WebGL enum name string instead.
-        this.texture = new THREE.Data3DTexture(this.textureData, ...this.dimensions)
-        this.texture.format = 'RGB_INTEGER' // THREE.RGBIntegerFormat
-        this.texture.type = THREE.UnsignedIntType
-        this.texture.internalFormat = 'RGB32UI'
-        this.texture.minFilter = THREE.NearestFilter
-        this.texture.magFilter = THREE.NearestFilter
-        this.texture.generateMipmaps = false
-        this.texture.unpackAlignment = 1
-        this.texture.needsUpdate = true
-
-        console.timeEnd('computeRGB32UITexture') 
-    }   
-
-    compute10BitDistanceTexture()
-    {
-        console.time('computeRGBA32UITexture') 
-
-        const volumeTensor = this.computes.volumeMap.tensor
-        const blockShape = volumeTensor.shape.map(x => Math.ceil((x + 1) / this.blockSize))
-
-        this.dimensions = new THREE.Vector3().fromArray(blockShape.toReversed())
-        this.textureData = GPGPU.computeExtendedAnisotropicUnidirectionalDistanceMap10bit(volumeTensor, this.errorTolerance, this.blockSize, true)
-
-        // Workaround: this Three.js version does not map THREE.RGBIntegerFormat to WebGL's RGB_INTEGER
-        // for Data3DTexture uploads, so use the raw WebGL enum name string instead.
-        this.texture = new THREE.Data3DTexture(this.textureData, ...this.dimensions)
-        this.texture.format = 'RGBA_INTEGER' // THREE.RGBAIntegerFormat
-        this.texture.type = THREE.UnsignedIntType
-        this.texture.internalFormat = 'RGBA32UI'
-        this.texture.minFilter = THREE.NearestFilter
-        this.texture.magFilter = THREE.NearestFilter
-        this.texture.generateMipmaps = false
-        this.texture.unpackAlignment = 1
-        this.texture.needsUpdate = true
-
-        console.timeEnd('computeRGBA32UITexture') 
-    }   
 
     dispose()
     {
         this.texture?.dispose()
+
         this.textureData = null
+        this.texture = null
+        this.dimensions = null
     }
 }

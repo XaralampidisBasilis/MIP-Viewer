@@ -43,7 +43,7 @@ function runWebGLProgram(
 }
 
 /**
- * Converts a binary mask into initial distances: clear cells become zero-distance
+ * Converts a binary shadowMap into initial distances: clear cells become zero-distance
  * seeds, while masked cells start at the caller's maximum representable range.
  */
 class InitialChebyshevDistancePass implements GPGPUProgram 
@@ -411,21 +411,23 @@ function extendedChebyshevDistancePass(
  * transforms along x, then y, then z.
  */
 export function computeIsotropicDistanceMap(
-    mask: tf.Tensor3D,
+    shadowMap: tf.Tensor3D,
     maxDistance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const distances0d = initialChebyshevDistancePass(mask, maxDistance, verbose)
+    if (verbose) logMean3d('shadowMap', shadowMap)
+    const distances0d = initialChebyshevDistancePass(shadowMap, maxDistance)
 
-    const distances1d = isotropicChebyshevDistancePass(distances0d, 'x', maxDistance, verbose)
+    const distances1d = isotropicChebyshevDistancePass(distances0d, 'x', maxDistance)
     tf.dispose(distances0d)
 
-    const distances2d = isotropicChebyshevDistancePass(distances1d, 'y', maxDistance, verbose)
+    const distances2d = isotropicChebyshevDistancePass(distances1d, 'y', maxDistance)
     tf.dispose(distances1d)
 
-    const distances3d = isotropicChebyshevDistancePass(distances2d, 'z', maxDistance, verbose)
+    const distances3d = isotropicChebyshevDistancePass(distances2d, 'z', maxDistance)
     tf.dispose(distances2d)
+    if (verbose) logMean3d('distanceMap', distances3d)
 
     return distances3d
 }
@@ -436,48 +438,51 @@ export function computeIsotropicDistanceMap(
  * only along the ray direction.
  */
 export function computeUnidirectionalDistanceMap(
-    mask: tf.Tensor3D,
+    shadowMap: tf.Tensor3D,
     dominantAxis: Axis,
     directionOctant: Octant,
     maxDistance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
+    if (verbose) logMean3d('shadowMap', shadowMap)
+    const distances0d = initialChebyshevDistancePass(shadowMap, maxDistance)
+
     const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
     const sweepSigns = sweepAxes.map((sweepAxis) => su.getOctantSign(directionOctant, sweepAxis)) as [Sign, Sign]
     const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
 
-    const distances0d = initialChebyshevDistancePass(mask, maxDistance, verbose)
-
-    const distances1d = anisotropicChebyshevDistancePass(distances0d, sweepAxes[0], sweepSigns[0], maxDistance, verbose)
+    const distances1d = anisotropicChebyshevDistancePass(distances0d, sweepAxes[0], sweepSigns[0], maxDistance)
     tf.dispose(distances0d)
 
-    const distances2d = anisotropicChebyshevDistancePass(distances1d, sweepAxes[1], sweepSigns[1], maxDistance, verbose)
+    const distances2d = anisotropicChebyshevDistancePass(distances1d, sweepAxes[1], sweepSigns[1], maxDistance)
     tf.dispose(distances1d)
 
-    const distances3d = extendedChebyshevDistancePass(distances2d, dominantAxis, dominantSign, maxDistance, verbose)
+    const distances3d = extendedChebyshevDistancePass(distances2d, dominantAxis, dominantSign, maxDistance)
     tf.dispose(distances2d)
+    if (verbose) logMean3d('distanceMap', distances3d)
 
     return distances3d
 }
 
 /**
- * Computes both directions of the same ray family from the same initial mask
+ * Computes both directions of the same ray family from the same initial shadowMap
  * and keeps the shorter distance at each cell.
  */
 export function computeBidirectionalDistanceMap(
-    mask: tf.Tensor3D,
+    shadowMap: tf.Tensor3D,
     dominantAxis: Axis,
     directionOctant: Octant,
     maxDistance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
-
-    const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
-    const distances0d = initialChebyshevDistancePass(mask, maxDistance, verbose)
+    if (verbose) logMean3d('shadowMap', shadowMap)
+    const distances0d = initialChebyshevDistancePass(shadowMap, maxDistance)
 
     // Forward
+    const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
+
     const forwardDominantSign = su.getOctantSign(directionOctant, dominantAxis)
     const forwardSweepSigns = sweepAxes.map((sweepAxis) => su.getOctantSign(directionOctant, sweepAxis)) as [Sign, Sign]
 
@@ -488,7 +493,6 @@ export function computeBidirectionalDistanceMap(
 
     const forwardDistances3d = extendedChebyshevDistancePass(forwardDistances2d, dominantAxis, forwardDominantSign, maxDistance)
     tf.dispose(forwardDistances2d)
-    if (verbose) logMean3d('forwardDistanceMap', forwardDistances3d)
 
     // Backward
     const backwardDominantSign = su.reverseSign(forwardDominantSign)
@@ -502,12 +506,11 @@ export function computeBidirectionalDistanceMap(
 
     const backwardDistances3d = extendedChebyshevDistancePass(backwardDistances2d, dominantAxis, backwardDominantSign, maxDistance)
     tf.dispose(backwardDistances2d)
-    if (verbose) logMean3d('backwardDistanceMap', backwardDistances3d)
 
     // Bidirectional
     const bidirectionalDistanceMap = tf.minimum(forwardDistances3d, backwardDistances3d)
     tf.dispose([forwardDistances3d, backwardDistances3d])
-    if (verbose) logMean3d('bidirectionalDistanceMap', bidirectionalDistanceMap)
+    if (verbose) logMean3d('distanceMap', bidirectionalDistanceMap)
 
     return bidirectionalDistanceMap as tf.Tensor3D
 }

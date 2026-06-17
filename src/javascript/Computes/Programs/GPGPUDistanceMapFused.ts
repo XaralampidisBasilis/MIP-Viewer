@@ -78,7 +78,7 @@ function runWebGLProgram(
 }
 
 /**
- * Converts a packed binary mask into initial packed distances. Each lane keeps
+ * Converts a packed binary shadowMaps into initial packed distances. Each lane keeps
  * its own seed state but shares the same spatial coordinates.
  */
 class InitialChebyshevDistancePass implements GPGPUProgram 
@@ -477,12 +477,12 @@ function extendedChebyshevDistancePass(
  * Builds four ordinary Chebyshev distance maps in packed lanes.
  */
 export function computeIsotropicDistanceMaps(
-    mask: tf.Tensor5D,
+    shadowMaps: tf.Tensor5D,
     maxDistance: number,
     verbose: boolean = false
 ): tf.Tensor5D
 {
-    const distance0d = initialChebyshevDistancePass(mask, maxDistance, verbose)
+    const distance0d = initialChebyshevDistancePass(shadowMaps, maxDistance, verbose)
 
     const distances1d = isotropicChebyshevDistancePass(distance0d, 'x', maxDistance, verbose)
     tf.dispose(distance0d)
@@ -501,7 +501,7 @@ export function computeIsotropicDistanceMaps(
  * the shorter distance per lane.
  */
 export function computeBidirectionalDistanceMaps(
-    mask: tf.Tensor5D,
+    shadowMaps: tf.Tensor5D,
     dominantAxis: Axis,
     dominantSign: Sign,
     maxDistance: number,
@@ -512,7 +512,7 @@ export function computeBidirectionalDistanceMaps(
     const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
     const sweepOctants = octantsLayoutFromSignAxis(dominantSign, dominantAxis)
 
-    const distances0d = initialChebyshevDistancePass(mask, maxDistance)
+    const distances0d = initialChebyshevDistancePass(shadowMaps, maxDistance)
 
     // Forward
     const forwardDominantSign = dominantSign
@@ -554,7 +554,7 @@ export function computeBidirectionalDistanceMaps(
  * lanes for one dominant-axis sign.
  */
 export function computeUnidirectionalDistanceMaps(
-    mask: tf.Tensor5D,
+    shadowMaps: tf.Tensor5D,
     dominantAxis: Axis,
     dominantSign: Sign,
     maxDistance: number,
@@ -565,7 +565,7 @@ export function computeUnidirectionalDistanceMaps(
     const sweepAxes =  ['x','y','z'].filter((axis) => axis !== dominantAxis) as [Axis, Axis]
     const sweepSigns = sweepAxes.map((axis) => sweepOctants.map((octant) => su.getOctantSign(octant, axis)) as [Sign, Sign, Sign, Sign]) 
 
-    const distance0d = initialChebyshevDistancePass(mask, maxDistance, verbose)
+    const distance0d = initialChebyshevDistancePass(shadowMaps, maxDistance, verbose)
 
     const distances1d = anisotropicChebyshevDistancePass(distance0d, sweepAxes[0], sweepSigns[0], maxDistance, verbose)
     tf.dispose(distance0d)
@@ -584,14 +584,14 @@ export function computeUnidirectionalDistanceMaps(
  * Convenience wrapper that extracts one octant from packed isotropic maps.
  */
 export function computeIsotropicDistanceMap(
-    mask: tf.Tensor5D,
+    shadowMaps: tf.Tensor5D,
     dominantAxis: Axis,
     directionOctant: Octant,
     maxDistance: number,
     verbose: boolean = false
 ): tf.Tensor3D
 {
-    const distanceMaps = computeIsotropicDistanceMaps(mask, maxDistance, verbose)
+    const distanceMaps = computeIsotropicDistanceMaps(shadowMaps, maxDistance, verbose)
     const distanceMap = extractTensorFromAxisOctant(distanceMaps, dominantAxis, directionOctant)
     tf.dispose(distanceMaps)
 
@@ -602,7 +602,7 @@ export function computeIsotropicDistanceMap(
  * Convenience wrapper that extracts one octant from packed unidirectional maps.
  */
 export function computeUnidirectionalDistanceMap(
-    mask: tf.Tensor5D,
+    shadowMaps: tf.Tensor5D,
     dominantAxis: Axis,
     directionOctant: Octant,
     maxDistance: number,
@@ -610,7 +610,7 @@ export function computeUnidirectionalDistanceMap(
 ): tf.Tensor3D
 {
     const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
-    const distanceMaps = computeUnidirectionalDistanceMaps(mask, dominantAxis, dominantSign, maxDistance, verbose)
+    const distanceMaps = computeUnidirectionalDistanceMaps(shadowMaps, dominantAxis, dominantSign, maxDistance, verbose)
     const distanceMap = extractTensorFromAxisOctant(distanceMaps, dominantAxis, directionOctant)
     tf.dispose(distanceMaps)
 
@@ -621,7 +621,7 @@ export function computeUnidirectionalDistanceMap(
  * Convenience wrapper that extracts one octant from packed bidirectional maps.
  */
 export function computeBidirectionalDistanceMap(
-    mask: tf.Tensor5D,
+    shadowMaps: tf.Tensor5D,
     dominantAxis: Axis,
     directionOctant: Octant,
     maxDistance: number,
@@ -629,7 +629,7 @@ export function computeBidirectionalDistanceMap(
 ): tf.Tensor3D
 {
     const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
-    const distanceMaps = computeBidirectionalDistanceMaps(mask, dominantAxis, dominantSign, maxDistance, verbose)
+    const distanceMaps = computeBidirectionalDistanceMaps(shadowMaps, dominantAxis, dominantSign, maxDistance, verbose)
     const distanceMap = extractTensorFromAxisOctant(distanceMaps, dominantAxis, directionOctant)
     tf.dispose(distanceMaps)
 

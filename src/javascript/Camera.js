@@ -47,12 +47,20 @@ export default class Camera extends EventEmitter
         this.controls.enableAnimations = false
         this.controls.enableGrid = false
         this.controls.cursorZoom = true
+
         this.controls.rotateSpeed = 0.75
-        this.controls.scaleFactor = 1.05
-        this.controls.wMax = 8.0
+
+        // Wheel/pinch zoom step. Higher = faster zoom per scroll.
+        this.controls.scaleFactor = 1.08
+
+        // Orthographic zoom bounds.
+        this.controls.minZoom = 0.05
+        this.controls.maxZoom = 64.0
+
+        // Arcball internal zoom bound. Keep this in sync with maxZoom.
+        this.controls.wMax = this.controls.maxZoom
+
         this.controls.adjustNearFar = false
-        this.controls.minZoom = 0.5
-        this.controls.maxZoom = 8.0
 
         this.controls.setGizmosVisible(false)
         this.controls.update()
