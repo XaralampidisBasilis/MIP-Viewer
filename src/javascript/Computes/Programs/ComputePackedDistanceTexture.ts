@@ -327,7 +327,7 @@ export function computePackedDistanceTexture(
         console.time('computePackedDistanceTexture')
     }
 
-    const data = computePackedDistanceMaps( volume, variant, tolerance, blockSize, encoding, true)
+    const data = computePackedDistanceMaps( volume, variant, tolerance, blockSize, encoding, false)
  
     const texture = new THREE.Data3DTexture(data as any, dimensions.x, dimensions.y, dimensions.z)
     texture.format = textureFormat.format as any
