@@ -49,7 +49,7 @@ function maxEncodableDistance( encoding, axis ) {
 function computeTextureDimensionsFromShape( shape, blockSize ) {
 
 	const blockShape = shape.map( ( x ) => Math.ceil( ( x + 1 ) / blockSize ) )
-	const [ depth, height, width ] = blockShape
+	const [ width, height, depth ] = blockShape
 
 	return new THREE.Vector3( width, height, depth )
 }
@@ -84,7 +84,7 @@ async function ensureWebGPUTensor( volume, device ) {
 
 	const tensor = WebGPUTensor3D.fromTypedArray(
 		device,
-		volume.shape,
+		volume.shape.toReversed(),
 		data,
 		'float32',
 		'webgpu-distance-volume',
@@ -371,7 +371,7 @@ async function readPackedDistanceData( device, packedBuffer, encoding, voxelCoun
 
 function packDistanceMapWGSL( shape, encoding, targetIndex ) {
 
-	const [ depth, height, width ] = shape
+	const [ width, height, depth ] = shape
 	const targetGroup = Math.floor( targetIndex / 4 )
 	const targetComponent = targetIndex % 4
 

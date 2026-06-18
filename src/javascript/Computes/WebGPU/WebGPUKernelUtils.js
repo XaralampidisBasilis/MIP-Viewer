@@ -10,7 +10,7 @@ export function workgroupSizeWGSL( workgroupSize ) {
 }
 
 export function commonTensor3DWGSL( shape ) {
-	const [ depth, height, width ] = shape
+	const [ width, height, depth ] = shape
 	return /* wgsl */ `
 	const DEPTH: u32 = ${depth}u;
 	const HEIGHT: u32 = ${height}u;
@@ -41,7 +41,7 @@ export function commonTensor3DWGSL( shape ) {
 }
 
 export function commonOutputWGSL( shape, prefix = 'OUT' ) {
-	const [ depth, height, width ] = shape
+	const [ width, height, depth ] = shape
 	const lowerPrefix = prefix.toLowerCase()
 	return /* wgsl */ `
 	const ${prefix}_DEPTH: u32 = ${depth}u;
@@ -66,14 +66,14 @@ export function commonOutputWGSL( shape, prefix = 'OUT' ) {
 }
 
 export function axisSize( shape, axis ) {
-	const [ depth, height, width ] = shape
+	const [ width, height, depth ] = shape
 	if ( axis === 'x' ) return width
 	if ( axis === 'y' ) return height
 	return depth
 }
 
 export function axisStride( shape, axis ) {
-	const [ , height, width ] = shape
+	const [ width, height ] = shape
 	if ( axis === 'x' ) return 1
 	if ( axis === 'y' ) return width
 	return height * width
@@ -153,8 +153,8 @@ export async function map3dInPlaceWebGPU( input, minValue, maxValue ) {
 
 export async function resizeTrilinearWebGPU( input, outputShape, alignCorners = false, halfPixelCenters = true ) {
 	const output = WebGPUTensor3D.empty( input.device, outputShape, 'float32', 'resize-trilinear-output' )
-	const [ inDepth, inHeight, inWidth ] = input.shape
-	const [ outDepth, outHeight, outWidth ] = outputShape
+	const [ inWidth, inHeight, inDepth ] = input.shape
+	const [ outWidth, outHeight, outDepth ] = outputShape
 
 	const effectiveInSize = [
 		alignCorners && outDepth > 1 ? inDepth - 1 : inDepth,
@@ -307,8 +307,8 @@ function map3dInPlaceWGSL( shape ) {
 }
 
 function resizeTrilinearWGSL( inputShape, outputShape ) {
-	const [ inDepth, inHeight, inWidth ] = inputShape
-	const [ outDepth, outHeight, outWidth ] = outputShape
+	const [ inWidth, inHeight, inDepth ] = inputShape
+	const [ outWidth, outHeight, outDepth ] = outputShape
 
 	return /* wgsl */ `
 	const IN_DEPTH: u32 = ${inDepth}u;

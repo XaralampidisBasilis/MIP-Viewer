@@ -142,7 +142,7 @@ export async function runComputeProgramSequence(
 
 export function dispatchForShape(shape, workgroupSize = [8, 8, 4])
 {
-    const [depth, height, width] = shape
+    const [width, height, depth] = shape
 
     return [
         ceilDiv(width, workgroupSize[0]),

@@ -23,6 +23,9 @@ export class WebGPUTensor3D
 
         this.device = device
         this.shape = shape
+        this.width = shape[0]
+        this.height = shape[1]
+        this.depth = shape[2]
         this.dtype = dtype
         this.buffer = buffer
         this.label = label

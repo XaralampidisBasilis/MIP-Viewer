@@ -119,7 +119,7 @@ export default class VolumeMap
         this.textureData = null
 
         const { device } = await getWebGPUComputeContext()
-        const shape = this.volume.dimensions.toReversed()
+        const shape = this.volume.dimensions
         const data = new Float32Array(this.volume.data)
         const raw = WebGPUTensor3D.fromTypedArray(device, shape, data, 'float32', 'volume-raw')
         const [minValue, maxValue] = await reduceMinMaxWebGPU(raw)
@@ -131,7 +131,7 @@ export default class VolumeMap
 
         if (this.configs.downscaleEnabled)
         {
-            const spacing = this.volume.spacing.toReversed()
+            const spacing = this.volume.spacing
             const newShape = shape.map((x) => Math.ceil(this.configs.downscaleFactor * x))
             const newSpacing = spacing.map((x, i) => shape[i] / newShape[i] * x)
             const resized = await resizeTrilinearWebGPU(tensor, newShape, false, true)
@@ -140,8 +140,8 @@ export default class VolumeMap
             tensor = resized
 
             this.shape = newShape
-            this.dimensions.fromArray(newShape.toReversed())
-            this.spacing.fromArray(newSpacing.toReversed())
+            this.dimensions.fromArray(newShape)
+            this.spacing.fromArray(newSpacing)
         }
         else
         {

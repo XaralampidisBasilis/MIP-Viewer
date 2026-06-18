@@ -113,10 +113,10 @@ export async function computeBidirectionalShadowMapWebGPU( volume, dominantAxis,
 
 async function computeVertexValues( volume ) {
 
-	const [ depth, height, width ] = volume.shape
+	const [ width, height, depth ] = volume.shape
 	const output = WebGPUTensor3D.empty(
 		volume.device,
-		[ depth + 2, height + 2, width + 2 ],
+		[ width + 2, height + 2, depth + 2 ],
 		'float32',
 		'webgpu-vertex-values',
 	)
@@ -133,10 +133,10 @@ async function computeVertexValues( volume ) {
 
 async function computeVertexValuesWithHoles( volume, cellShadows, axis, octant ) {
 
-	const [ depth, height, width ] = volume.shape
+	const [ width, height, depth ] = volume.shape
 	const output = WebGPUTensor3D.empty(
 		volume.device,
-		[ depth + 2, height + 2, width + 2 ],
+		[ width + 2, height + 2, depth + 2 ],
 		'float32',
 		'webgpu-vertex-values-holes',
 	)
@@ -153,7 +153,7 @@ async function computeVertexValuesWithHoles( volume, cellShadows, axis, octant )
 
 async function propagateVertexMinmaxValuesInPlace( vertexValues, axis, octant ) {
 
-	const dimension = su.axisToDimension( axis )
+	const dimension = axisToShapeIndex( axis )
 	const sign = su.getOctantSign( octant, axis )
 	const backwards = sign === '-'
 	const slices = vertexValues.shape[ dimension ]
@@ -231,10 +231,10 @@ async function computeVertexShadowsFromVolumeHoles( volume, cellShadows, vertexM
 
 async function computeCellShadows( vertexShadows, axis, octant ) {
 
-	const [ depth, height, width ] = vertexShadows.shape
+	const [ width, height, depth ] = vertexShadows.shape
 	const output = WebGPUTensor3D.empty(
 		vertexShadows.device,
-		[ depth - 1, height - 1, width - 1 ],
+		[ width - 1, height - 1, depth - 1 ],
 		'uint32',
 		'webgpu-cell-shadows',
 	)
@@ -251,7 +251,7 @@ async function computeCellShadows( vertexShadows, axis, octant ) {
 
 function computeVertexValuesWGSL( inputShape, outputShape ) {
 
-	const [ depth, height, width ] = inputShape
+	const [ width, height, depth ] = inputShape
 
 	return /* wgsl */ `
 	${commonTensor3DWGSL( inputShape )}
@@ -281,8 +281,8 @@ function computeVertexValuesWGSL( inputShape, outputShape ) {
 
 function computeVertexValuesWithHolesWGSL( inputShape, cellShape, outputShape, axis, octant ) {
 
-	const [ depth, height, width ] = inputShape
-	const [ cellDepth, cellHeight, cellWidth ] = cellShape
+	const [ width, height, depth ] = inputShape
+	const [ cellWidth, cellHeight, cellDepth ] = cellShape
 
 	return /* wgsl */ `
 	${commonOutputWGSL( outputShape )}
@@ -405,7 +405,7 @@ function propagateVertexMinmaxInPlaceWGSL( shape, axis, octant, step ) {
 
 function computeVertexShadowsFromVolumeWGSL( inputShape, vertexShape, axis, octant, tolerance ) {
 
-	const [ depth, height, width ] = inputShape
+	const [ width, height, depth ] = inputShape
 
 	return /* wgsl */ `
 	${commonTensor3DWGSL( vertexShape )}
@@ -472,8 +472,8 @@ function computeVertexShadowsFromVolumeWGSL( inputShape, vertexShape, axis, octa
 
 function computeVertexShadowsFromVolumeHolesWGSL( inputShape, cellShape, vertexShape, axis, octant, tolerance ) {
 
-	const [ depth, height, width ] = inputShape
-	const [ cellDepth, cellHeight, cellWidth ] = cellShape
+	const [ width, height, depth ] = inputShape
+	const [ cellWidth, cellHeight, cellDepth ] = cellShape
 
 	return /* wgsl */ `
 	${commonTensor3DWGSL( vertexShape )}
@@ -604,11 +604,17 @@ function dispatchForPlane( shape, axis ) {
 
 function planeSize( shape, axis ) {
 
-	const [ depth, height, width ] = shape
+	const [ width, height, depth ] = shape
 
 	if ( axis === 'x' ) return [ height, depth ]
 	if ( axis === 'y' ) return [ width, depth ]
 	return [ width, height ]
+}
+
+function axisToShapeIndex( axis ) {
+	if ( axis === 'x' ) return 0
+	if ( axis === 'y' ) return 1
+	return 2
 }
 
 function planeCoordsWGSL( axis ) {

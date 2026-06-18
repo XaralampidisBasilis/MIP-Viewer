@@ -5,6 +5,7 @@ export {
 
 export {
 	computeBidirectionalShadowMapFacesWebGPU,
+	computeUnidirectionalShadowMapFacesWebGPU,
 } from './WebGPUShadowMapFaces'
 
 export {
