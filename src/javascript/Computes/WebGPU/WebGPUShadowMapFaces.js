@@ -285,6 +285,42 @@ async function propagateFaceMinmaxValuesInPlace( faceValues, axis, octant ) {
 	return faceValues
 }
 
+export async function iterateFaceMinmaxValuesWebGPU( faceValues, axis, octant, iterations = null ) {
+	const totalIterations = iterations ?? Math.max( 0, faceValues.width + faceValues.height + faceValues.depth - 3 )
+	const code = iterateFaceMinmaxWGSL( faceValues.shape, axis, octant )
+	let prev = faceValues.clone( `${faceValues.label}:iterate-prev` )
+	let next = WebGPUFaceTensor3D.empty( faceValues.device, faceValues.shape, faceValues.dtype, `${faceValues.label}:iterate-next` )
+
+	if ( totalIterations === 0 ) {
+		next.dispose()
+		return prev
+	}
+
+	try {
+		for ( let i = 0; i < totalIterations; i += 1 ) {
+			await runComputeProgram( faceValues.device, {
+				label: `iterate-face-minmax-${axis}-${octant}`,
+				code,
+				bindings: [
+					{ buffer: prev.buffer },
+					{ buffer: next.buffer },
+				],
+				dispatch: dispatchForShape( faceValues.shape, WORKGROUP_SIZE_3D ),
+			} )
+
+			const tmp = prev
+			prev = next
+			next = tmp
+		}
+
+		next.dispose()
+		next = null
+		return prev
+	} finally {
+		next?.dispose()
+	}
+}
+
 async function computeFaceShadows( faceMaxValues, faceMinmaxValues, axis, octant, tolerance ) {
 	const output = WebGPUFaceTensor3D.empty( faceMaxValues.device, faceMaxValues.shape, 'uint32', 'webgpu-face-shadows' )
 
@@ -513,6 +549,70 @@ function propagateFaceMinmaxInPlaceWGSL( shape, axis, octant, step ) {
 	    if (gid.x >= ${planeU}u || gid.y >= ${planeV}u) { return; }
 	    let coords = plane_coords(gid);
 	    write_face_i32_f32(coords, compute_face_minmax(coords));
+	}
+`
+}
+
+function iterateFaceMinmaxWGSL( shape, axis, octant ) {
+	return /* wgsl */ `
+	${commonFaceTensorWGSL( shape )}
+
+	@group(0) @binding(0) var<storage, read> input_face_values: array<f32>;
+	@group(0) @binding(1) var<storage, read_write> output_face_values: array<f32>;
+
+	fn face_minmax_at(coords: vec3<i32>) -> vec3<f32>
+	{
+	    if (!face_valid(coords)) { return vec3<f32>(${NEG_INF}); }
+	    let base = face_base(coords);
+	    return vec3<f32>(input_face_values[base], input_face_values[base + 1u], input_face_values[base + 2u]);
+	}
+
+	fn compute_x_face_minmax(c111: vec3<f32>, c110: vec3<f32>, c101: vec3<f32>) -> f32
+	{
+	    let min_values = min(c110.z, c101.y);
+	    return max(c111.x, min_values);
+	}
+
+	fn compute_y_face_minmax(c111: vec3<f32>, c110: vec3<f32>, c011: vec3<f32>) -> f32
+	{
+	    let min_values = min(c110.z, c011.x);
+	    return max(c111.y, min_values);
+	}
+
+	fn compute_z_face_minmax(c111: vec3<f32>, c110: vec3<f32>, c101: vec3<f32>, c011: vec3<f32>) -> f32
+	{
+	    let min_values = min(c110.z, min(c101.y, c011.x));
+	    return max(c111.z, min_values);
+	}
+
+	fn compute_face_minmax(coords: vec3<i32>) -> vec3<f32>
+	{
+	    let c111 = face_minmax_at(coords + ${vec3(cellOffset( 0,  0,  0, axis, octant))});
+	    let c011 = face_minmax_at(coords + ${vec3(cellOffset(-1,  0,  0, axis, octant))});
+	    let c101 = face_minmax_at(coords + ${vec3(cellOffset( 0, -1,  0, axis, octant))});
+	    let c110 = face_minmax_at(coords + ${vec3(cellOffset( 0,  0, -1, axis, octant))});
+
+	    return vec3<f32>(
+	        compute_x_face_minmax(c111, c110, c101),
+	        compute_y_face_minmax(c111, c110, c011),
+	        compute_z_face_minmax(c111, c110, c101, c011)
+	    );
+	}
+
+	fn write_output(gid: vec3<u32>, value: vec3<f32>)
+	{
+	    let base = face_base_u(gid);
+	    output_face_values[base] = value.x;
+	    output_face_values[base + 1u] = value.y;
+	    output_face_values[base + 2u] = value.z;
+	}
+
+	${workgroupSizeWGSL( WORKGROUP_SIZE_3D )}
+	fn main(@builtin(global_invocation_id) gid: vec3<u32>)
+	{
+	    if (!face_in_bounds(gid)) { return; }
+	    let coords = vec3<i32>(i32(gid.x), i32(gid.y), i32(gid.z));
+	    write_output(gid, compute_face_minmax(coords));
 	}
 `
 }
