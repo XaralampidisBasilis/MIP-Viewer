@@ -543,6 +543,7 @@ function propagateVertexMinmaxInPlaceWGSL( shape, axis, octant, step ) {
 	    let previous = ${vec3(prevAxis)};
 
 	    let v111 = raw_at(coords + ${vec3(sliceOffset(0, 0, 0, axis, octant))});
+        
 	    let v110 = propagated_at(coords + previous + ${vec3(sliceOffset(0, 0, -1, axis, octant))});
 	    let v100 = propagated_at(coords + previous + ${vec3(sliceOffset(0, -1, -1, axis, octant))});
 	    let v010 = propagated_at(coords + previous + ${vec3(sliceOffset(-1, 0, -1, axis, octant))});
