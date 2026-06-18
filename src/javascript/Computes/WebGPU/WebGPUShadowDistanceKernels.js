@@ -1,6 +1,6 @@
 import * as su from '../../Utils/ShadowMapUtils'
 import { createUniformBuffer } from '../../WebGPU/WebGPUBufferUtils'
-import { dispatchForShape, runComputeProgram, runComputeProgramSequence, ceilDiv } from './WebGPUComputeRunner'
+import { dispatchForShape, runComputeProgram, runComputeProgramSequence } from './WebGPUComputeRunner'
 import { WebGPUTensor3D } from './WebGPUTensor3D'
 
 const WORKGROUP_SIZE_3D = [ 8, 8, 4 ]
@@ -180,6 +180,7 @@ async function propagateVertexMinmaxValuesInPlace( vertexValues, axis, octant ) 
 	const dispatch = dispatchForPlane( vertexValues.shape, axis )
 
 	for ( let slice = start; slice !== end; slice += step ) {
+
 		const paramsBuffer = createUniformBuffer(
 			vertexValues.device,
 			new Int32Array( [ slice, 0, 0, 0 ] ),
@@ -939,8 +940,8 @@ function dispatchForPlane( shape, axis ) {
 	const [ u, v ] = planeSize( shape, axis )
 
 	return [
-		ceilDiv( u, WORKGROUP_SIZE_2D[ 0 ] ),
-		ceilDiv( v, WORKGROUP_SIZE_2D[ 1 ] ),
+		Math.ceil(u / WORKGROUP_SIZE_2D[ 0 ]),
+		Math.ceil(v / WORKGROUP_SIZE_2D[ 1 ]),
 		1,
 	]
 }

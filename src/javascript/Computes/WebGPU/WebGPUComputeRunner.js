@@ -1,4 +1,4 @@
-export function ceilDiv(value, divisor)
+function ceilDiv(value, divisor)
 {
     return Math.ceil(value / divisor)
 }
