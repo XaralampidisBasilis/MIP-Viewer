@@ -31,7 +31,7 @@ import { type Sign, type Octant, type Axis } from '../../Utils/ShadowMapUtils'
  * Returns the RGBA lane order for the four octants sharing one dominant-axis
  * sign. The same layout is used by the packed shadow and distance programs.
  */
-function octantsLayoutFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Octant, Octant]
+export function octantsLayoutFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Octant, Octant]
 {
     const OCTANTS_LAYOUT_FROM_SIGN_AXIS: Record<string, [Octant, Octant, Octant, Octant]> = 
     {
@@ -49,7 +49,7 @@ function octantsLayoutFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Oct
 /**
  * Extracts one scalar octant map from the packed [D, H, W, 2, 2] tensor.
  */
-function extractTensorFromAxisOctant(
+export function extractTensorFromAxisOctant(
     tensor: tf.Tensor5D,
     dominantAxis: Axis,
     directionOctant: Octant,
@@ -64,7 +64,6 @@ function extractTensorFromAxisOctant(
 
     return tf.tidy(() => tensor.slice([0, 0, 0, row, col], [-1, -1, -1, 1, 1]).squeeze([3, 4]))
 }
-
 
 /**
  * Emits GLSL ivec3 constructor arguments from an internal [z, y, x] tuple.

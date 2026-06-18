@@ -5,6 +5,7 @@ import * as su from '../../Utils/ShadowMapUtils'
 import { GPGPUProgram } from '@tensorflow/tfjs-backend-webgl'
 import { MathBackendWebGL } from '@tensorflow/tfjs-backend-webgl'
 import { minimum3dPacked } from './minimum3dPacked'
+import { octantsLayoutFromSignAxis, extractTensorFromAxisOctant } from './GPGPUShadowMapPathsFused'
 import { type Sign, type Octant, type Axis } from '../../Utils/ShadowMapUtils'
 
 /**
@@ -14,44 +15,6 @@ import { type Sign, type Octant, type Axis } from '../../Utils/ShadowMapUtils'
  * that share one dominant-axis sign. Clear cells are zero-distance seeds and
  * masked cells start at maxDistance, matching the scalar distance-map pipeline.
  */
-
-/**
- * Returns the RGBA lane order for the four octants sharing one dominant-axis
- * sign. This must match the fused shadow-map layout.
- */
-function octantsLayoutFromSignAxis(sign: Sign, axis: Axis): [Octant, Octant, Octant, Octant]
-{
-    const OCTANTS_LAYOUT_FROM_SIGN_AXIS: Record<string, [Octant, Octant, Octant, Octant]> = 
-    {
-        "+x" : ['+++', '+-+', '++-', '+--'] , "-x" : ['---', '-+-', '--+', '-++'] ,
-        "+y" : ['+++', '-++', '++-', '-+-'] , "-y" : ['---', '+--', '--+', '+-+'] ,
-        "+z" : ['+++', '+-+', '-++', '--+'] , "-z" : ['---', '-+-', '+--', '++-'] ,
-    }
-
-    const key = `${sign}${axis}`
-    const octants = OCTANTS_LAYOUT_FROM_SIGN_AXIS[key]
-
-    return [...octants] as [Octant, Octant, Octant, Octant]
-}
-
-/**
- * Extracts one scalar octant map from the packed [D, H, W, 2, 2] tensor.
- */
-function extractTensorFromAxisOctant(
-    tensor: tf.Tensor5D,
-    dominantAxis: Axis,
-    directionOctant: Octant,
-): tf.Tensor3D
-{
-    const dominantSign = su.getOctantSign(directionOctant, dominantAxis)
-    const octants = octantsLayoutFromSignAxis(dominantSign, dominantAxis)
-    
-    const index = octants.findIndex((octant) => octant === directionOctant)
-    const row = Math.floor(index / 2);
-    const col = index % 2;
-
-    return tf.tidy(() => tensor.slice([0, 0, 0, row, col], [-1, -1, -1, 1, 1]).squeeze([3, 4]))
-}
 
 /**
  * Logs the mean over spatial axes without downloading the full tensor.
@@ -493,6 +456,7 @@ export function computeIsotropicDistanceMaps(
 
     const distances3d = isotropicChebyshevDistancePass(distances2d, 'z', maxDistance)
     tf.dispose(distances2d)
+    if (verbose) logMean3d('distanceMaps', distances3d)
 
     return distances3d
 }
