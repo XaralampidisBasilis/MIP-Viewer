@@ -1,5 +1,6 @@
 import * as su from '../../Utils/ShadowMapUtils'
-import { dispatchForShape, runComputeProgram, ceilDiv } from './WebGPUComputeRunner'
+import { createUniformBuffer } from '../../WebGPU/WebGPUBufferUtils'
+import { dispatchForShape, runComputeProgram, runComputeProgramSequence, ceilDiv } from './WebGPUComputeRunner'
 import { WebGPUTensor3D } from './WebGPUTensor3D'
 
 const WORKGROUP_SIZE = [8, 8, 4]
@@ -115,18 +116,33 @@ async function propagateVertexMinmaxValuesInPlace(vertexValues, axis, octant)
     const start = backwards ? slices - 2 : 1
     const end = backwards ? -1 : slices
     const step = backwards ? -1 : 1
+    const steps = []
+    const paramsBuffers = []
 
     for (let slice = start; slice !== end; slice += step)
     {
-        await runComputeProgram(vertexValues.device, {
-            label: `propagate-vertex-minmax-${axis}-${octant}-${slice}`,
-            code: propagateVertexMinmaxInPlaceWGSL(vertexValues.shape, axis, octant, slice, step),
+        const paramsBuffer = createUniformBuffer(
+            vertexValues.device,
+            new Int32Array([slice, 0, 0, 0]),
+            `propagate-vertex-minmax-${axis}-${octant}-${slice}:params`,
+        )
+
+        paramsBuffers.push(paramsBuffer)
+        steps.push({
             bindings: [
                 { buffer: vertexValues.buffer },
+                { buffer: paramsBuffer },
             ],
             dispatch: dispatchForPlane(vertexValues.shape, axis),
         })
     }
+
+    await runComputeProgramSequence(vertexValues.device, {
+        label: `propagate-vertex-minmax-${axis}-${octant}`,
+        code: propagateVertexMinmaxInPlaceWGSL(vertexValues.shape, axis, octant, step),
+        steps,
+        disposeAfterSubmit: paramsBuffers,
+    })
 
     return vertexValues
 }
@@ -272,24 +288,24 @@ function commonFloatTensorWGSL(shape)
     const [depth, height, width] = shape
 
     return /* wgsl */ `
-const DEPTH: u32 = ${depth}u;
-const HEIGHT: u32 = ${height}u;
-const WIDTH: u32 = ${width}u;
+    const DEPTH: u32 = ${depth}u;
+    const HEIGHT: u32 = ${height}u;
+    const WIDTH: u32 = ${width}u;
 
-fn index3(coords: vec3<i32>) -> u32 {
-    return u32(coords.z) * HEIGHT * WIDTH + u32(coords.y) * WIDTH + u32(coords.x);
-}
+    fn index3(coords: vec3<i32>) -> u32 {
+        return u32(coords.z) * HEIGHT * WIDTH + u32(coords.y) * WIDTH + u32(coords.x);
+    }
 
-fn valid3(coords: vec3<i32>) -> bool {
-    return coords.x >= 0 && coords.x < i32(WIDTH) &&
-           coords.y >= 0 && coords.y < i32(HEIGHT) &&
-           coords.z >= 0 && coords.z < i32(DEPTH);
-}
+    fn valid3(coords: vec3<i32>) -> bool {
+        return coords.x >= 0 && coords.x < i32(WIDTH) &&
+            coords.y >= 0 && coords.y < i32(HEIGHT) &&
+            coords.z >= 0 && coords.z < i32(DEPTH);
+    }
 
-fn clamp3(coords: vec3<i32>) -> vec3<i32> {
-    return clamp(coords, vec3<i32>(0), vec3<i32>(i32(WIDTH) - 1, i32(HEIGHT) - 1, i32(DEPTH) - 1));
-}
-`
+    fn clamp3(coords: vec3<i32>) -> vec3<i32> {
+        return clamp(coords, vec3<i32>(0), vec3<i32>(i32(WIDTH) - 1, i32(HEIGHT) - 1, i32(DEPTH) - 1));
+    }
+    `
 }
 
 function commonOutputWGSL(shape, prefix = 'OUT')
@@ -390,19 +406,26 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 `
 }
 
-function propagateVertexMinmaxInPlaceWGSL(shape, axis, octant, slice, step)
+function propagateVertexMinmaxInPlaceWGSL(shape, axis, octant, step)
 {
     const prevAxis = axisDelta(axis, -step)
 
     return /* wgsl */ `
 ${commonFloatTensorWGSL(shape)}
 
+struct Params {
+    slice: i32,
+    _pad0: i32,
+    _pad1: i32,
+    _pad2: i32,
+};
+
 const NEG_INF: f32 = -3.402823466e+38;
-const SLICE: i32 = ${slice};
 const PLANE_U: u32 = ${planeSize(shape, axis)[0]}u;
 const PLANE_V: u32 = ${planeSize(shape, axis)[1]}u;
 
 @group(0) @binding(0) var<storage, read_write> propagated_values: array<f32>;
+@group(0) @binding(1) var<uniform> params: Params;
 
 fn plane_coords(gid: vec3<u32>) -> vec3<i32> {
     ${planeCoordsWGSL(axis)}
@@ -801,15 +824,15 @@ function planeCoordsWGSL(axis)
 {
     if (axis === 'x')
     {
-        return 'return vec3<i32>(SLICE, i32(gid.x), i32(gid.y));'
+        return 'return vec3<i32>(params.slice, i32(gid.x), i32(gid.y));'
     }
 
     if (axis === 'y')
     {
-        return 'return vec3<i32>(i32(gid.x), SLICE, i32(gid.y));'
+        return 'return vec3<i32>(i32(gid.x), params.slice, i32(gid.y));'
     }
 
-    return 'return vec3<i32>(i32(gid.x), i32(gid.y), SLICE);'
+    return 'return vec3<i32>(i32(gid.x), i32(gid.y), params.slice);'
 }
 
 function axisSize(shape, axis)
