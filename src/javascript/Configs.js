@@ -26,6 +26,10 @@ export default class Configs extends EventEmitter
         'webgpu',
         'webgl',
     ])
+    static WebGPUShadowBackends = Object.freeze([
+        'paths',
+        'faces',
+    ])
 
     constructor() 
     {
@@ -37,8 +41,11 @@ export default class Configs extends EventEmitter
         this.downscaleFactor = 1.0
 
         this.errorTolerance = 0.01
-        this.blockSize = 2
+        this.blockSize = 1
         this.computeBackend = 'webgpu'
+        
+        this.webgpuShadowBackend = 'paths'
+        this.logComputeResults = false
         
         this.distanceVariation = '8bit'
         this.marchingMethod = 'cells'
@@ -87,6 +94,11 @@ export default class Configs extends EventEmitter
         if (key === 'computeBackend' && !Configs.ComputeBackends.includes(value)) 
         {
             console.warn(`Invalid ComputeBackend: "${value}"`)
+            return
+        }
+        if (key === 'webgpuShadowBackend' && !Configs.WebGPUShadowBackends.includes(value)) 
+        {
+            console.warn(`Invalid WebGPUShadowBackend: "${value}"`)
             return
         }
         if (key === 'blockSize' && (!Number.isInteger(value) || value <= 0)) 

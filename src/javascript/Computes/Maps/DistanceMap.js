@@ -27,7 +27,8 @@ export default class DistanceMap
             this.errorTolerance,
             this.blockSize,
             this.distanceVariation,
-            true,
+            this.configs.logComputeResults,
+            { shadowBackend: this.configs.webgpuShadowBackend },
         )
 
         this.textureData = result.data

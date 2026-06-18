@@ -3,10 +3,9 @@ import { getWebGPUComputeContext } from '../../WebGPU/WebGPUDevice'
 import { createStorageBuffer, readBuffer } from '../../WebGPU/WebGPUBufferUtils'
 import { dispatchForShape, runComputeProgram } from './WebGPUComputeRunner'
 import { WebGPUTensor3D } from './WebGPUTensor3D'
-import {
-	computeBidirectionalShadowMapWebGPU,
-	computeUnidirectionalDistanceMapWebGPU,
-} from './WebGPUShadowDistanceKernels'
+import { computeUnidirectionalDistanceMapWebGPU } from './WebGPUDistanceMap'
+import { computeBidirectionalShadowMapFacesWebGPU } from './WebGPUShadowMapFaces'
+import { computeBidirectionalShadowMapPathsWebGPU } from './WebGPUShadowMapPaths'
 
 const PACK_WORKGROUP_SIZE = [ 8, 8, 4 ]
 
@@ -94,7 +93,13 @@ async function ensureWebGPUTensor( volume, device ) {
 	return { tensor, owned: true }
 }
 
-async function computeDistanceMapTensor( volume, variant, axis, octant, tolerance, blockSize, maxDistance, verbose ) {
+function getShadowMapComputer( shadowBackend ) {
+	if ( shadowBackend === 'faces' ) return computeBidirectionalShadowMapFacesWebGPU
+	if ( shadowBackend === 'paths' ) return computeBidirectionalShadowMapPathsWebGPU
+	throw new Error( `Unsupported WebGPU shadow backend "${shadowBackend}".` )
+}
+
+async function computeDistanceMapTensor( volume, variant, axis, octant, tolerance, blockSize, maxDistance, verbose, shadowBackend ) {
 
 	if ( variant !== 'unidirectional' ) {
 		throw new Error( `WebGPU distance texture currently supports the active "unidirectional" variant, got "${variant}".` )
@@ -104,12 +109,14 @@ async function computeDistanceMapTensor( volume, variant, axis, octant, toleranc
 		console.time( `webgpu-distance-${axis}-${octant}` )
 	}
 
-	const shadowMap = await computeBidirectionalShadowMapWebGPU(
+	const computeShadowMap = getShadowMapComputer( shadowBackend )
+	const shadowMap = await computeShadowMap(
 		volume,
 		axis,
 		octant,
 		tolerance,
 		blockSize,
+		verbose,
 	)
 
 	let distanceMap = null
@@ -121,6 +128,7 @@ async function computeDistanceMapTensor( volume, variant, axis, octant, toleranc
 			axis,
 			octant,
 			maxDistance,
+			verbose,
 		)
 
 		return distanceMap
@@ -160,12 +168,14 @@ export async function computePackedDistanceBufferWebGPU(
 	blockSize,
 	encoding,
 	verbose = false,
+	options = {},
 ) {
 
 	const { device } = await getWebGPUComputeContext()
 	const { tensor, owned } = await ensureWebGPUTensor( volume, device )
 	const dimensions = computeTextureDimensionsFromShape( tensor.shape, blockSize )
 	const textureFormat = DISTANCE_TEXTURE_FORMATS[ encoding ]
+	const shadowBackend = options.shadowBackend ?? 'paths'
 
 	if ( ! textureFormat ) {
 		throw new Error( `Unsupported distance texture encoding "${encoding}".` )
@@ -199,6 +209,7 @@ export async function computePackedDistanceBufferWebGPU(
 				blockSize,
 				maxDistance,
 				verbose,
+				shadowBackend,
 			)
 
 			try {
@@ -252,6 +263,7 @@ export async function computePackedDistanceTextureWebGPU(
 	blockSize,
 	encoding,
 	verbose = false,
+	options = {},
 ) {
 
 	const textureFormat = DISTANCE_TEXTURE_FORMATS[ encoding ]
@@ -271,6 +283,7 @@ export async function computePackedDistanceTextureWebGPU(
 		blockSize,
 		encoding,
 		verbose,
+		options,
 	)
 
 	try {
