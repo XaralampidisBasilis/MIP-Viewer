@@ -1,6 +1,5 @@
 import Computes from '../Computes'
 import { computePackedDistanceTexture } from '../Programs/ComputePackedDistanceTexture'
-// import { computePackedDistanceTextureWebGPU } from '../Programs/ComputeWebGPUPackedDistanceTexture'
 import { computePackedDistanceTextureWebGPU } from '../WebGPU/WebGPUComputePackedDistanceTexture'
 
 export default class DistanceMap
