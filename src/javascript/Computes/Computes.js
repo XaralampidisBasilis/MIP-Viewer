@@ -33,14 +33,17 @@ export default class Computes extends EventEmitter
     {
         console.time('start@Computes') 
 
-        this.volumeMap.computeTensor()
+        await this.volumeMap.computeTensor()
         await tf.nextFrame()
 
-        this.distanceMap.computeTexture()
+        await this.distanceMap.computeTexture()
         await tf.nextFrame()
 
-        this.volumeMap.computeTexture()
-        this.volumeMap.tensor.dispose()
+        await this.volumeMap.computeTexture()
+        this.volumeMap.tensor?.dispose()
+        this.volumeMap.tensor = null
+        this.volumeMap.webgpuTensor?.dispose()
+        this.volumeMap.webgpuTensor = null
         await tf.nextFrame()
 
         console.timeEnd('start@Computes') 
@@ -57,7 +60,7 @@ export default class Computes extends EventEmitter
     {
         console.time('onChangeBlockSize@Computes') 
 
-        this.volumeMap.computeTensor()
+        await this.volumeMap.computeTensor()
         await tf.nextFrame()
 
         // this.shadowMap.computeTensor()
@@ -65,8 +68,11 @@ export default class Computes extends EventEmitter
         // this.shadowMap.tensor.dispose()
         // await tf.nextFrame()
 
-        this.volumeMap.computeTexture()
-        this.volumeMap.tensor.dispose()
+        await this.volumeMap.computeTexture()
+        this.volumeMap.tensor?.dispose()
+        this.volumeMap.tensor = null
+        this.volumeMap.webgpuTensor?.dispose()
+        this.volumeMap.webgpuTensor = null
         await tf.nextFrame()
 
         // this.distanceMap.computeTensor()
@@ -82,7 +88,7 @@ export default class Computes extends EventEmitter
     {
         console.time('onChangeDownscaleFactor@Computes') 
 
-        this.volumeMap.computeTensor()
+        await this.volumeMap.computeTensor()
         await tf.nextFrame()
 
         // this.shadowMap.computeTensor()
@@ -90,8 +96,11 @@ export default class Computes extends EventEmitter
         // this.shadowMap.tensor.dispose()
         // await tf.nextFrame()
 
-        this.volumeMap.computeTexture()
-        this.volumeMap.tensor.dispose()
+        await this.volumeMap.computeTexture()
+        this.volumeMap.tensor?.dispose()
+        this.volumeMap.tensor = null
+        this.volumeMap.webgpuTensor?.dispose()
+        this.volumeMap.webgpuTensor = null
         await tf.nextFrame()
 
         // this.distanceMap.computeTensor()
@@ -107,7 +116,7 @@ export default class Computes extends EventEmitter
     {
         console.time('onChangeSkippingMethod@Computes') 
 
-        this.volumeMap.computeTensor()
+        await this.volumeMap.computeTensor()
         await tf.nextFrame()
 
         // this.shadowMap.computeTensor()
@@ -115,8 +124,11 @@ export default class Computes extends EventEmitter
         // this.shadowMap.tensor.dispose()
         // await tf.nextFrame()
 
-        this.volumeMap.computeTexture()
-        this.volumeMap.tensor.dispose()
+        await this.volumeMap.computeTexture()
+        this.volumeMap.tensor?.dispose()
+        this.volumeMap.tensor = null
+        this.volumeMap.webgpuTensor?.dispose()
+        this.volumeMap.webgpuTensor = null
         await tf.nextFrame()
 
         // this.distanceMap.computeTensor()

@@ -6,6 +6,9 @@ import { resizeNearestNeighbor } from '../Programs/resizeNearestNeighbor'
 import { map3d } from '../Programs/map3d'
 import { toHalfFloat } from '../../Utils/DataUtils'
 import * as TensorUtils from '../../Utils/TensorUtils'
+import { getWebGPUComputeContext } from '../../WebGPU/WebGPUDevice'
+import { WebGPUTensor3D } from '../WebGPU/WebGPUTensor3D'
+import { map3dInPlaceWebGPU, reduceMinMaxWebGPU, resizeTrilinearWebGPU } from '../WebGPU/WebGPUVolumeKernels'
 
 export default class VolumeMap
 {
@@ -14,6 +17,7 @@ export default class VolumeMap
         this.computes = new Computes()
         this.configs = this.computes.configs
         this.resources = this.computes.resources
+        this.webgpuTensor = null
     }
 
     setVolume()
@@ -67,11 +71,21 @@ export default class VolumeMap
         console.timeEnd('resizeTensor') 
     }
 
-    computeTensor()
+    async computeTensor()
     {
+        if (this.configs.computeBackend === 'webgpu')
+        {
+            await this.computeTensorWebGPU()
+            return
+        }
+
         console.time('computeTensor') 
         
         this.setVolume()
+        this.webgpuTensor?.dispose()
+        this.webgpuTensor = null
+        this.textureData = null
+
         const shape = this.volume.dimensions.toReversed()
         const data = new Float32Array(this.volume.data)
         this.tensor = tf.tensor3d(data, shape)
@@ -93,11 +107,66 @@ export default class VolumeMap
         console.timeEnd('computeTensor') 
     }
 
-    computeTexture()
+    async computeTensorWebGPU()
+    {
+        console.time('computeTensor@WebGPU') 
+        
+        this.setVolume()
+        this.tensor?.dispose()
+        this.tensor = null
+        this.webgpuTensor?.dispose()
+        this.webgpuTensor = null
+        this.textureData = null
+
+        const { device } = await getWebGPUComputeContext()
+        const shape = this.volume.dimensions.toReversed()
+        const data = new Float32Array(this.volume.data)
+        const raw = WebGPUTensor3D.fromTypedArray(device, shape, data, 'float32', 'volume-raw')
+        const [minValue, maxValue] = await reduceMinMaxWebGPU(raw)
+
+        this.minValue = minValue
+        this.maxValue = maxValue
+
+        let tensor = await map3dInPlaceWebGPU(raw, this.minValue, this.maxValue)
+
+        if (this.configs.downscaleEnabled)
+        {
+            const spacing = this.volume.spacing.toReversed()
+            const newShape = shape.map((x) => Math.ceil(this.configs.downscaleFactor * x))
+            const newSpacing = spacing.map((x, i) => shape[i] / newShape[i] * x)
+            const resized = await resizeTrilinearWebGPU(tensor, newShape, false, true)
+
+            tensor.dispose()
+            tensor = resized
+
+            this.shape = newShape
+            this.dimensions.fromArray(newShape.toReversed())
+            this.spacing.fromArray(newSpacing.toReversed())
+        }
+        else
+        {
+            this.shape = shape
+        }
+
+        this.webgpuTensor = tensor
+
+        console.log(this)
+        console.timeEnd('computeTensor@WebGPU') 
+    }
+
+    async computeTexture()
     {
         console.time('computeTexture') 
 
-        if (! this.textureData)
+        if (this.configs.computeBackend === 'webgpu' && this.webgpuTensor)
+        {
+            if (!this.textureData)
+            {
+                const data = await this.webgpuTensor.read()
+                this.textureData = this.float32ToHalfFloatData(data)
+            }
+        }
+        else if (! this.textureData)
         {
             this.textureData = this.getTextureData()
         }
@@ -123,27 +192,19 @@ export default class VolumeMap
     computeTextureData()
     {
         const data = this.tensor.dataSync()
-        
-        try 
-        {
-            const f16 = new Float16Array(data)
-            this.textureData = new Uint16Array(f16.buffer)
-        }
-        catch (error)
-        {
-            this.textureData = new Uint16Array(data.length)
 
-            for (let i = 0; i < data.length; i++) 
-            {
-                this.textureData[i] = toHalfFloat(data[i])
-            }
-        }
+        this.textureData = this.float32ToHalfFloatData(data)
     }
 
     getTextureData()
     {
         const data = this.tensor.dataSync()
 
+        return this.float32ToHalfFloatData(data)
+    }
+
+    float32ToHalfFloatData(data)
+    {
         try 
         {
             const f16 = new Float16Array(data)
@@ -166,6 +227,7 @@ export default class VolumeMap
     dispose()
     {
         this.tensor?.dispose()
+        this.webgpuTensor?.dispose()
         this.texture?.dispose()
     }
 }

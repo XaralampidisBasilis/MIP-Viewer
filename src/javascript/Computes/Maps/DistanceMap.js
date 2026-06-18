@@ -1,5 +1,6 @@
 import Computes from '../Computes'
 import { computePackedDistanceTexture } from '../Programs/ComputePackedDistanceTexture'
+import { computePackedDistanceTextureWebGPU } from '../Programs/ComputeWebGPUPackedDistanceTexture'
 // import { computePackedDistanceTexture } from '../Programs/ComputeFusedPackedDistanceTexture'
 
 export default class DistanceMap
@@ -14,11 +15,13 @@ export default class DistanceMap
         this.blockSize = this.configs.blockSize
     }
 
-    computeTexture()
+    async computeTexture()
     {
-        const volume = this.computes.volumeMap.tensor
+        const useWebGPU = this.configs.computeBackend === 'webgpu'
+        const volume = useWebGPU ? this.computes.volumeMap.webgpuTensor : this.computes.volumeMap.tensor
 
-        const result = computePackedDistanceTexture(
+        const compute = useWebGPU ? computePackedDistanceTextureWebGPU : computePackedDistanceTexture
+        const result = await compute(
             volume,
             'unidirectional',
             this.errorTolerance,

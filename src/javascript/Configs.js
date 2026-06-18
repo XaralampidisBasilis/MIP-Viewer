@@ -22,6 +22,10 @@ export default class Configs extends EventEmitter
         '8bit',
         '10bit',
     ])
+    static ComputeBackends = Object.freeze([
+        'webgpu',
+        'webgl',
+    ])
 
     constructor() 
     {
@@ -34,6 +38,7 @@ export default class Configs extends EventEmitter
 
         this.errorTolerance = 0.01
         this.blockSize = 1
+        this.computeBackend = 'webgpu'
         
         this.distanceVariation = '8bit'
         this.marchingMethod = 'cells'
@@ -77,6 +82,11 @@ export default class Configs extends EventEmitter
         if (key === 'skippingMethod' && !Configs.SkippingMethods.includes(value)) 
         {
             console.warn(`Invalid SkippingMethod: "${value}"`)
+            return
+        }
+        if (key === 'computeBackend' && !Configs.ComputeBackends.includes(value)) 
+        {
+            console.warn(`Invalid ComputeBackend: "${value}"`)
             return
         }
         if (key === 'blockSize' && (!Number.isInteger(value) || value <= 0)) 
