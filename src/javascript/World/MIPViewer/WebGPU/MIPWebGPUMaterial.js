@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu'
 import { reference, screenCoordinate, storage, uniform, wgslFn } from 'three/tsl'
-import fragmentWGSL from '../../../../shaders/mip_viewer/wgsl/fragment.wgsl?raw'
+import fragmentWGSL from '../../../../shaders/mip_viewer/wgsl/fragment/source'
 
 const emptyVolumeWords = new THREE.StorageBufferAttribute(new Uint32Array([0]), 1)
 const emptyDistanceWords = new THREE.StorageBufferAttribute(new Uint32Array([0]), 1)
@@ -58,11 +58,12 @@ function toDistanceWords(texture)
 export default function createWebGPUMaterial(uniforms, defines)
 {
     const material = new THREE.NodeMaterial()
-    material.side = THREE.BackSide
+    material.side = THREE.DoubleSide
     material.blending = THREE.NoBlending
     material.depthTest = false
     material.depthWrite = false
     material.transparent = false
+    material.toneMapped = false
 
     material.isMIPWebGPUMaterial = true
     material.uniforms = uniforms
@@ -113,6 +114,7 @@ export default function createWebGPUMaterial(uniforms, defines)
 
         shading_colormap: reference('colormap', 'int', shading),
         debug_option: reference('option', 'int', debug),
+        debug_enabled: reference('DEBUG_ENABLED', 'int', defines),
 
         distance_variation: reference('DISTANCE_VARIATION', 'int', defines),
         marching_method: reference('MARCHING_METHOD', 'int', defines),

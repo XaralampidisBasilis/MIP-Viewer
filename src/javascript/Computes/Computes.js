@@ -63,10 +63,8 @@ export default class Computes extends EventEmitter
         await this.volumeMap.computeTensor()
         await tf.nextFrame()
 
-        // this.shadowMap.computeTensor()
-        // this.shadowMap.computeTexture()
-        // this.shadowMap.tensor.dispose()
-        // await tf.nextFrame()
+        await this.distanceMap.computeTexture()
+        await tf.nextFrame()
 
         await this.volumeMap.computeTexture()
         this.volumeMap.tensor?.dispose()
@@ -74,11 +72,6 @@ export default class Computes extends EventEmitter
         this.volumeMap.webgpuTensor?.dispose()
         this.volumeMap.webgpuTensor = null
         await tf.nextFrame()
-
-        // this.distanceMap.computeTensor()
-        // this.distanceMap.computeTexture()
-        // this.distanceMap.tensor.dispose()
-        // await tf.nextFrame()
 
         console.timeEnd('onChangeBlockSize@Computes')
         this.printResources() 
@@ -91,10 +84,8 @@ export default class Computes extends EventEmitter
         await this.volumeMap.computeTensor()
         await tf.nextFrame()
 
-        // this.shadowMap.computeTensor()
-        // this.shadowMap.computeTexture()
-        // this.shadowMap.tensor.dispose()
-        // await tf.nextFrame()
+        await this.distanceMap.computeTexture()
+        await tf.nextFrame()
 
         await this.volumeMap.computeTexture()
         this.volumeMap.tensor?.dispose()
@@ -102,11 +93,6 @@ export default class Computes extends EventEmitter
         this.volumeMap.webgpuTensor?.dispose()
         this.volumeMap.webgpuTensor = null
         await tf.nextFrame()
-
-        // this.distanceMap.computeTensor()
-        // this.distanceMap.computeTexture()
-        // this.distanceMap.tensor.dispose()
-        // await tf.nextFrame()
 
         console.timeEnd('onChangeDownscaleFactor@Computes') 
         this.printResources()
@@ -114,30 +100,7 @@ export default class Computes extends EventEmitter
 
     async onChangeSkippingMethod(event)
     {
-        console.time('onChangeSkippingMethod@Computes') 
-
-        await this.volumeMap.computeTensor()
-        await tf.nextFrame()
-
-        // this.shadowMap.computeTensor()
-        // this.shadowMap.computeTexture()
-        // this.shadowMap.tensor.dispose()
-        // await tf.nextFrame()
-
-        await this.volumeMap.computeTexture()
-        this.volumeMap.tensor?.dispose()
-        this.volumeMap.tensor = null
-        this.volumeMap.webgpuTensor?.dispose()
-        this.volumeMap.webgpuTensor = null
-        await tf.nextFrame()
-
-        // this.distanceMap.computeTensor()
-        // this.distanceMap.computeTexture()
-        // this.distanceMap.tensor.dispose()
-        // await tf.nextFrame()
-
-        console.timeEnd('onChangeSkippingMethod@Computes') 
-        console.log('')
+        return
     }
 
     destroy()
