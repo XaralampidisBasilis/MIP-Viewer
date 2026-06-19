@@ -1,6 +1,11 @@
-import * as THREE from 'three'
+import { WebGLRenderer } from 'three'
 import { WebGPURenderer } from 'three/webgpu'
 import Experience from './Experience'
+
+const WEBGPU_REQUIRED_LIMITS = {
+    maxBufferSize: 536870912,
+    maxStorageBufferBindingSize: 536870912,
+}
 
 /**
  * Renderer
@@ -34,6 +39,7 @@ export default class Renderer
                 antialias: false,
                 depth: false,
                 alpha: false,
+                requiredLimits: WEBGPU_REQUIRED_LIMITS,
             })
 
             this.instance.setClearColor('#211d20', 1)
@@ -47,7 +53,7 @@ export default class Renderer
         if (!context) throw new Error('WebGL2 not supported by your browser or device.')
         this.context = context
 
-        this.instance = new THREE.WebGLRenderer({
+        this.instance = new WebGLRenderer({
             canvas: this.canvas,
             context,
             antialias: false,

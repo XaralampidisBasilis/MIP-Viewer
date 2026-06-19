@@ -1,59 +1,32 @@
 import * as THREE from 'three/webgpu'
-import { reference, screenCoordinate, storage, texture3D, uniform, wgslFn } from 'three/tsl'
+import { reference, screenCoordinate, storage, uniform, wgslFn } from 'three/tsl'
 import fragmentWGSL from '../../../../shaders/mip_viewer/wgsl/fragment.wgsl?raw'
 
-const emptyVolumeTexture = new THREE.Data3DTexture(new Uint16Array([0, 0, 0, 0x3c00]), 1, 1, 1)
-emptyVolumeTexture.format = THREE.RGBAFormat
-emptyVolumeTexture.type = THREE.HalfFloatType
-emptyVolumeTexture.internalFormat = 'RGBA16F'
-emptyVolumeTexture.minFilter = THREE.LinearFilter
-emptyVolumeTexture.magFilter = THREE.LinearFilter
-emptyVolumeTexture.generateMipmaps = false
-emptyVolumeTexture.unpackAlignment = 2
-emptyVolumeTexture.needsUpdate = true
-
+const emptyVolumeWords = new THREE.StorageBufferAttribute(new Uint32Array([0]), 1)
 const emptyDistanceWords = new THREE.StorageBufferAttribute(new Uint32Array([0]), 1)
-const volumeTextureCache = new WeakMap()
+const volumeWordsCache = new WeakMap()
 const distanceWordsCache = new WeakMap()
 
-function asVolumeTexture(texture)
+function toVolumeWords(texture)
 {
-    if (!texture) return emptyVolumeTexture
-    if (texture.internalFormat !== 'R16F') return texture
+    const source = texture?.image?.data
+    if (!source) return emptyVolumeWords
 
-    const cached = volumeTextureCache.get(texture)
-    if (cached?.source === texture.image?.data) return cached.texture
+    const cached = volumeWordsCache.get(texture)
+    if (cached?.source === source) return cached.words
 
-    const source = texture.image?.data
-    const width = texture.image?.width ?? 1
-    const height = texture.image?.height ?? 1
-    const depth = texture.image?.depth ?? 1
-    const data = new Uint16Array(source.length * 4)
+    const data = new Uint32Array(Math.ceil(source.length / 2))
 
-    for (let i = 0, j = 0; i < source.length; i += 1, j += 4)
+    for (let i = 0; i < source.length; i += 2)
     {
-        data[j + 0] = source[i]
-        data[j + 3] = 0x3c00
+        data[i >> 1] = source[i] | ((source[i + 1] ?? 0) << 16)
     }
 
-    const volumeTexture = new THREE.Data3DTexture(data, width, height, depth)
-    volumeTexture.format = THREE.RGBAFormat
-    volumeTexture.type = THREE.HalfFloatType
-    volumeTexture.internalFormat = 'RGBA16F'
-    volumeTexture.minFilter = texture.minFilter
-    volumeTexture.magFilter = texture.magFilter
-    volumeTexture.generateMipmaps = false
-    volumeTexture.unpackAlignment = 2
-    volumeTexture.needsUpdate = true
-    volumeTexture.is3DTexture = true
-    volumeTexture.isData3DTexture = true
+    const words = new THREE.StorageBufferAttribute(data, 1)
+    volumeWordsCache.set(texture, { source, words })
 
-    volumeTextureCache.set(texture, { source, texture: volumeTexture })
-
-    return volumeTexture
+    return words
 }
-
-asVolumeTexture(emptyVolumeTexture)
 
 function getDistanceWordsPerVoxel(texture)
 {
@@ -103,14 +76,13 @@ export default function createWebGPUMaterial(uniforms, defines)
     const debug = uniforms.u_debug.value
     const textures = uniforms.u_textures.value
 
-    const volumeNode = texture3D(asVolumeTexture(textures.volume_map))
+    const volumeWordsNode = storage(emptyVolumeWords, 'uint', emptyVolumeWords.count).toReadOnly()
     const distanceWordsNode = storage(emptyDistanceWords, 'uint', emptyDistanceWords.count).toReadOnly()
     const distanceWordsPerVoxelNode = uniform(1, 'uint')
 
     const mipFragment = wgslFn(fragmentWGSL)
     material.fragmentNode = mipFragment({
-        volume_map: volumeNode,
-        volume_sampler: volumeNode,
+        volume_map: volumeWordsNode,
         distance_words: distanceWordsNode,
 
         frag_coord: screenCoordinate,
@@ -157,7 +129,9 @@ export default function createWebGPUMaterial(uniforms, defines)
 
     material.syncWebGPUResources = () =>
     {
-        volumeNode.value = asVolumeTexture(textures.volume_map)
+        const volumeWords = toVolumeWords(textures.volume_map)
+        volumeWordsNode.value = volumeWords
+        volumeWordsNode.bufferCount = volumeWords.count
 
         const distanceTexture = textures.distance_map
         const distanceWords = toDistanceWords(distanceTexture)
