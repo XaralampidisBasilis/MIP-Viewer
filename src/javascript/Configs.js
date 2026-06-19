@@ -26,6 +26,10 @@ export default class Configs extends EventEmitter
         'webgpu',
         'webgl',
     ])
+    static RenderBackends = Object.freeze([
+        'webgpu',
+        'webgl',
+    ])
     static WebGPUShadowBackends = Object.freeze([
         'paths',
         'faces',
@@ -37,14 +41,15 @@ export default class Configs extends EventEmitter
 
         this.adaptivePixelRatioEnabled = false
         
-        this.downscaleEnabled = false
-        this.downscaleFactor = 1.0
+        this.downscaleEnabled = true
+        this.downscaleFactor = 0.8
 
         this.errorTolerance = 0.01
-        this.blockSize = 1
+        this.blockSize = 2
         this.computeBackend = 'webgpu'
+        this.renderBackend = 'webgpu'
         
-        this.webgpuShadowBackend = 'faces'
+        this.webgpuShadowBackend = 'paths'
         this.logComputeResults = false
         
         this.distanceVariation = '8bit'
@@ -94,6 +99,11 @@ export default class Configs extends EventEmitter
         if (key === 'computeBackend' && !Configs.ComputeBackends.includes(value)) 
         {
             console.warn(`Invalid ComputeBackend: "${value}"`)
+            return
+        }
+        if (key === 'renderBackend' && !Configs.RenderBackends.includes(value)) 
+        {
+            console.warn(`Invalid RenderBackend: "${value}"`)
             return
         }
         if (key === 'webgpuShadowBackend' && !Configs.WebGPUShadowBackends.includes(value)) 

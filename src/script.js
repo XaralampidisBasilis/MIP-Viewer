@@ -7,9 +7,6 @@ import Experience from './javascript/Experience'
     await setTensorflow()
 
     const canvas = document.querySelector('canvas.webgl')
-    const context = canvas.getContext('webgl2')
-    if (!context) throw new Error('WebGL2 not supported by your browser or device.')
-
-    const experience = new Experience(canvas, context) 
+    const experience = new Experience(canvas) 
 }
 )()

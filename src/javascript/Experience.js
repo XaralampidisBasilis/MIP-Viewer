@@ -70,6 +70,7 @@ export default class Experience
 
     async start()
     {
+        await this.renderer.start()
         await this.computes.start()
 
         this.world.start()

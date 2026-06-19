@@ -1,14 +1,14 @@
 import * as THREE from 'three'
 import vertexShader from '../../../shaders/mip_viewer/vertex.glsl'
 import fragmentShader from '../../../shaders/mip_viewer/fragment.glsl'
+import createWebGPUMaterial from './WebGPU/MIPWebGPUMaterial'
 
 // console.log('vertexShader: ', vertexShader)
 // console.log('fragmentShader: ', fragmentShader)
 
-export default function()
+function createUniforms()
 {
-    const uniforms = 
-    {
+    return {
         u_volume: new THREE.Uniform
         ({
             dimensions        : new THREE.Vector3(),
@@ -26,10 +26,10 @@ export default function()
             sign_direction: new THREE.Vector3(),
             step_distances: new THREE.Vector3(),
             step_distance : 1,
-            axis          : 0,
-            idx           : 0,
-            map           : 0,
-            reverse       : 0,
+            dominant_axis : 0,
+            quadrant_index: 0,
+            group_index   : 0,
+            reverse       : false,
         }),
 
         u_box: new THREE.Uniform
@@ -76,9 +76,11 @@ export default function()
             variable5 : 0,
         }),
     }
+}
 
-    const defines = 
-    {           
+function createDefines()
+{
+    return {           
         DISTANCE_VARIATION: 0,
         MARCHING_METHOD   : 1,
         SKIPPING_METHOD   : 2,
@@ -97,6 +99,17 @@ export default function()
         MAX_BLOCKS          : 1000,
         MAX_CELLS_IN_BLOCK  : 100,
         MAX_TRACES_IN_BLOCK : 100,
+    }
+}
+
+export default function(backend = 'webgl')
+{
+    const uniforms = createUniforms()
+    const defines = createDefines()
+
+    if (backend === 'webgpu')
+    {
+        return createWebGPUMaterial(uniforms, defines)
     }
 
     const material = new THREE.ShaderMaterial

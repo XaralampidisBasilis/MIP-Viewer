@@ -46,7 +46,10 @@ export default class MIPViewer extends EventEmitter
 
     setMesh()
     {   
-        this.material = MIPMaterial()
+        const backend = this.renderer.instance?.isWebGPURenderer && this.configs.renderBackend === 'webgpu'
+            ? 'webgpu'
+            : 'webgl'
+        this.material = MIPMaterial(backend)
         this.uniforms = this.material.uniforms
         this.defines = this.material.defines
 
@@ -112,6 +115,7 @@ export default class MIPViewer extends EventEmitter
         const uniforms = this.material.uniforms
         uniforms.u_textures.value.volume_map = this.computes.volumeMap.texture
         uniforms.u_textures.value.distance_map = this.computes.distanceMap.texture
+        this.material.syncWebGPUResources?.()
     }
 
     setUniformsVolume()
@@ -121,6 +125,7 @@ export default class MIPViewer extends EventEmitter
         uniforms.u_volume.value.spacing.copy(this.computes.volumeMap.spacing)
         uniforms.u_volume.value.spacing_normalized.copy(this.computes.volumeMap.spacing).normalize()
         uniforms.u_volume.value.block_size = this.configs.blockSize
+        uniforms.u_volume.value.blocked_dimensions.copy(this.computes.distanceMap.dimensions)
         uniforms.u_volume.value.inv_dimensions.fromArray(uniforms.u_volume.value.dimensions.toArray().map(x => 1/x))
     }
 
@@ -147,27 +152,27 @@ export default class MIPViewer extends EventEmitter
         const uniforms = this.material.uniforms
         uniforms.u_volume.value.block_size = this.configs.blockSize
         uniforms.u_volume.value.blocked_dimensions.copy(this.computes.distanceMap.dimensions)
-        uniforms.u_textures.value.shadow_map.dispose()
-        uniforms.u_textures.value.shadow_map = this.computes.distanceMap.texture    
-        uniforms.u_textures.value.distance_map.dispose()
+        uniforms.u_textures.value.distance_map?.dispose()
         uniforms.u_textures.value.distance_map = this.computes.distanceMap.texture
+        this.material.syncWebGPUResources?.()
         this.setDefinesIterators()
     }
 
     onChangeDownscaleFactor(event)
     {
         const uniforms = this.material.uniforms
-        uniforms.u_textures.value.volume_map.dispose()
-        uniforms.u_textures.value.shadow_map.dispose()
-        uniforms.u_textures.value.distance_map.dispose()
+        uniforms.u_textures.value.volume_map?.dispose()
+        uniforms.u_textures.value.distance_map?.dispose()
 
         this.material.dispose()
         this.setMaterial()
+        this.material.syncWebGPUResources?.()
     }
 
     onChangeSkippingMethod(event)
     {
         this.material.uniforms.u_textures.value.distance_map = this.computes.distanceMap.texture
+        this.material.syncWebGPUResources?.()
         this.material.defines.SKIPPING_METHOD = Configs.SkippingMethods.findIndex((x) => x === this.configs.skippingMethod)
         this.material.needsUpdate = true
     }

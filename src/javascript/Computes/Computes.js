@@ -143,19 +143,17 @@ export default class Computes extends EventEmitter
     destroy()
     {
         this.volumeMap.dispose()
-        this.shadowMap.dispose()
-        // this.distanceMap.dispose()
+        this.distanceMap.dispose()
 
         this.volumeMap = null
-        this.shadowMap = null
-        // this.distanceMap = null
+        this.distanceMap = null
 
         this.experience = null
         this.renderer = null
         this.configs = null
         this.resources = null
 
-        instance = null
+        Computes.instance = null
 
         console.log('Computes destroyed')
     }
