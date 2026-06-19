@@ -1,7 +1,18 @@
-import * as su from '../../Utils/ShadowMapUtils'
 import { createUniformBuffer } from '../../WebGPU/WebGPUBufferUtils'
 import { dispatchForShape, runComputeProgram, runComputeProgramSequence } from './WebGPUComputeRunner'
 import { WebGPUTensor3D } from './WebGPUTensor3D'
+import {
+	axisDelta,
+	axisToShapeIndex,
+	getOctantSign,
+	planeCoordsWGSL,
+	planeSize,
+	reverseOctant,
+	signedOffset,
+	sliceOffset as shadowSliceOffset,
+	unitOffset,
+	vec3,
+} from './WebGPUShadowMapUtils'
 import {
 	WORKGROUP_SIZE_2D,
 	WORKGROUP_SIZE_3D,
@@ -47,7 +58,7 @@ export async function computeBidirectionalShadowMapWebGPU( volume, dominantAxis,
 		forwardVertexShadows.dispose()
 		forwardVertexShadows = null
 
-		const backwardOctant = su.reverseOctant( forwardOctant )
+		const backwardOctant = reverseOctant( forwardOctant )
 
 		backwardVertexMinmax = await computeVertexValuesWithHoles(
 			volume,
@@ -154,7 +165,7 @@ async function computeVertexValuesWithHoles( volume, cellShadows, axis, octant )
 async function propagateVertexMinmaxValuesInPlace( vertexValues, axis, octant ) {
 
 	const dimension = axisToShapeIndex( axis )
-	const sign = su.getOctantSign( octant, axis )
+	const sign = getOctantSign( octant, axis )
 	const backwards = sign === '-'
 	const slices = vertexValues.shape[ dimension ]
 
@@ -602,87 +613,16 @@ function dispatchForPlane( shape, axis ) {
 	]
 }
 
-function planeSize( shape, axis ) {
-
-	const [ width, height, depth ] = shape
-
-	if ( axis === 'x' ) return [ height, depth ]
-	if ( axis === 'y' ) return [ width, depth ]
-	return [ width, height ]
-}
-
-function axisToShapeIndex( axis ) {
-	if ( axis === 'x' ) return 0
-	if ( axis === 'y' ) return 1
-	return 2
-}
-
-function planeCoordsWGSL( axis ) {
-
-	if ( axis === 'x' ) {
-		return 'return vec3<i32>(params.slice, i32(gid.x), i32(gid.y));'
-	}
-
-	if ( axis === 'y' ) {
-		return 'return vec3<i32>(i32(gid.x), params.slice, i32(gid.y));'
-	}
-
-	return 'return vec3<i32>(i32(gid.x), i32(gid.y), params.slice);'
-}
-
-function axisDelta( axis, value ) {
-
-	if ( axis === 'x' ) return [ value, 0, 0 ]
-	if ( axis === 'y' ) return [ 0, value, 0 ]
-	return [ 0, 0, value ]
-}
-
-function vec3( xyz ) {
-
-	return `vec3<i32>(${xyz[0]}, ${xyz[1]}, ${xyz[2]})`
-}
-
-function toXYZ( zyx ) {
-
-	return [ zyx[ 2 ], zyx[ 1 ], zyx[ 0 ] ]
-}
-
 function vertexOffset( x, y, z, axis, octant ) {
-
-	const { permute, reverse } = su.dominantAxisOctantToPermuteReverse( axis, octant )
-	const zyx = su.applyPermutation( [ z, y, x ], permute )
-
-	for ( const dimension of reverse ) {
-		zyx[ dimension ] = -zyx[ dimension ]
-	}
-
-	return toXYZ( zyx )
+	return signedOffset( x, y, z, axis, octant )
 }
 
 function sliceOffset( x, y, z, axis, octant ) {
-
-	const { permute, reverse } = su.dominantAxisOctantToPermuteReverse( axis, octant )
-	const zyx = su.applyPermutation( [ z, y, x ], permute )
-
-	for ( const dimension of reverse ) {
-		zyx[ dimension ] = -zyx[ dimension ]
-	}
-
-	zyx[ permute[ 0 ] ] = 0
-
-	return toXYZ( zyx )
+	return shadowSliceOffset( x, y, z, axis, octant )
 }
 
 function cellOffset( x, y, z, axis, octant ) {
-
-	const { permute, reverse } = su.dominantAxisOctantToPermuteReverse( axis, octant )
-	const zyx = su.applyPermutation( [ z, y, x ], permute )
-
-	for ( const dimension of reverse ) {
-		zyx[ dimension ] = 1 - zyx[ dimension ]
-	}
-
-	return toXYZ( zyx )
+	return unitOffset( x, y, z, axis, octant )
 }
 
 export const computeBidirectionalShadowMapPathsWebGPU = computeBidirectionalShadowMapWebGPU

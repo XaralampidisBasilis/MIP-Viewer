@@ -1,6 +1,6 @@
-import * as su from '../../Utils/ShadowMapUtils'
 import { dispatchForShape, runComputeProgram } from './WebGPUComputeRunner'
 import { WebGPUTensor3D } from './WebGPUTensor3D'
+import { getOctantSign } from './WebGPUShadowMapUtils'
 import {
 	WORKGROUP_SIZE_3D,
 	axisSize,
@@ -21,8 +21,8 @@ export async function computeUnidirectionalDistanceMapWebGPU(
 	verbose = false,
 ) {
 	const sweepAxes = [ 'x', 'y', 'z' ].filter( ( axis ) => axis !== dominantAxis )
-	const sweepSigns = sweepAxes.map( ( axis ) => su.getOctantSign( directionOctant, axis ) )
-	const dominantSign = su.getOctantSign( directionOctant, dominantAxis )
+	const sweepSigns = sweepAxes.map( ( axis ) => getOctantSign( directionOctant, axis ) )
+	const dominantSign = getOctantSign( directionOctant, dominantAxis )
 
 	const distances0d = await initialChebyshevDistanceInPlace( shadowMap, maxDistance )
 	if ( verbose ) await logTensor3DMeanWebGPU( 'initialDistances@WebGPU', distances0d )
