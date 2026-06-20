@@ -37,7 +37,6 @@ export default class Renderer
             this.instance = new WebGPURenderer({
                 canvas: this.canvas,
                 antialias: false,
-                depth: false,
                 alpha: false,
                 requiredLimits: WEBGPU_REQUIRED_LIMITS,
             })

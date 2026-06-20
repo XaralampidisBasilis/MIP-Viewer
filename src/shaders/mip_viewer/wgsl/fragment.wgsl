@@ -1,5 +1,5 @@
 fn mip_viewer_fragment(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
     distance_words: ptr<storage, array<u32>, read>,
     frag_coord: vec2<f32>,
     resolution: vec2<f32>,
@@ -17,7 +17,7 @@ fn mip_viewer_fragment(
     ray_dominant_axis: u32,
     ray_quadrant_index: u32,
     ray_group_index: u32,
-    ray_reverse: bool,
+    ray_reverse: i32,
     box_min_position: vec3<f32>,
     box_max_position: vec3<f32>,
     box_min_distance: f32,
@@ -135,14 +135,14 @@ fn mip_viewer_fragment(
         ray_dominant_axis,
         ray_quadrant_index,
         ray_group_index,
-        ray_reverse,
+        ray_reverse != 0,
         distance_variation,
         skipping_method,
         block_size,
         distance_words_per_voxel
     );
 
-    if (ray_reverse) {
+    if (ray_reverse != 0) {
         color = color;
     }
 
@@ -555,44 +555,13 @@ fn distance_to_position(ray: RayState, t: f32) -> vec3<f32>
 }
 
 fn sample_volume(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
     position: vec3<f32>,
     volume_inv_dimensions: vec3<f32>
 ) -> f32
 {
-    let dims = max(vec3<i32>(round(vec3<f32>(1.0) / max(volume_inv_dimensions, vec3<f32>(1.0e-8)))), vec3<i32>(1));
-    let p = clamp(position - vec3<f32>(0.5), vec3<f32>(0.0), vec3<f32>(dims - vec3<i32>(1)));
-    let p0 = vec3<i32>(floor(p));
-    let p1 = min(p0 + vec3<i32>(1), dims - vec3<i32>(1));
-    let f = fract(p);
-
-    let c000 = load_volume_value(volume_map, p0, dims);
-    let c100 = load_volume_value(volume_map, vec3<i32>(p1.x, p0.y, p0.z), dims);
-    let c010 = load_volume_value(volume_map, vec3<i32>(p0.x, p1.y, p0.z), dims);
-    let c110 = load_volume_value(volume_map, vec3<i32>(p1.x, p1.y, p0.z), dims);
-    let c001 = load_volume_value(volume_map, vec3<i32>(p0.x, p0.y, p1.z), dims);
-    let c101 = load_volume_value(volume_map, vec3<i32>(p1.x, p0.y, p1.z), dims);
-    let c011 = load_volume_value(volume_map, vec3<i32>(p0.x, p1.y, p1.z), dims);
-    let c111 = load_volume_value(volume_map, p1, dims);
-
-    let c00 = mix(c000, c100, f.x);
-    let c10 = mix(c010, c110, f.x);
-    let c01 = mix(c001, c101, f.x);
-    let c11 = mix(c011, c111, f.x);
-    return mix(mix(c00, c10, f.y), mix(c01, c11, f.y), f.z);
-}
-
-fn load_volume_value(
-    volume_map: ptr<storage, array<u32>, read>,
-    coords: vec3<i32>,
-    dims: vec3<i32>
-) -> f32
-{
-    let c = clamp(coords, vec3<i32>(0), dims - vec3<i32>(1));
-    let idx = u32((c.z * dims.y + c.y) * dims.x + c.x);
-    let word = (*volume_map)[idx >> 1u];
-    let pair = unpack2x16float(word);
-    return select(pair.x, pair.y, (idx & 1u) == 1u);
+    let texture_position = clamp(position * volume_inv_dimensions, vec3<f32>(0.0), vec3<f32>(1.0));
+    return textureSample(volume_map, volume_map_sampler, texture_position).r;
 }
 
 fn snap_trace_distance_ceil(t: f32, step_distance: f32, phase: f32) -> f32
@@ -877,7 +846,7 @@ fn update_mip(mip_in: MipState, value: f32, distance: f32, position: vec3<f32>) 
 }
 
 fn make_initial_trace_mip(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
     volume_inv_dimensions: vec3<f32>,
     ray: RayState,
     max_traces_in_cell: i32
@@ -891,7 +860,7 @@ fn make_initial_trace_mip(
 }
 
 fn march_traces_in_cells(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
     volume_inv_dimensions: vec3<f32>,
     ray: RayState,
     max_cells: i32,
@@ -922,7 +891,7 @@ fn march_traces_in_cells(
 }
 
 fn march_traces_in_cells_in_blocks(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
     distance_words: ptr<storage, array<u32>, read>,
     volume_inv_dimensions: vec3<f32>,
     distance_dimensions: vec3<i32>,
@@ -1060,7 +1029,7 @@ fn cubic_max_on_unit_interval(c: vec4<f32>, v0: f32, v1: f32) -> CubicMax
 }
 
 fn update_cubic_mip(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
     volume_inv_dimensions: vec3<f32>,
     ray: RayState,
     cell: CellState,
@@ -1092,7 +1061,7 @@ fn update_cubic_mip(
 }
 
 fn march_cells_in_cells(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
     volume_inv_dimensions: vec3<f32>,
     ray: RayState,
     max_cells: i32
@@ -1120,7 +1089,7 @@ fn march_cells_in_cells(
 }
 
 fn march_cells_in_blocks(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
     distance_words: ptr<storage, array<u32>, read>,
     volume_inv_dimensions: vec3<f32>,
     distance_dimensions: vec3<i32>,

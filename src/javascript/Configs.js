@@ -47,7 +47,7 @@ export default class Configs extends EventEmitter
         this.errorTolerance = 0.01
         this.blockSize = 2
         this.computeBackend = 'webgpu'
-        this.renderBackend = 'webgpu'
+        this.renderBackend = 'webgl'
         
         this.webgpuShadowBackend = 'paths'
         this.logComputeResults = false

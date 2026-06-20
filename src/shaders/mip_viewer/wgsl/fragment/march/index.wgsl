@@ -280,7 +280,8 @@ fn update_mip(mip_in: MipState, value: f32, distance: f32, position: vec3<f32>) 
 }
 
 fn make_initial_trace_mip(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
+    volume_sampler: sampler,
     volume_inv_dimensions: vec3<f32>,
     ray: RayState,
     max_traces_in_cell: i32
@@ -289,12 +290,13 @@ fn make_initial_trace_mip(
     let trace_step = ray.step_distance / f32(max(max_traces_in_cell - 1, 1));
     let trace_distance = snap_trace_distance_ceil(ray.start_distance, trace_step, ray.phase);
     let trace_position = distance_to_position(ray, trace_distance);
-    let trace_value = sample_volume(volume_map, trace_position, volume_inv_dimensions);
+    let trace_value = sample_volume(volume_map, volume_sampler, trace_position, volume_inv_dimensions);
     return MipState(trace_value, trace_distance, trace_position);
 }
 
 fn march_traces_in_cells(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
+    volume_sampler: sampler,
     volume_inv_dimensions: vec3<f32>,
     ray: RayState,
     max_cells: i32,
@@ -302,7 +304,7 @@ fn march_traces_in_cells(
 ) -> MipState
 {
     var cell = start_cell_in_ray(ray);
-    var mip = make_initial_trace_mip(volume_map, volume_inv_dimensions, ray, max_traces_in_cell);
+    var mip = make_initial_trace_mip(volume_map, volume_sampler, volume_inv_dimensions, ray, max_traces_in_cell);
 
     for (var j = 0; j < max(max_cells, 1); j = j + 1) {
         cell = update_cell_in_ray(cell, ray);
@@ -311,7 +313,7 @@ fn march_traces_in_cells(
             let alpha = f32(i) / f32(max(max_traces_in_cell - 1, 1));
             let trace_distance = mix(cell.entry_distance, cell.exit_distance, alpha);
             let trace_position = distance_to_position(ray, trace_distance);
-            let trace_value = sample_volume(volume_map, trace_position, volume_inv_dimensions);
+            let trace_value = sample_volume(volume_map, volume_sampler, trace_position, volume_inv_dimensions);
             mip = update_mip(mip, trace_value, trace_distance, trace_position);
         }
 
@@ -325,7 +327,8 @@ fn march_traces_in_cells(
 }
 
 fn march_traces_in_cells_in_blocks(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
+    volume_sampler: sampler,
     distance_words: ptr<storage, array<u32>, read>,
     volume_inv_dimensions: vec3<f32>,
     distance_dimensions: vec3<i32>,
@@ -343,7 +346,7 @@ fn march_traces_in_cells_in_blocks(
 ) -> MipState
 {
     var block = start_block_in_ray(ray, block_size);
-    var mip = make_initial_trace_mip(volume_map, volume_inv_dimensions, ray, max_traces_in_cell);
+    var mip = make_initial_trace_mip(volume_map, volume_sampler, volume_inv_dimensions, ray, max_traces_in_cell);
 
     for (var k = 0; k < max(max_blocks, 1); k = k + 1) {
         block = update_block_in_ray(
@@ -376,7 +379,7 @@ fn march_traces_in_cells_in_blocks(
                 let alpha = f32(i) / f32(max(max_traces_in_cell - 1, 1));
                 let trace_distance = mix(cell.entry_distance, cell.exit_distance, alpha);
                 let trace_position = distance_to_position(ray, trace_distance);
-                let trace_value = sample_volume(volume_map, trace_position, volume_inv_dimensions);
+                let trace_value = sample_volume(volume_map, volume_sampler, trace_position, volume_inv_dimensions);
                 mip = update_mip(mip, trace_value, trace_distance, trace_position);
             }
 
@@ -463,7 +466,8 @@ fn cubic_max_on_unit_interval(c: vec4<f32>, v0: f32, v1: f32) -> CubicMax
 }
 
 fn update_cubic_mip(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
+    volume_sampler: sampler,
     volume_inv_dimensions: vec3<f32>,
     ray: RayState,
     cell: CellState,
@@ -474,9 +478,9 @@ fn update_cubic_mip(
     let span_vector = cell.exit_position - cell.entry_position;
     let values = vec4<f32>(
         cubic_w,
-        sample_volume(volume_map, cell.entry_position + span_vector * (1.0 / 3.0), volume_inv_dimensions),
-        sample_volume(volume_map, cell.entry_position + span_vector * (2.0 / 3.0), volume_inv_dimensions),
-        sample_volume(volume_map, cell.exit_position, volume_inv_dimensions)
+        sample_volume(volume_map, volume_sampler, cell.entry_position + span_vector * (1.0 / 3.0), volume_inv_dimensions),
+        sample_volume(volume_map, volume_sampler, cell.entry_position + span_vector * (2.0 / 3.0), volume_inv_dimensions),
+        sample_volume(volume_map, volume_sampler, cell.exit_position, volume_inv_dimensions)
     );
 
     var mip = mip_in;
@@ -495,19 +499,20 @@ fn update_cubic_mip(
 }
 
 fn march_cells_in_cells(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
+    volume_sampler: sampler,
     volume_inv_dimensions: vec3<f32>,
     ray: RayState,
     max_cells: i32
 ) -> MipState
 {
     var cell = start_cell_in_ray(ray);
-    var cubic_w = sample_volume(volume_map, ray.start_position, volume_inv_dimensions);
+    var cubic_w = sample_volume(volume_map, volume_sampler, ray.start_position, volume_inv_dimensions);
     var mip = MipState(cubic_w, ray.start_distance, ray.start_position);
 
     for (var i = 0; i < max(max_cells, 1); i = i + 1) {
         cell = update_cell_in_ray(cell, ray);
-        let packed = update_cubic_mip(volume_map, volume_inv_dimensions, ray, cell, cubic_w, mip);
+        let packed = update_cubic_mip(volume_map, volume_sampler, volume_inv_dimensions, ray, cell, cubic_w, mip);
         cubic_w = packed.x;
         mip.value = packed.y;
         mip.distance = packed.z;
@@ -523,7 +528,8 @@ fn march_cells_in_cells(
 }
 
 fn march_cells_in_blocks(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
+    volume_sampler: sampler,
     distance_words: ptr<storage, array<u32>, read>,
     volume_inv_dimensions: vec3<f32>,
     distance_dimensions: vec3<i32>,
@@ -540,7 +546,7 @@ fn march_cells_in_blocks(
 ) -> MipState
 {
     var block = start_block_in_ray(ray, block_size);
-    var cubic_w = sample_volume(volume_map, ray.start_position, volume_inv_dimensions);
+    var cubic_w = sample_volume(volume_map, volume_sampler, ray.start_position, volume_inv_dimensions);
     var mip = MipState(cubic_w, ray.start_distance, ray.start_position);
 
     for (var j = 0; j < max(max_blocks, 1); j = j + 1) {
@@ -566,14 +572,14 @@ fn march_cells_in_blocks(
         }
 
         if (block.prev_empty) {
-            cubic_w = sample_volume(volume_map, block.entry_position, volume_inv_dimensions);
+            cubic_w = sample_volume(volume_map, volume_sampler, block.entry_position, volume_inv_dimensions);
         }
 
         var cell = start_cell_in_block(block, ray, block_size);
 
         for (var i = 0; i < max(max_cells_in_block, 1); i = i + 1) {
             cell = update_cell_in_block(cell, block, ray, block_size);
-            let packed = update_cubic_mip(volume_map, volume_inv_dimensions, ray, cell, cubic_w, mip);
+            let packed = update_cubic_mip(volume_map, volume_sampler, volume_inv_dimensions, ray, cell, cubic_w, mip);
             cubic_w = packed.x;
             mip.value = packed.y;
             mip.distance = packed.z;

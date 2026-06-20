@@ -174,7 +174,6 @@ export default class VolumeMap
         this.texture = new THREE.Data3DTexture(this.textureData, ...this.dimensions)
         this.texture.format = THREE.RedFormat
         this.texture.type = THREE.HalfFloatType
-        this.texture.internalFormat = 'R16F'
         this.texture.minFilter = THREE.LinearFilter
         this.texture.magFilter = THREE.LinearFilter
         this.texture.generateMipmaps = false

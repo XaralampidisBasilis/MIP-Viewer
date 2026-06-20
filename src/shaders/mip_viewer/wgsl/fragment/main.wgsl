@@ -1,5 +1,6 @@
 fn mip_viewer_fragment(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
+    volume_sampler: sampler,
     distance_words: ptr<storage, array<u32>, read>,
     frag_coord: vec2<f32>,
     resolution: vec2<f32>,
@@ -17,7 +18,7 @@ fn mip_viewer_fragment(
     ray_dominant_axis: u32,
     ray_quadrant_index: u32,
     ray_group_index: u32,
-    ray_reverse: bool,
+    ray_reverse: i32,
     box_min_position: vec3<f32>,
     box_max_position: vec3<f32>,
     box_min_distance: f32,
@@ -65,6 +66,7 @@ fn mip_viewer_fragment(
         if (skipping_enabled == 1) {
             mip = march_cells_in_blocks(
                 volume_map,
+                volume_sampler,
                 distance_words,
                 volume_inv_dimensions,
                 distance_dimensions,
@@ -82,6 +84,7 @@ fn mip_viewer_fragment(
         } else {
             mip = march_cells_in_cells(
                 volume_map,
+                volume_sampler,
                 volume_inv_dimensions,
                 ray,
                 max_cells
@@ -91,6 +94,7 @@ fn mip_viewer_fragment(
         if (skipping_enabled == 1) {
             mip = march_traces_in_cells_in_blocks(
                 volume_map,
+                volume_sampler,
                 distance_words,
                 volume_inv_dimensions,
                 distance_dimensions,
@@ -109,6 +113,7 @@ fn mip_viewer_fragment(
         } else {
             mip = march_traces_in_cells(
                 volume_map,
+                volume_sampler,
                 volume_inv_dimensions,
                 ray,
                 max_cells,
@@ -135,14 +140,14 @@ fn mip_viewer_fragment(
         ray_dominant_axis,
         ray_quadrant_index,
         ray_group_index,
-        ray_reverse,
+        ray_reverse != 0,
         distance_variation,
         skipping_method,
         block_size,
         distance_words_per_voxel
     );
 
-    if (ray_reverse) {
+    if (ray_reverse != 0) {
         color = color;
     }
 

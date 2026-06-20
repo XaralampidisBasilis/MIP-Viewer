@@ -1,37 +1,48 @@
 import * as THREE from 'three/webgpu'
-import { reference, screenCoordinate, storage, uniform, wgslFn } from 'three/tsl'
+import { reference, sampler, screenCoordinate, storage, texture3D, uniform, wgslFn } from 'three/tsl'
 import fragmentWGSL from '../../../../shaders/mip_viewer/wgsl/fragment/source'
 
-const emptyVolumeWords = new THREE.StorageBufferAttribute(new Uint32Array([0]), 1)
 const emptyDistanceWords = new THREE.StorageBufferAttribute(new Uint32Array([0]), 1)
-const volumeWordsCache = new WeakMap()
 const distanceWordsCache = new WeakMap()
 
-function toVolumeWords(texture)
+class AddressOfNode extends THREE.Node
 {
-    const source = texture?.image?.data
-    if (!source) return emptyVolumeWords
-
-    const cached = volumeWordsCache.get(texture)
-    if (cached?.source === source) return cached.words
-
-    const data = new Uint32Array(Math.ceil(source.length / 2))
-
-    for (let i = 0; i < source.length; i += 2)
+    constructor(node, nodeType)
     {
-        data[i >> 1] = source[i] | ((source[i + 1] ?? 0) << 16)
+        super(nodeType)
+        this.node = node
     }
 
-    const words = new THREE.StorageBufferAttribute(data, 1)
-    volumeWordsCache.set(texture, { source, words })
+    generate(builder)
+    {
+        return `&${this.node.build(builder)}`
+    }
+}
 
-    return words
+function addressOf(node, nodeType)
+{
+    return new AddressOfNode(node, nodeType)
+}
+
+function createEmptyVolumeTexture()
+{
+    const texture = new THREE.Data3DTexture(new Uint16Array([0]), 1, 1, 1)
+    texture.format = THREE.RedFormat
+    texture.type = THREE.HalfFloatType
+    texture.minFilter = THREE.LinearFilter
+    texture.magFilter = THREE.LinearFilter
+    texture.generateMipmaps = false
+    texture.unpackAlignment = 2
+    texture.needsUpdate = true
+
+    return texture
 }
 
 function getDistanceWordsPerVoxel(texture)
 {
     if (texture?.internalFormat === 'R16UI') return 1
     if (texture?.internalFormat === 'RGBA16UI') return 4
+    // Compatibility for legacy/WebGL-generated 8bit maps. WebGPU compute emits RGBA32UI.
     if (texture?.internalFormat === 'RGB32UI') return 3
     if (texture?.internalFormat === 'RGBA32UI') return 4
     return 1
@@ -77,14 +88,16 @@ export default function createWebGPUMaterial(uniforms, defines)
     const debug = uniforms.u_debug.value
     const textures = uniforms.u_textures.value
 
-    const volumeWordsNode = storage(emptyVolumeWords, 'uint', emptyVolumeWords.count).toReadOnly()
-    const distanceWordsNode = storage(emptyDistanceWords, 'uint', emptyDistanceWords.count).toReadOnly()
+    const volumeTextureNode = texture3D(createEmptyVolumeTexture())
+    const distanceWordsNode = storage(emptyDistanceWords, 'uint').toReadOnly()
+    const distanceWordsPointerNode = addressOf(distanceWordsNode, 'ptr<storage, array<u32>, read>')
     const distanceWordsPerVoxelNode = uniform(1, 'uint')
 
     const mipFragment = wgslFn(fragmentWGSL)
     material.fragmentNode = mipFragment({
-        volume_map: volumeWordsNode,
-        distance_words: distanceWordsNode,
+        volume_map: volumeTextureNode,
+        volume_sampler: sampler(volumeTextureNode),
+        distance_words: distanceWordsPointerNode,
 
         frag_coord: screenCoordinate,
         resolution: reference('resolution', 'vec2', transform),
@@ -104,7 +117,7 @@ export default function createWebGPUMaterial(uniforms, defines)
         ray_dominant_axis: reference('dominant_axis', 'uint', ray),
         ray_quadrant_index: reference('quadrant_index', 'uint', ray),
         ray_group_index: reference('group_index', 'uint', ray),
-        ray_reverse: reference('reverse', 'bool', ray),
+        ray_reverse: reference('reverse', 'int', ray),
 
         box_min_position: reference('min_position', 'vec3', box),
         box_max_position: reference('max_position', 'vec3', box),
@@ -131,14 +144,11 @@ export default function createWebGPUMaterial(uniforms, defines)
 
     material.syncWebGPUResources = () =>
     {
-        const volumeWords = toVolumeWords(textures.volume_map)
-        volumeWordsNode.value = volumeWords
-        volumeWordsNode.bufferCount = volumeWords.count
+        volumeTextureNode.value = textures.volume_map ?? volumeTextureNode.value
 
         const distanceTexture = textures.distance_map
         const distanceWords = toDistanceWords(distanceTexture)
         distanceWordsNode.value = distanceWords
-        distanceWordsNode.bufferCount = distanceWords.count
         distanceWordsPerVoxelNode.value = getDistanceWordsPerVoxel(distanceTexture)
 
         material.needsUpdate = true
