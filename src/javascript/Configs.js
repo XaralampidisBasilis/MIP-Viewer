@@ -47,15 +47,15 @@ export default class Configs extends EventEmitter
         this.errorTolerance = 0.01
         this.blockSize = 2
         this.computeBackend = 'webgpu'
-        this.renderBackend = 'webgl'
+        this.renderBackend = 'webgpu'
         
         this.webgpuShadowBackend = 'paths'
         this.logComputeResults = false
         
-        this.distanceVariation = '8bit'
+        this.distanceVariation = '5bit'
         this.marchingMethod = 'cells'
         this.skippingMethod = 'distance'
-        this.colormap = 'viridis'
+        this.colormap = 'viridis'   
 
         this.skippingEnabled = true
         this.debugEnabled = true

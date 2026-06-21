@@ -65,6 +65,16 @@ function packedWordsPerVoxel( encoding ) {
 	throw new Error( `Unsupported distance texture encoding "${encoding}".` )
 }
 
+function distanceTextureWordsPerVoxel( encoding ) {
+
+	if ( encoding === '1bit' ) return 1
+	if ( encoding === '5bit' ) return 4
+	if ( encoding === '8bit' ) return 4
+	if ( encoding === '10bit' ) return 4
+
+	throw new Error( `Unsupported distance texture encoding "${encoding}".` )
+}
+
 function packedWordCount( encoding, voxelCount ) {
 
 	return voxelCount * packedWordsPerVoxel( encoding )
@@ -311,6 +321,8 @@ export async function computePackedDistanceTextureWebGPU(
 		texture.magFilter = THREE.NearestFilter
 		texture.generateMipmaps = false
 		texture.unpackAlignment = 1
+		texture.userData.distanceEncoding = encoding
+		texture.userData.distanceWordsPerVoxel = distanceTextureWordsPerVoxel( encoding )
 		texture.needsUpdate = true
 
 		return {

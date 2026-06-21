@@ -40,6 +40,7 @@ function createEmptyVolumeTexture()
 
 function getDistanceWordsPerVoxel(texture)
 {
+    if (texture?.userData?.distanceWordsPerVoxel) return texture.userData.distanceWordsPerVoxel
     if (texture?.internalFormat === 'R16UI') return 1
     if (texture?.internalFormat === 'RGBA16UI') return 4
     // Compatibility for legacy/WebGL-generated 8bit maps. WebGPU compute emits RGBA32UI.
@@ -69,7 +70,7 @@ function toDistanceWords(texture)
 export default function createWebGPUMaterial(uniforms, defines)
 {
     const material = new THREE.NodeMaterial()
-    material.side = THREE.DoubleSide
+    material.side = THREE.BackSide
     material.blending = THREE.NoBlending
     material.depthTest = false
     material.depthWrite = false
@@ -91,7 +92,7 @@ export default function createWebGPUMaterial(uniforms, defines)
     const volumeTextureNode = texture3D(createEmptyVolumeTexture())
     const distanceWordsNode = storage(emptyDistanceWords, 'uint').toReadOnly()
     const distanceWordsPointerNode = addressOf(distanceWordsNode, 'ptr<storage, array<u32>, read>')
-    const distanceWordsPerVoxelNode = uniform(1, 'uint')
+    const distanceWordsPerVoxelNode = uniform(1, 'float')
 
     const mipFragment = wgslFn(fragmentWGSL)
     material.fragmentNode = mipFragment({
@@ -105,19 +106,19 @@ export default function createWebGPUMaterial(uniforms, defines)
         inv_view: reference('inv_view', 'mat4', transform),
         inv_model: reference('inv_model', 'mat4', transform),
 
-        volume_dimensions: reference('dimensions', 'ivec3', volume),
+        volume_dimensions: reference('dimensions', 'vec3', volume),
         volume_inv_dimensions: reference('inv_dimensions', 'vec3', volume),
-        distance_dimensions: reference('blocked_dimensions', 'ivec3', volume),
+        distance_dimensions: reference('blocked_dimensions', 'vec3', volume),
 
         ray_direction: reference('direction', 'vec3', ray),
         ray_inv_direction: reference('inv_direction', 'vec3', ray),
-        ray_sign_direction: reference('sign_direction', 'ivec3', ray),
+        ray_sign_direction: reference('sign_direction', 'vec3', ray),
         ray_step_distances: reference('step_distances', 'vec3', ray),
         ray_step_distance: reference('step_distance', 'float', ray),
-        ray_dominant_axis: reference('dominant_axis', 'uint', ray),
-        ray_quadrant_index: reference('quadrant_index', 'uint', ray),
-        ray_group_index: reference('group_index', 'uint', ray),
-        ray_reverse: reference('reverse', 'int', ray),
+        ray_dominant_axis: reference('dominant_axis', 'float', ray),
+        ray_quadrant_index: reference('quadrant_index', 'float', ray),
+        ray_group_index: reference('group_index', 'float', ray),
+        ray_reverse: reference('reverse', 'float', ray),
 
         box_min_position: reference('min_position', 'vec3', box),
         box_max_position: reference('max_position', 'vec3', box),
@@ -125,20 +126,20 @@ export default function createWebGPUMaterial(uniforms, defines)
         box_max_distance: reference('max_distance', 'float', box),
         box_span_distance: reference('span_distance', 'float', box),
 
-        shading_colormap: reference('colormap', 'int', shading),
-        debug_option: reference('option', 'int', debug),
-        debug_enabled: reference('DEBUG_ENABLED', 'int', defines),
+        shading_colormap: reference('colormap', 'float', shading),
+        debug_option: reference('option', 'float', debug),
+        debug_enabled: reference('DEBUG_ENABLED', 'float', defines),
 
-        distance_variation: reference('DISTANCE_VARIATION', 'int', defines),
-        marching_method: reference('MARCHING_METHOD', 'int', defines),
-        skipping_method: reference('SKIPPING_METHOD', 'int', defines),
-        skipping_enabled: reference('SKIPPING_ENABLED', 'int', defines),
-        block_size: reference('BLOCK_SIZE', 'int', defines),
-        max_cells: reference('MAX_CELLS', 'int', defines),
-        max_blocks: reference('MAX_BLOCKS', 'int', defines),
-        max_cells_in_block: reference('MAX_CELLS_IN_BLOCK', 'int', defines),
-        max_traces: reference('MAX_TRACES', 'int', defines),
-        max_traces_in_cell: reference('MAX_TRACES_IN_CELL', 'int', defines),
+        distance_variation: reference('DISTANCE_VARIATION', 'float', defines),
+        marching_method: reference('MARCHING_METHOD', 'float', defines),
+        skipping_method: reference('SKIPPING_METHOD', 'float', defines),
+        skipping_enabled: reference('SKIPPING_ENABLED', 'float', defines),
+        block_size: reference('BLOCK_SIZE', 'float', defines),
+        max_cells: reference('MAX_CELLS', 'float', defines),
+        max_blocks: reference('MAX_BLOCKS', 'float', defines),
+        max_cells_in_block: reference('MAX_CELLS_IN_BLOCK', 'float', defines),
+        max_traces: reference('MAX_TRACES', 'float', defines),
+        max_traces_in_cell: reference('MAX_TRACES_IN_CELL', 'float', defines),
         distance_words_per_voxel: distanceWordsPerVoxelNode,
     })
 

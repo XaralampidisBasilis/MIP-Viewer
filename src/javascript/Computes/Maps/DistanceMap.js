@@ -16,6 +16,10 @@ export default class DistanceMap
 
     async computeTexture()
     {
+        this.distanceVariation = this.configs.distanceVariation
+        this.errorTolerance = this.configs.errorTolerance
+        this.blockSize = this.configs.blockSize
+
         const useWebGPU = this.configs.computeBackend === 'webgpu'
         const volume = useWebGPU ? this.computes.volumeMap.webgpuTensor : this.computes.volumeMap.tensor
 

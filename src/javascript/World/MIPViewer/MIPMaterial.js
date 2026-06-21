@@ -29,7 +29,7 @@ function createUniforms()
             dominant_axis : 0,
             quadrant_index: 0,
             group_index   : 0,
-            reverse       : false,
+            reverse       : 0,
         }),
 
         u_box: new THREE.Uniform
