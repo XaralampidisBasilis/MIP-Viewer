@@ -58,6 +58,7 @@ fn mip_viewer_fragment(
     let max_cells_i = i32(round(max(max_cells, 1.0)));
     let max_blocks_i = i32(round(max(max_blocks, 1.0)));
     let max_cells_in_block_i = i32(round(max(max_cells_in_block, 1.0)));
+    let max_traces_i = i32(round(max(max_traces, 1.0)));
     let max_traces_in_cell_i = i32(round(max(max_traces_in_cell, 1.0)));
     let distance_words_per_voxel_u = u32(round(max(distance_words_per_voxel, 1.0)));
 
@@ -82,6 +83,7 @@ fn mip_viewer_fragment(
     }
 
     var mip = MipState(0.0, ray.start_distance, ray.start_position);
+    var stats = StatsState(0, 0, 0, 0, 0, 0, 0, 0, 0);
 
     if (marching_method_i == 0) {
         if (skipping_enabled_i == 1) {
@@ -100,7 +102,8 @@ fn mip_viewer_fragment(
                 block_size_i,
                 max_blocks_i,
                 max_cells_in_block_i,
-                distance_words_per_voxel_u
+                distance_words_per_voxel_u,
+                &stats
             );
         } else {
             mip = march_cells_in_cells(
@@ -108,7 +111,8 @@ fn mip_viewer_fragment(
                 volume_sampler,
                 volume_inv_dimensions,
                 ray,
-                max_cells_i
+                max_cells_i,
+                &stats
             );
         }
     } else {
@@ -129,7 +133,8 @@ fn mip_viewer_fragment(
                 max_blocks_i,
                 max_cells_in_block_i,
                 max_traces_in_cell_i,
-                distance_words_per_voxel_u
+                distance_words_per_voxel_u,
+                &stats
             );
         } else {
             mip = march_traces_in_cells(
@@ -138,7 +143,8 @@ fn mip_viewer_fragment(
                 volume_inv_dimensions,
                 ray,
                 max_cells_i,
-                max_traces_in_cell_i
+                max_traces_in_cell_i,
+                &stats
             );
         }
     }
@@ -165,6 +171,10 @@ fn mip_viewer_fragment(
         distance_variation_i,
         skipping_method_i,
         block_size_i,
+        max_cells_i,
+        max_blocks_i,
+        max_traces_i,
+        stats,
         distance_words_per_voxel_u
     );
 

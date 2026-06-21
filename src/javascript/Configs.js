@@ -52,7 +52,7 @@ export default class Configs extends EventEmitter
         this.webgpuShadowBackend = 'paths'
         this.logComputeResults = false
         
-        this.distanceVariation = '5bit'
+        this.distanceVariation = '8bit'
         this.marchingMethod = 'cells'
         this.skippingMethod = 'distance'
         this.colormap = 'viridis'   

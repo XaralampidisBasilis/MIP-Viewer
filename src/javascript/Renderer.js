@@ -1,4 +1,4 @@
-import { WebGLRenderer } from 'three'
+import { LinearSRGBColorSpace, WebGLRenderer } from 'three'
 import { WebGPURenderer } from 'three/webgpu'
 import Experience from './Experience'
 
@@ -41,6 +41,7 @@ export default class Renderer
                 requiredLimits: WEBGPU_REQUIRED_LIMITS,
             })
 
+            this.instance.outputColorSpace = LinearSRGBColorSpace
             this.instance.setClearColor('#211d20', 1)
             this.instance.shadowMap.enabled = false
             this.instance.setPixelRatio(this.pixelRatio.value)
