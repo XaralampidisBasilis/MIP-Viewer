@@ -5,7 +5,10 @@ const WORKGROUP_SIZE_3D = [ 16, 16, 1 ]
 
 export async function logicalOrWebGPU( a, b, options = {} ) 
 {
-	const { inPlace = false } = options
+	const {
+		inPlace = false,
+		awaitCompletion = false,
+	} = options
 
 	if ( a.dtype !== 'uint32' ) {
 		throw new Error( `logicalOrWebGPU only supports uint32 tensors, got "${a.dtype}" for a.` )
@@ -39,14 +42,15 @@ export async function logicalOrWebGPU( a, b, options = {} )
 				{ buffer: output.buffer },
 			],
 		dispatch: dispatchForShape( a.shape, WORKGROUP_SIZE_3D ),
+		awaitCompletion,
 	} )
 
 	return output
 }
 
-export async function logicalOrInPlaceWebGPU( a, b ) 
+export async function logicalOrInPlaceWebGPU( a, b, options = {} ) 
 {
-	return logicalOrWebGPU( a, b, { inPlace: true } )
+	return logicalOrWebGPU( a, b, { ...options, inPlace: true } )
 }
 
 function validateSameShape( aShape, bShape ) 

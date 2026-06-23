@@ -10,6 +10,7 @@ export async function resizeTrilinearWebGPU( input, outputShape, options = {} )
 		alignCorners = false,
 		halfPixelCenters = true,
 		disposeInput = false,
+		awaitCompletion = false,
 	} = options
 
 	if ( input.dtype !== 'float32' ) {
@@ -54,16 +55,26 @@ export async function resizeTrilinearWebGPU( input, outputShape, options = {} )
 			{ buffer: paramsBuffer },
 		],
 		dispatch: dispatchForShape( outputShape, WORKGROUP_SIZE_3D ),
-		awaitCompletion: true,
+		awaitCompletion: awaitCompletion || disposeInput,
 	} )
 
-	paramsBuffer.destroy()
+	destroyAfterCompute( input.device, paramsBuffer, awaitCompletion || disposeInput )
 
 	if ( disposeInput ) {
 		input.dispose()
 	}
 
 	return output
+}
+
+function destroyAfterCompute( device, buffer, awaitCompletion )
+{
+	if ( awaitCompletion ) {
+		buffer.destroy()
+		return
+	}
+
+	device.queue.onSubmittedWorkDone().then( () => buffer.destroy() )
 }
 
 function validateShape3D( shape, label ) 

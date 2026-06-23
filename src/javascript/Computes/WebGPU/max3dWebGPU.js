@@ -5,8 +5,10 @@ import { runComputeProgram } from '../../WebGPU/WebGPUComputeUtils'
 // One workgroup reads up to 256 float values and outputs one reduced value.
 const REDUCE_WORKGROUP_SIZE = 256
 
-export async function max3dWebGPU(input)
+export async function max3dWebGPU(input, options = {})
 {
+    const { awaitCompletion = false } = options
+
     if (input.dtype !== 'float32')
     {
         throw new Error(`max3dWebGPU only supports float32 tensors, got "${input.dtype}".`)
@@ -24,8 +26,7 @@ export async function max3dWebGPU(input)
     // Total number of scalar float32 values to reduce.
     let inputCount = input.size
 
-    // Tracks whether inputBuffer is a temporary buffer created by this function.
-    let ownsInputBuffer = false
+    const tempBuffers = []
 
     // Keep reducing until only one value remains.
     while (inputCount > 1)
@@ -43,11 +44,6 @@ export async function max3dWebGPU(input)
             'reduce-max-output',
         )
 
-        // Run one GPU reduction pass.
-        //
-        // Important:
-        // awaitCompletion must be true here because we destroy the previous
-        // temporary input buffer immediately after this pass.
         await runComputeProgram(input.device, {
             label: 'reduce-max',
             code: max3dWGSL(inputCount, outputCount, dispatch[0]),
@@ -56,20 +52,13 @@ export async function max3dWebGPU(input)
                 { buffer: outputBuffer },
             ],
             dispatch,
-            awaitCompletion: true,
+            awaitCompletion,
         })
-
-        // Destroy the previous temporary buffer after the GPU has finished using it.
-        // Never destroy the original caller-owned tensor buffer.
-        if (ownsInputBuffer)
-        {
-            inputBuffer.destroy()
-        }
 
         // The output of this pass becomes the input of the next pass.
         inputBuffer = outputBuffer
         inputCount = outputCount
-        ownsInputBuffer = true
+        tempBuffers.push(outputBuffer)
     }
 
     // Read the final single float value back to the CPU.
@@ -80,10 +69,9 @@ export async function max3dWebGPU(input)
         Float32Array,
     )
 
-    // Destroy the final temporary buffer if this function created it.
-    if (ownsInputBuffer)
+    for (const buffer of tempBuffers)
     {
-        inputBuffer.destroy()
+        buffer.destroy()
     }
 
     return result[0]

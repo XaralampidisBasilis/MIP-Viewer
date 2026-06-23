@@ -7,6 +7,7 @@ export async function maxPool3dWebGPU( input, blockSize, options = {} )
 {
 	const {
 		disposeInput = false,
+		awaitCompletion = false,
 	} = options
 
 	if ( input.dtype !== 'float32' && input.dtype !== 'uint32' && input.dtype !== 'int32' ) {
@@ -40,7 +41,7 @@ export async function maxPool3dWebGPU( input, blockSize, options = {} )
 			{ buffer: output.buffer },
 		],
 		dispatch: dispatchForShape( output.shape, WORKGROUP_SIZE_3D ),
-		awaitCompletion: disposeInput,
+		awaitCompletion: awaitCompletion || disposeInput,
 	} )
 
 	if ( disposeInput ) {

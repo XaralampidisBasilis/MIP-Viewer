@@ -6,8 +6,10 @@ import { runComputeProgram } from '../../WebGPU/WebGPUComputeUtils'
 // [minimum, maximum].
 const REDUCE_WORKGROUP_SIZE = 256
 
-export async function minMax3dWebGPU(input)
+export async function minMax3dWebGPU(input, options = {})
 {
+    const { awaitCompletion = false } = options
+
     if (input.dtype !== 'float32')
     {
         throw new Error(`minMax3dWebGPU only supports float32 tensors, got "${input.dtype}".`)
@@ -43,8 +45,7 @@ export async function minMax3dWebGPU(input)
     // Later passes: number of min/max pairs.
     let inputCount = input.size
 
-    // Tracks whether inputBuffer is a temporary buffer created by this function.
-    let ownsInputBuffer = false
+    const tempBuffers = []
 
     // The first pass reads raw float values.
     // Later passes read vec2<f32> pairs: [minimum, maximum].
@@ -68,11 +69,6 @@ export async function minMax3dWebGPU(input)
             'minmax3d-output',
         )
 
-        // Run one GPU reduction pass.
-        //
-        // Important:
-        // awaitCompletion must be true here because we destroy the previous
-        // temporary input buffer immediately after this pass.
         await runComputeProgram(input.device, {
             label: firstPass ? 'minmax3d-values' : 'minmax3d-pairs',
             code: firstPass ?
@@ -83,20 +79,13 @@ export async function minMax3dWebGPU(input)
                 { buffer: outputBuffer },
             ],
             dispatch,
-            awaitCompletion: true,
+            awaitCompletion,
         })
-
-        // Destroy the previous temporary buffer after the GPU has finished using it.
-        // Never destroy the original caller-owned tensor buffer.
-        if (ownsInputBuffer)
-        {
-            inputBuffer.destroy()
-        }
 
         // The output of this pass becomes the input of the next pass.
         inputBuffer = outputBuffer
         inputCount = outputCount
-        ownsInputBuffer = true
+        tempBuffers.push(outputBuffer)
         firstPass = false
     }
 
@@ -108,10 +97,9 @@ export async function minMax3dWebGPU(input)
         Float32Array,
     )
 
-    // Destroy the final temporary buffer if this function created it.
-    if (ownsInputBuffer)
+    for (const buffer of tempBuffers)
     {
-        inputBuffer.destroy()
+        buffer.destroy()
     }
 
     // Return [minimum, maximum].

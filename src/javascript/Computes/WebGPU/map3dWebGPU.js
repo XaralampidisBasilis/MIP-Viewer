@@ -6,7 +6,10 @@ const WORKGROUP_SIZE_3D = [ 16, 16, 1 ]
 
 export async function map3dWebGPU( input, minValue, maxValue, options = {} ) 
 {
-	const { inPlace = false } = options
+	const {
+		inPlace = false,
+		awaitCompletion = false,
+	} = options
 
 	if ( input.dtype !== 'float32' ) {
 		throw new Error( `map3dWebGPU only supports float32 tensors, got "${input.dtype}".` )
@@ -45,17 +48,27 @@ export async function map3dWebGPU( input, minValue, maxValue, options = {} )
 				{ buffer: paramsBuffer },
 			],
 		dispatch: dispatchForShape( input.shape, WORKGROUP_SIZE_3D ),
-		awaitCompletion: true,
+		awaitCompletion,
 	} )
 
-	paramsBuffer.destroy()
+	destroyAfterCompute( input.device, paramsBuffer, awaitCompletion )
 
 	return output
 }
 
-export async function map3dInPlaceWebGPU( input, minValue, maxValue ) 
+export async function map3dInPlaceWebGPU( input, minValue, maxValue, options = {} ) 
 {
-	return map3dWebGPU( input, minValue, maxValue, { inPlace: true } )
+	return map3dWebGPU( input, minValue, maxValue, { ...options, inPlace: true } )
+}
+
+function destroyAfterCompute( device, buffer, awaitCompletion )
+{
+	if ( awaitCompletion ) {
+		buffer.destroy()
+		return
+	}
+
+	device.queue.onSubmittedWorkDone().then( () => buffer.destroy() )
 }
 
 function map3dParamsBuffer( input, minValue, maxValue, label ) 

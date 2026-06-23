@@ -3,8 +3,10 @@ import { runComputeProgram } from '../../WebGPU/WebGPUComputeUtils'
 
 const REDUCE_WORKGROUP_SIZE = 256
 
-export async function mean3dWebGPU( input ) 
+export async function mean3dWebGPU( input, options = {} ) 
 {
+	const { awaitCompletion = false } = options
+
 	if ( input.dtype !== 'float32' ) {
 		throw new Error( `mean3dWebGPU only supports float32 tensors, got "${input.dtype}".` )
 	}
@@ -15,7 +17,7 @@ export async function mean3dWebGPU( input )
 
 	let inputBuffer = input.buffer
 	let inputCount = input.size
-	let ownsInputBuffer = false
+	const tempBuffers = []
 
 	while ( inputCount > 1 ) 
 	{
@@ -36,16 +38,12 @@ export async function mean3dWebGPU( input )
 				{ buffer: outputBuffer },
 			],
 			dispatch,
-			awaitCompletion: true,
+			awaitCompletion,
 		} )
-
-		if ( ownsInputBuffer ) {
-			inputBuffer.destroy()
-		}
 
 		inputBuffer = outputBuffer
 		inputCount = outputCount
-		ownsInputBuffer = true
+		tempBuffers.push( outputBuffer )
 	}
 
 	const result = await readBuffer(
@@ -55,8 +53,8 @@ export async function mean3dWebGPU( input )
 		Float32Array,
 	)
 
-	if ( ownsInputBuffer ) {
-		inputBuffer.destroy()
+	for ( const buffer of tempBuffers ) {
+		buffer.destroy()
 	}
 
 	return result[ 0 ] / input.size
