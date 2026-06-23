@@ -1,6 +1,6 @@
 import { createStorageBuffer, createUniformBuffer, readBuffer } from '../../WebGPU/WebGPUBufferUtils'
 import { dispatchForShape, runComputeProgram, runComputeProgramSequence } from './WebGPUComputeRunner'
-import { WebGPUTensor3D } from './WebGPUTensor3D'
+import { WebGPUTensor3D } from '../../WebGPU/WebGPUTensor3D'
 import {
 	axisDelta,
 	axisToShapeIndex,

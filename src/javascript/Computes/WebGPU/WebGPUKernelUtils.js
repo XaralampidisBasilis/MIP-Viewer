@@ -1,6 +1,6 @@
 import { createUniformBuffer } from '../../WebGPU/WebGPUBufferUtils'
 import { dispatchForShape, runComputeProgram } from './WebGPUComputeRunner'
-import { WebGPUTensor3D } from './WebGPUTensor3D'
+import { WebGPUTensor3D } from '../../WebGPU/WebGPUTensor3D'
 
 export const WORKGROUP_SIZE_3D = [ 8, 8, 4 ]
 export const WORKGROUP_SIZE_2D = [ 16, 16, 1 ]

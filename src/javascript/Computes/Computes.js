@@ -4,8 +4,6 @@ import Experience from '../Experience'
 import VolumeMap from './Maps/VolumeMap'
 import DistanceMap from './Maps/DistanceMap'
 
-import { purgeGLFreeTexturePool } from './../Utils/GLUtils';
-
 export default class Computes extends EventEmitter
 {
     static instance = null

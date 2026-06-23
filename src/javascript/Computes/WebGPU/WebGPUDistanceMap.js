@@ -1,5 +1,5 @@
 import { dispatchForShape, runComputeProgram } from './WebGPUComputeRunner'
-import { WebGPUTensor3D } from './WebGPUTensor3D'
+import { WebGPUTensor3D } from '../../WebGPU/WebGPUTensor3D'
 import { getOctantSign } from './WebGPUShadowMapUtils'
 import {
 	WORKGROUP_SIZE_3D,

@@ -7,7 +7,7 @@ import { map3d } from '../Programs/map3d'
 import { toHalfFloat } from '../../Utils/DataUtils'
 import * as TensorUtils from '../../Utils/TensorUtils'
 import { getWebGPUComputeContext } from '../../WebGPU/WebGPUDevice'
-import { WebGPUTensor3D } from '../WebGPU/WebGPUTensor3D'
+import { WebGPUTensor3D } from '../../WebGPU/WebGPUTensor3D'
 import { map3dInPlaceWebGPU, reduceMinMaxWebGPU, resizeTrilinearWebGPU } from '../WebGPU/WebGPUVolumeKernels'
 
 export default class VolumeMap
