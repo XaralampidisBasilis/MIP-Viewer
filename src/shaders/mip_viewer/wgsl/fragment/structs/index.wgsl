@@ -51,6 +51,19 @@ struct MipState
     position: vec3<f32>,
 };
 
+struct StatsState
+{
+    num_groups: i32,
+    num_cells: i32,
+    num_blocks: i32,
+    num_traces: i32,
+    num_maxima: i32,
+    num_mips: i32,
+    num_fetches: i32,
+    num_volume_fetches: i32,
+    num_distance_fetches: i32,
+};
+
 struct DistanceSample
 {
     distance: i32,

@@ -13,6 +13,43 @@ fn position_to_block_coords(position: vec3<f32>, block_size: i32) -> vec3<i32>
     return position_to_cell_coords(position) / vec3<i32>(max(block_size, 1));
 }
 
+fn stats_add_cells(stats: ptr<function, StatsState>, count: i32)
+{
+    (*stats).num_cells = (*stats).num_cells + count;
+}
+
+fn stats_add_blocks(stats: ptr<function, StatsState>, count: i32)
+{
+    (*stats).num_blocks = (*stats).num_blocks + count;
+}
+
+fn stats_add_traces(stats: ptr<function, StatsState>, count: i32)
+{
+    (*stats).num_traces = (*stats).num_traces + count;
+}
+
+fn stats_add_maxima(stats: ptr<function, StatsState>, count: i32)
+{
+    (*stats).num_maxima = (*stats).num_maxima + count;
+}
+
+fn stats_add_mips(stats: ptr<function, StatsState>, count: i32)
+{
+    (*stats).num_mips = (*stats).num_mips + count;
+}
+
+fn stats_add_volume_fetches(stats: ptr<function, StatsState>, count: i32)
+{
+    (*stats).num_volume_fetches = (*stats).num_volume_fetches + count;
+    (*stats).num_fetches = (*stats).num_fetches + count;
+}
+
+fn stats_add_distance_fetches(stats: ptr<function, StatsState>, count: i32)
+{
+    (*stats).num_distance_fetches = (*stats).num_distance_fetches + count;
+    (*stats).num_fetches = (*stats).num_fetches + count;
+}
+
 fn cell_coords_to_min_position(coords: vec3<i32>) -> vec3<f32>
 {
     return vec3<f32>(coords) - vec3<f32>(0.5);
@@ -95,9 +132,10 @@ fn start_cell_in_block(block: BlockState, ray: RayState, block_size: i32) -> Cel
     );
 }
 
-fn update_cell_in_ray(cell_in: CellState, ray: RayState) -> CellState
+fn update_cell_in_ray(cell_in: CellState, ray: RayState, stats: ptr<function, StatsState>) -> CellState
 {
     var cell = cell_in;
+    stats_add_cells(stats, 1);
     cell.coords = advance_cell_coords(cell.coords, cell.exit_step, ray);
     cell.far_distances = advance_cell_far_distances(cell.far_distances, cell.exit_step, ray);
     cell.entry_distance = cell.exit_distance;
@@ -117,11 +155,12 @@ fn update_cell_in_ray(cell_in: CellState, ray: RayState) -> CellState
     return cell;
 }
 
-fn update_cell_in_block(cell_in: CellState, block: BlockState, ray: RayState, block_size: i32) -> CellState
+fn update_cell_in_block(cell_in: CellState, block: BlockState, ray: RayState, block_size: i32, stats: ptr<function, StatsState>) -> CellState
 {
     var cell = cell_in;
 
     if (block_size != 1) {
+        stats_add_cells(stats, 1);
         cell.coords = advance_cell_coords(cell.coords, cell.exit_step, ray);
         cell.far_distances = advance_cell_far_distances(cell.far_distances, cell.exit_step, ray);
         cell.entry_distance = cell.exit_distance;
@@ -222,7 +261,8 @@ fn update_block_in_ray(
     skipping_method: i32,
     block_size: i32,
     words_per_voxel: u32,
-    ray: RayState
+    ray: RayState,
+    stats: ptr<function, StatsState>
 ) -> BlockState
 {
     var block = block_in;
@@ -245,6 +285,8 @@ fn update_block_in_ray(
         distance_variation,
         words_per_voxel
     );
+    stats_add_distance_fetches(stats, 1);
+    stats_add_blocks(stats, 1);
     block.empty = distance_sample.empty;
     block.step_radius = select(1, distance_sample.distance, skipping_method == 1);
 
@@ -266,11 +308,12 @@ fn update_block_in_ray(
     return block;
 }
 
-fn update_mip(mip_in: MipState, value: f32, distance: f32, position: vec3<f32>) -> MipState
+fn update_mip(mip_in: MipState, value: f32, distance: f32, position: vec3<f32>, stats: ptr<function, StatsState>) -> MipState
 {
     var mip = mip_in;
 
     if (value > mip.value) {
+        stats_add_mips(stats, 1);
         mip.value = value;
         mip.distance = distance;
         mip.position = position;
@@ -280,39 +323,48 @@ fn update_mip(mip_in: MipState, value: f32, distance: f32, position: vec3<f32>) 
 }
 
 fn make_initial_trace_mip(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
+    volume_sampler: sampler,
     volume_inv_dimensions: vec3<f32>,
     ray: RayState,
-    max_traces_in_cell: i32
+    max_traces_in_cell: i32,
+    stats: ptr<function, StatsState>
 ) -> MipState
 {
     let trace_step = ray.step_distance / f32(max(max_traces_in_cell - 1, 1));
     let trace_distance = snap_trace_distance_ceil(ray.start_distance, trace_step, ray.phase);
     let trace_position = distance_to_position(ray, trace_distance);
-    let trace_value = sample_volume(volume_map, trace_position, volume_inv_dimensions);
+    let trace_value = sample_volume(volume_map, volume_sampler, trace_position, volume_inv_dimensions);
+    stats_add_volume_fetches(stats, 1);
+    stats_add_traces(stats, 1);
+    stats_add_mips(stats, 1);
     return MipState(trace_value, trace_distance, trace_position);
 }
 
 fn march_traces_in_cells(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
+    volume_sampler: sampler,
     volume_inv_dimensions: vec3<f32>,
     ray: RayState,
     max_cells: i32,
-    max_traces_in_cell: i32
+    max_traces_in_cell: i32,
+    stats: ptr<function, StatsState>
 ) -> MipState
 {
     var cell = start_cell_in_ray(ray);
-    var mip = make_initial_trace_mip(volume_map, volume_inv_dimensions, ray, max_traces_in_cell);
+    var mip = make_initial_trace_mip(volume_map, volume_sampler, volume_inv_dimensions, ray, max_traces_in_cell, stats);
 
     for (var j = 0; j < max(max_cells, 1); j = j + 1) {
-        cell = update_cell_in_ray(cell, ray);
+        cell = update_cell_in_ray(cell, ray, stats);
 
         for (var i = 1; i < max(max_traces_in_cell, 1); i = i + 1) {
             let alpha = f32(i) / f32(max(max_traces_in_cell - 1, 1));
             let trace_distance = mix(cell.entry_distance, cell.exit_distance, alpha);
             let trace_position = distance_to_position(ray, trace_distance);
-            let trace_value = sample_volume(volume_map, trace_position, volume_inv_dimensions);
-            mip = update_mip(mip, trace_value, trace_distance, trace_position);
+            let trace_value = sample_volume(volume_map, volume_sampler, trace_position, volume_inv_dimensions);
+            stats_add_volume_fetches(stats, 1);
+            stats_add_traces(stats, 1);
+            mip = update_mip(mip, trace_value, trace_distance, trace_position, stats);
         }
 
         if (cell.terminated) {
@@ -325,7 +377,8 @@ fn march_traces_in_cells(
 }
 
 fn march_traces_in_cells_in_blocks(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
+    volume_sampler: sampler,
     distance_words: ptr<storage, array<u32>, read>,
     volume_inv_dimensions: vec3<f32>,
     distance_dimensions: vec3<i32>,
@@ -339,11 +392,12 @@ fn march_traces_in_cells_in_blocks(
     max_blocks: i32,
     max_cells_in_block: i32,
     max_traces_in_cell: i32,
-    words_per_voxel: u32
+    words_per_voxel: u32,
+    stats: ptr<function, StatsState>
 ) -> MipState
 {
     var block = start_block_in_ray(ray, block_size);
-    var mip = make_initial_trace_mip(volume_map, volume_inv_dimensions, ray, max_traces_in_cell);
+    var mip = make_initial_trace_mip(volume_map, volume_sampler, volume_inv_dimensions, ray, max_traces_in_cell, stats);
 
     for (var k = 0; k < max(max_blocks, 1); k = k + 1) {
         block = update_block_in_ray(
@@ -357,7 +411,8 @@ fn march_traces_in_cells_in_blocks(
             skipping_method,
             block_size,
             words_per_voxel,
-            ray
+            ray,
+            stats
         );
 
         if (block.empty) {
@@ -369,15 +424,23 @@ fn march_traces_in_cells_in_blocks(
 
         var cell = start_cell_in_block(block, ray, block_size);
 
+        if (block.prev_empty) {
+            _ = sample_volume(volume_map, volume_sampler, block.entry_position, volume_inv_dimensions);
+            stats_add_volume_fetches(stats, 1);
+            stats_add_traces(stats, 1);
+        }
+
         for (var j = 0; j < max(max_cells_in_block, 1); j = j + 1) {
-            cell = update_cell_in_block(cell, block, ray, block_size);
+            cell = update_cell_in_block(cell, block, ray, block_size, stats);
 
             for (var i = 1; i < max(max_traces_in_cell, 1); i = i + 1) {
                 let alpha = f32(i) / f32(max(max_traces_in_cell - 1, 1));
                 let trace_distance = mix(cell.entry_distance, cell.exit_distance, alpha);
                 let trace_position = distance_to_position(ray, trace_distance);
-                let trace_value = sample_volume(volume_map, trace_position, volume_inv_dimensions);
-                mip = update_mip(mip, trace_value, trace_distance, trace_position);
+                let trace_value = sample_volume(volume_map, volume_sampler, trace_position, volume_inv_dimensions);
+                stats_add_volume_fetches(stats, 1);
+                stats_add_traces(stats, 1);
+                mip = update_mip(mip, trace_value, trace_distance, trace_position, stats);
             }
 
             if (cell.terminated) {
@@ -463,28 +526,33 @@ fn cubic_max_on_unit_interval(c: vec4<f32>, v0: f32, v1: f32) -> CubicMax
 }
 
 fn update_cubic_mip(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
+    volume_sampler: sampler,
     volume_inv_dimensions: vec3<f32>,
     ray: RayState,
     cell: CellState,
     cubic_w: f32,
-    mip_in: MipState
+    mip_in: MipState,
+    stats: ptr<function, StatsState>
 ) -> vec4<f32>
 {
     let span_vector = cell.exit_position - cell.entry_position;
     let values = vec4<f32>(
         cubic_w,
-        sample_volume(volume_map, cell.entry_position + span_vector * (1.0 / 3.0), volume_inv_dimensions),
-        sample_volume(volume_map, cell.entry_position + span_vector * (2.0 / 3.0), volume_inv_dimensions),
-        sample_volume(volume_map, cell.exit_position, volume_inv_dimensions)
+        sample_volume(volume_map, volume_sampler, cell.entry_position + span_vector * (1.0 / 3.0), volume_inv_dimensions),
+        sample_volume(volume_map, volume_sampler, cell.entry_position + span_vector * (2.0 / 3.0), volume_inv_dimensions),
+        sample_volume(volume_map, volume_sampler, cell.exit_position, volume_inv_dimensions)
     );
+    stats_add_volume_fetches(stats, 3);
 
     var mip = mip_in;
     let bernstein = cubic_bernstein_coeffs(values);
 
     if (any(bernstein > vec4<f32>(mip.value))) {
+        stats_add_maxima(stats, 1);
         let max_sample = cubic_max_on_unit_interval(cubic_coeffs(values), values.x, values.w);
         if (max_sample.value > mip.value) {
+            stats_add_mips(stats, 1);
             mip.value = max_sample.value;
             mip.distance = mix(cell.entry_distance, cell.exit_distance, max_sample.point);
             mip.position = distance_to_position(ray, mip.distance);
@@ -495,19 +563,23 @@ fn update_cubic_mip(
 }
 
 fn march_cells_in_cells(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
+    volume_sampler: sampler,
     volume_inv_dimensions: vec3<f32>,
     ray: RayState,
-    max_cells: i32
+    max_cells: i32,
+    stats: ptr<function, StatsState>
 ) -> MipState
 {
     var cell = start_cell_in_ray(ray);
-    var cubic_w = sample_volume(volume_map, ray.start_position, volume_inv_dimensions);
+    var cubic_w = sample_volume(volume_map, volume_sampler, ray.start_position, volume_inv_dimensions);
     var mip = MipState(cubic_w, ray.start_distance, ray.start_position);
+    stats_add_volume_fetches(stats, 1);
+    stats_add_mips(stats, 1);
 
     for (var i = 0; i < max(max_cells, 1); i = i + 1) {
-        cell = update_cell_in_ray(cell, ray);
-        let packed = update_cubic_mip(volume_map, volume_inv_dimensions, ray, cell, cubic_w, mip);
+        cell = update_cell_in_ray(cell, ray, stats);
+        let packed = update_cubic_mip(volume_map, volume_sampler, volume_inv_dimensions, ray, cell, cubic_w, mip, stats);
         cubic_w = packed.x;
         mip.value = packed.y;
         mip.distance = packed.z;
@@ -523,7 +595,8 @@ fn march_cells_in_cells(
 }
 
 fn march_cells_in_blocks(
-    volume_map: ptr<storage, array<u32>, read>,
+    volume_map: texture_3d<f32>,
+    volume_sampler: sampler,
     distance_words: ptr<storage, array<u32>, read>,
     volume_inv_dimensions: vec3<f32>,
     distance_dimensions: vec3<i32>,
@@ -536,12 +609,15 @@ fn march_cells_in_blocks(
     block_size: i32,
     max_blocks: i32,
     max_cells_in_block: i32,
-    words_per_voxel: u32
+    words_per_voxel: u32,
+    stats: ptr<function, StatsState>
 ) -> MipState
 {
     var block = start_block_in_ray(ray, block_size);
-    var cubic_w = sample_volume(volume_map, ray.start_position, volume_inv_dimensions);
+    var cubic_w = sample_volume(volume_map, volume_sampler, ray.start_position, volume_inv_dimensions);
     var mip = MipState(cubic_w, ray.start_distance, ray.start_position);
+    stats_add_volume_fetches(stats, 1);
+    stats_add_mips(stats, 1);
 
     for (var j = 0; j < max(max_blocks, 1); j = j + 1) {
         block = update_block_in_ray(
@@ -555,7 +631,8 @@ fn march_cells_in_blocks(
             skipping_method,
             block_size,
             words_per_voxel,
-            ray
+            ray,
+            stats
         );
 
         if (block.empty) {
@@ -566,14 +643,15 @@ fn march_cells_in_blocks(
         }
 
         if (block.prev_empty) {
-            cubic_w = sample_volume(volume_map, block.entry_position, volume_inv_dimensions);
+            cubic_w = sample_volume(volume_map, volume_sampler, block.entry_position, volume_inv_dimensions);
+            stats_add_volume_fetches(stats, 1);
         }
 
         var cell = start_cell_in_block(block, ray, block_size);
 
         for (var i = 0; i < max(max_cells_in_block, 1); i = i + 1) {
-            cell = update_cell_in_block(cell, block, ray, block_size);
-            let packed = update_cubic_mip(volume_map, volume_inv_dimensions, ray, cell, cubic_w, mip);
+            cell = update_cell_in_block(cell, block, ray, block_size, stats);
+            let packed = update_cubic_mip(volume_map, volume_sampler, volume_inv_dimensions, ray, cell, cubic_w, mip, stats);
             cubic_w = packed.x;
             mip.value = packed.y;
             mip.distance = packed.z;

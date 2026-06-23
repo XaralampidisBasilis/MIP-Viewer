@@ -39,6 +39,17 @@ function getSafeInverse(x)
     return Math.abs(x) > 1e-8 ? 1 / x : 1e8
 }
 
+function updateCameraCoordinateSystem(camera, renderer)
+{
+    const coordinateSystem = renderer.coordinateSystem
+
+    if (coordinateSystem !== undefined && camera.coordinateSystem !== coordinateSystem)
+    {
+        camera.coordinateSystem = coordinateSystem
+        camera.updateProjectionMatrix()
+    }
+}
+
 function getBoxPlaneMinMaxDistance(boxMin, boxMax, planeOrigin, planeNormal)
 {
     _boxCenter.addVectors(boxMin, boxMax).multiplyScalar(0.5)
@@ -93,9 +104,10 @@ function updateRayUniforms(uniforms)
     ray.dominant_axis = dominantAxis
     ray.quadrant_index = rayQuadrantIndex(ray.sign_direction, dominantAxis)
     ray.group_index = ray.quadrant_index + 4 * dominantAxis
-    ray.reverse = dominantSign < 0
+    const reverse = dominantSign < 0
+    ray.reverse = Number(reverse)
 
-    if (ray.reverse)
+    if (reverse)
     {
         ray.sign_direction.negate()
         ray.direction.negate()
@@ -152,6 +164,7 @@ export function updateRaymarchUniforms(viewer)
     const dimensions = viewer.computes.volumeMap.dimensions
     const renderer = viewer.renderer.instance
 
+    updateCameraCoordinateSystem(camera, renderer)
     camera.updateWorldMatrix(true, false)
     mesh.updateWorldMatrix(true, false)
 

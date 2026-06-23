@@ -19,6 +19,10 @@ fn debug_color(
     distance_variation: i32,
     skipping_method: i32,
     block_size: i32,
+    max_cells: i32,
+    max_blocks: i32,
+    max_traces: i32,
+    stats: StatsState,
     distance_words_per_voxel: u32
 ) -> vec3<f32>
 {
@@ -89,6 +93,34 @@ fn debug_color(
     }
     if (option == 457 || option == 458 || option == 459) {
         return vec3<f32>(clamp(mip.value, 0.0, 1.0));
+    }
+
+    if (option == 901) {
+        return turbo_burn(f32(stats.num_cells) / f32(max(max_cells, 1)));
+    }
+    if (option == 902) {
+        return turbo_burn(f32(stats.num_traces) / f32(max(max_traces, 1)));
+    }
+    if (option == 903) {
+        return turbo_burn(f32(stats.num_mips) / f32(max(max_cells, 1)));
+    }
+    if (option == 904) {
+        return turbo_burn(f32(stats.num_maxima) / f32(max(max_cells, 1)));
+    }
+    if (option == 905) {
+        return turbo_burn(f32(stats.num_blocks) / f32(max(max_blocks, 1)));
+    }
+    if (option == 906) {
+        return frag_color;
+    }
+    if (option == 907) {
+        return turbo_burn(f32(stats.num_volume_fetches + stats.num_distance_fetches) / f32(max(max_cells + max_blocks, 1)));
+    }
+    if (option == 908) {
+        return turbo_burn(f32(stats.num_volume_fetches) / f32(max(max_cells, 1)));
+    }
+    if (option == 909) {
+        return turbo_burn(f32(stats.num_distance_fetches) / f32(max(max_blocks, 1)));
     }
 
     let cell_coords = position_to_cell_coords(mip.position);
@@ -185,19 +217,6 @@ fn debug_color(
     }
     if (option == 805) {
         return vec3<f32>(clamp(mip.value, 0.0, 1.0));
-    }
-
-    if (option == 901) {
-        return vec3<f32>(clamp(f32(max_cells_in_debug(block_size, distance_dimensions)) / 512.0, 0.0, 1.0));
-    }
-    if (option == 902) {
-        return vec3<f32>(clamp(f32(max(block_size * 3 - 2, 1)) / 32.0, 0.0, 1.0));
-    }
-    if (option == 903 || option == 904) {
-        return vec3<f32>(clamp(mip.value, 0.0, 1.0));
-    }
-    if (option == 905 || option == 906 || option == 907 || option == 908 || option == 909) {
-        return vec3<f32>(clamp(f32(block_sample.distance) / 64.0, 0.0, 1.0));
     }
 
     if (option >= 1000 && option <= 1009) {

@@ -10,11 +10,11 @@ fn get_ray_origin(
     let gl_frag_coord = vec2<f32>(frag_coord.x, resolution.y - frag_coord.y);
     let uv = (gl_frag_coord + vec2<f32>(0.5)) / resolution;
     let ndc = uv * 2.0 - vec2<f32>(1.0);
-    let clip_position = vec4<f32>(ndc, -1.0, 1.0);
+    let clip_position = vec4<f32>(ndc, 0.0, 1.0);
     let view_position = inv_projection * clip_position;
-    let world_position = inv_view * vec4<f32>(view_position.xyz, 1.0);
+    let world_position = inv_view * vec4<f32>(view_position.xyz / view_position.w, 1.0);
     let local_position = inv_model * world_position;
-    return (local_position.xyz + vec3<f32>(0.5)) * vec3<f32>(volume_dimensions);
+    return (local_position.xyz / local_position.w + vec3<f32>(0.5)) * vec3<f32>(volume_dimensions);
 }
 
 fn mmax3(v: vec3<f32>) -> f32

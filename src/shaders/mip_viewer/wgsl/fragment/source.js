@@ -9,6 +9,7 @@ import colormapWGSL from './colormap/source'
 import debugWGSL from './debug.wgsl?raw'
 
 export default [
+    mainWGSL,
     structsWGSL,
     utilsWGSL,
     raycastWGSL,
@@ -17,5 +18,4 @@ export default [
     marchWGSL,
     colormapWGSL,
     debugWGSL,
-    mainWGSL,
 ].join('\n')

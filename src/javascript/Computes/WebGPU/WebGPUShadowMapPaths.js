@@ -164,6 +164,7 @@ async function computeVertexValuesWithHoles( volume, cellShadows, axis, octant )
 
 async function propagateVertexMinmaxValuesInPlace( vertexValues, axis, octant ) {
 
+	const rawVertexValues = vertexValues.clone( `${vertexValues.label}:raw` )
 	const dimension = axisToShapeIndex( axis )
 	const sign = getOctantSign( octant, axis )
 	const backwards = sign === '-'
@@ -186,19 +187,31 @@ async function propagateVertexMinmaxValuesInPlace( vertexValues, axis, octant ) 
 
 		paramsBuffers.push( paramsBuffer )
 		steps.push( {
-			bindings: [ { buffer: vertexValues.buffer }, { buffer: paramsBuffer } ],
+			bindings: [
+				{ buffer: rawVertexValues.buffer },
+				{ buffer: vertexValues.buffer },
+				{ buffer: paramsBuffer },
+			],
 			dispatch,
 		} )
 	}
 
-	await runComputeProgramSequence( vertexValues.device, {
-		label: `propagate-vertex-minmax-${axis}-${octant}`,
-		code: propagateVertexMinmaxInPlaceWGSL( vertexValues.shape, axis, octant, step ),
-		steps,
-		disposeAfterSubmit: paramsBuffers,
-	} )
+	try {
 
-	return vertexValues
+		await runComputeProgramSequence( vertexValues.device, {
+			label: `propagate-vertex-minmax-${axis}-${octant}`,
+			code: propagateVertexMinmaxInPlaceWGSL( vertexValues.shape, axis, octant, step ),
+			steps,
+			awaitCompletion: true,
+			disposeAfterSubmit: paramsBuffers,
+		} )
+
+		return vertexValues
+
+	} finally {
+
+		rawVertexValues.dispose()
+	}
 }
 
 async function computeVertexShadowsFromVolume( volume, vertexMinmax, axis, octant, tolerance ) {
@@ -367,8 +380,9 @@ function propagateVertexMinmaxInPlaceWGSL( shape, axis, octant, step ) {
 	const PLANE_U: u32 = ${planeU}u;
 	const PLANE_V: u32 = ${planeV}u;
 
-	@group(0) @binding(0) var<storage, read_write> propagated_values: array<f32>;
-	@group(0) @binding(1) var<uniform> params: Params;
+	@group(0) @binding(0) var<storage, read> raw_values: array<f32>;
+	@group(0) @binding(1) var<storage, read_write> propagated_values: array<f32>;
+	@group(0) @binding(2) var<uniform> params: Params;
 
 	fn plane_coords(gid: vec3<u32>) -> vec3<i32>
 	{
@@ -377,7 +391,7 @@ function propagateVertexMinmaxInPlaceWGSL( shape, axis, octant, step ) {
 
 	fn raw_at(coords: vec3<i32>) -> f32
 	{
-	    return propagated_values[index3(coords)];
+	    return raw_values[index3(coords)];
 	}
 
 	fn propagated_at(coords: vec3<i32>) -> f32

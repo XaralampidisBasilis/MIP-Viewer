@@ -33,11 +33,12 @@ const MAX_ENCODABLE_DISTANCES = {
 	'10bit': { x: 2047, y: 2047, z: 1023 },
 }
 
-// Keep this exactly compatible with ComputePackedDistanceTexture.ts
+// Keep compatible with the WebGPU render path. WebGPU has no rgb32uint format,
+// so the 8bit layout uses rgba32uint with the fourth word unused.
 const DISTANCE_TEXTURE_FORMATS = {
 	'1bit' : { format: 'RED_INTEGER',  type: THREE.UnsignedShortType, internalFormat: 'R16UI'    },
 	'5bit' : { format: 'RGBA_INTEGER', type: THREE.UnsignedShortType, internalFormat: 'RGBA16UI' },
-	'8bit' : { format: 'RGB_INTEGER',  type: THREE.UnsignedIntType,   internalFormat: 'RGB32UI'  },
+	'8bit' : { format: 'RGBA_INTEGER', type: THREE.UnsignedIntType,   internalFormat: 'RGBA32UI' },
 	'10bit': { format: 'RGBA_INTEGER', type: THREE.UnsignedIntType,   internalFormat: 'RGBA32UI' },
 }
 
@@ -58,7 +59,17 @@ function packedWordsPerVoxel( encoding ) {
 
 	if ( encoding === '1bit' ) return 1
 	if ( encoding === '5bit' ) return 2
-	if ( encoding === '8bit' ) return 3
+	if ( encoding === '8bit' ) return 4
+	if ( encoding === '10bit' ) return 4
+
+	throw new Error( `Unsupported distance texture encoding "${encoding}".` )
+}
+
+function distanceTextureWordsPerVoxel( encoding ) {
+
+	if ( encoding === '1bit' ) return 1
+	if ( encoding === '5bit' ) return 4
+	if ( encoding === '8bit' ) return 4
 	if ( encoding === '10bit' ) return 4
 
 	throw new Error( `Unsupported distance texture encoding "${encoding}".` )
@@ -310,6 +321,8 @@ export async function computePackedDistanceTextureWebGPU(
 		texture.magFilter = THREE.NearestFilter
 		texture.generateMipmaps = false
 		texture.unpackAlignment = 1
+		texture.userData.distanceEncoding = encoding
+		texture.userData.distanceWordsPerVoxel = distanceTextureWordsPerVoxel( encoding )
 		texture.needsUpdate = true
 
 		return {
@@ -423,12 +436,16 @@ function packDistanceMapWGSL( shape, encoding, targetIndex ) {
 
 	fn pack_8bit(index: u32, distance: u32)
 	{
-	    let word_index = index * 3u + TARGET_GROUP;
+	    let word_index = index * 4u + TARGET_GROUP;
 	    let bit_shift = TARGET_COMPONENT * 8u;
 	    let packed = (distance & 0xffu) << bit_shift;
 	    let initialize = TARGET_COMPONENT == 0u;
 
 	    write_or_set(word_index, packed, initialize);
+
+	    if (TARGET_INDEX == 0u) {
+	        packed_words[index * 4u + 3u] = 0u;
+	    }
 	}
 
 	fn pack_10bit(index: u32, distance: u32)
