@@ -14,12 +14,12 @@ export class WebGPUTensor3D
 {
     constructor(device, shape, dtype, buffer, label = 'tensor3d')
     {
-        // This class represents a 3D tensor with channels:
-        // [width, height, depth] defaults to 1 channel.
-        // [width, height, depth, channels] uses the provided channel count.
-        if (shape.length !== 3 && shape.length !== 4)
+        // This class represents a scalar 3D tensor:
+        // shape is always [width, height, depth].
+        // Channels are intentionally not supported here.
+        if (shape.length !== 3)
         {
-            throw new Error(`WebGPUTensor3D expected shape [width, height, depth] or [width, height, depth, channels], got [${shape.join(', ')}].`)
+            throw new Error(`WebGPUTensor3D expected shape [width, height, depth], got [${shape.join(', ')}].`)
         }
 
         // Make sure the requested dtype is one of the supported GPU data types.
@@ -36,11 +36,8 @@ export class WebGPUTensor3D
         this.height = shape[1]
         this.depth = shape[2]
 
-        // If the caller only provides [width, height, depth], default to 1 channel.
-        this.channels = shape[3] ?? 1
-
-        // Store the normalized shape, always including channels.
-        this.shape = [this.width, this.height, this.depth, this.channels]
+        // Store the normalized shape.
+        this.shape = [this.width, this.height, this.depth]
 
         // Store the tensor's numeric type and backing GPU buffer.
         this.dtype = dtype
@@ -48,8 +45,7 @@ export class WebGPUTensor3D
         this.label = label
 
         // Total number of scalar values in the tensor.
-        // Each voxel contains `channels` values.
-        this.size = this.width * this.height * this.depth * this.channels
+        this.size = this.width * this.height * this.depth
 
         // Total number of bytes required by the tensor data.
         this.byteLength = this.size * DTYPE_INFO[dtype].bytesPerElement
@@ -57,16 +53,10 @@ export class WebGPUTensor3D
 
     static empty(device, shape, dtype = 'float32', label = 'empty-tensor3d')
     {
-        // Normalize the shape so [width, height, depth] becomes
-        // [width, height, depth, 1].
-        const normalizedShape = normalizeShape(shape)
+        validateShape(shape)
 
-        // Compute the total number of scalar values, including channels.
-        const size =
-            normalizedShape[0] *
-            normalizedShape[1] *
-            normalizedShape[2] *
-            normalizedShape[3]
+        // Compute the total number of scalar values.
+        const size = shape[0] * shape[1] * shape[2]
 
         // Convert element count into byte count based on the dtype.
         const bytes = size * DTYPE_INFO[dtype].bytesPerElement
@@ -75,33 +65,28 @@ export class WebGPUTensor3D
         const buffer = createStorageBuffer(device, bytes, label)
 
         // Wrap the GPU buffer in a WebGPUTensor3D instance.
-        return new WebGPUTensor3D(device, normalizedShape, dtype, buffer, label)
+        return new WebGPUTensor3D(device, shape, dtype, buffer, label)
     }
 
     static fromTypedArray(device, shape, data, dtype = inferDtype(data), label = 'tensor3d')
     {
-        // Normalize the shape so omitted channels default to 1.
-        const normalizedShape = normalizeShape(shape)
+        validateShape(shape)
 
-        // A tensor with shape [width, height, depth, channels] must contain
-        // exactly width * height * depth * channels scalar values.
-        const expectedSize =
-            normalizedShape[0] *
-            normalizedShape[1] *
-            normalizedShape[2] *
-            normalizedShape[3]
+        // A tensor with shape [width, height, depth] must contain exactly
+        // width * height * depth scalar values.
+        const expectedSize = shape[0] * shape[1] * shape[2]
 
         // Prevent uploading incorrectly sized CPU data into the GPU tensor.
         if (data.length !== expectedSize)
         {
-            throw new Error(`${label} expected ${expectedSize} values for shape [${normalizedShape.join(', ')}], got ${data.length}.`)
+            throw new Error(`${label} expected ${expectedSize} values for shape [${shape.join(', ')}], got ${data.length}.`)
         }
 
         // Create a GPU storage buffer and upload the typed array into it.
         const buffer = createBufferFromTypedArray(device, data, GPUBufferUsage.STORAGE, label)
 
         // Wrap the uploaded GPU buffer in a WebGPUTensor3D instance.
-        return new WebGPUTensor3D(device, normalizedShape, dtype, buffer, label)
+        return new WebGPUTensor3D(device, shape, dtype, buffer, label)
     }
 
     async read()
@@ -136,21 +121,24 @@ export class WebGPUTensor3D
     }
 }
 
-function normalizeShape(shape)
+function validateShape(shape)
 {
-    // Accept [width, height, depth] and default channels to 1.
-    if (shape.length === 3)
+    if (shape.length !== 3)
     {
-        return [shape[0], shape[1], shape[2], 1]
+        throw new Error(`Expected tensor shape [width, height, depth], got [${shape.join(', ')}].`)
     }
 
-    // Accept [width, height, depth, channels] as-is.
-    if (shape.length === 4)
+    const [width, height, depth] = shape
+
+    if (!Number.isInteger(width) || !Number.isInteger(height) || !Number.isInteger(depth))
     {
-        return shape
+        throw new Error(`Tensor shape values must be integers, got [${shape.join(', ')}].`)
     }
 
-    throw new Error(`Expected tensor shape [width, height, depth] or [width, height, depth, channels], got [${shape.join(', ')}].`)
+    if (width <= 0 || height <= 0 || depth <= 0)
+    {
+        throw new Error(`Tensor shape values must be positive, got [${shape.join(', ')}].`)
+    }
 }
 
 function inferDtype(data)
@@ -163,4 +151,3 @@ function inferDtype(data)
     // Reject unsupported input arrays, such as Uint8Array or normal JS arrays.
     throw new Error(`Cannot infer WebGPU tensor dtype from ${data.constructor?.name ?? typeof data}.`)
 }
-

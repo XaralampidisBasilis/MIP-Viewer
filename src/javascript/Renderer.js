@@ -1,6 +1,7 @@
 import { LinearSRGBColorSpace, WebGLRenderer } from 'three'
 import { WebGPURenderer } from 'three/webgpu'
 import Experience from './Experience'
+import { getWebGPUComputeContext } from './WebGPU/WebGPUDevice'
 
 const WEBGPU_REQUIRED_LIMITS = {
     maxBufferSize: 536870912,
@@ -70,6 +71,12 @@ export default class Renderer
 
     async start()
     {
+        if (this.instance?.isWebGPURenderer)
+        {
+            const { device } = await getWebGPUComputeContext()
+            this.instance.backend.parameters.device = device
+        }
+
         await this.instance?.init?.()
         this.ready = true
     }

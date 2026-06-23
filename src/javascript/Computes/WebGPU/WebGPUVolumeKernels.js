@@ -1,5 +1,5 @@
 import { createStorageBuffer, readBuffer } from '../../WebGPU/WebGPUBufferUtils'
-import { runComputeProgram } from './WebGPUComputeRunner'
+import { runComputeProgram } from '../../WebGPU/WebGPUComputeUtils'
 export {
 	map3dInPlaceWebGPU,
 	map3dWebGPU,

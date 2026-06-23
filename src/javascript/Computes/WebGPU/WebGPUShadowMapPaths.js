@@ -1,5 +1,5 @@
 import { createUniformBuffer } from '../../WebGPU/WebGPUBufferUtils'
-import { dispatchForShape, runComputeProgram, runComputeProgramSequence } from './WebGPUComputeRunner'
+import { dispatchForShape, runComputeProgram, runComputeProgramSequence } from '../../WebGPU/WebGPUComputeUtils'
 import { WebGPUTensor3D } from '../../WebGPU/WebGPUTensor3D'
 import {
 	axisDelta,

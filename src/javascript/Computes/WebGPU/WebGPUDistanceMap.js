@@ -1,4 +1,4 @@
-import { dispatchForShape, runComputeProgram } from './WebGPUComputeRunner'
+import { dispatchForShape, runComputeProgram } from '../../WebGPU/WebGPUComputeUtils'
 import { WebGPUTensor3D } from '../../WebGPU/WebGPUTensor3D'
 import { getOctantSign } from './WebGPUShadowMapUtils'
 import {

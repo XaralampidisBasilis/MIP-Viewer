@@ -44,6 +44,11 @@ function getRequiredLimits(adapter)
     return limits
 }
 
+function getRequiredFeatures(adapter)
+{
+    return [...adapter.features]
+}
+
 export async function getWebGPUComputeContext()
 {
     // Reuse the existing adapter/device unless the device has been lost.
@@ -68,6 +73,7 @@ export async function getWebGPUComputeContext()
 
     // Create a GPU device with the largest useful limits exposed by the adapter.
     const device = await adapter.requestDevice({
+        requiredFeatures: getRequiredFeatures(adapter),
         requiredLimits: getRequiredLimits(adapter),
     })
 

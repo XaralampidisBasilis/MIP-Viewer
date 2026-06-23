@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { getWebGPUComputeContext } from '../../WebGPU/WebGPUDevice'
 import { createStorageBuffer, readBuffer } from '../../WebGPU/WebGPUBufferUtils'
-import { dispatchForShape, runComputeProgram } from './WebGPUComputeRunner'
+import { dispatchForShape, runComputeProgram } from '../../WebGPU/WebGPUComputeUtils'
 import { WebGPUTensor3D } from '../../WebGPU/WebGPUTensor3D'
 import { computeUnidirectionalDistanceMapWebGPU } from './WebGPUDistanceMap'
 import { computeBidirectionalShadowMapFacesWebGPU } from './WebGPUShadowMapFaces'

@@ -1,8 +1,12 @@
-import * as tf from '@tensorflow/tfjs'
 import EventEmitter from '../Utils/EventEmitter'
 import Experience from '../Experience'
 import VolumeMap from './Maps/VolumeMap'
 import DistanceMap from './Maps/DistanceMap'
+
+function nextFrame()
+{
+    return new Promise((resolve) => requestAnimationFrame(resolve))
+}
 
 export default class Computes extends EventEmitter
 {
@@ -32,17 +36,17 @@ export default class Computes extends EventEmitter
         console.time('start@Computes') 
 
         await this.volumeMap.computeTensor()
-        await tf.nextFrame()
+        await nextFrame()
 
         await this.distanceMap.computeTexture()
-        await tf.nextFrame()
+        await nextFrame()
 
         await this.volumeMap.computeTexture()
         this.volumeMap.tensor?.dispose()
         this.volumeMap.tensor = null
         this.volumeMap.webgpuTensor?.dispose()
         this.volumeMap.webgpuTensor = null
-        await tf.nextFrame()
+        await nextFrame()
 
         console.timeEnd('start@Computes') 
     }
@@ -59,17 +63,17 @@ export default class Computes extends EventEmitter
         console.time('onChangeBlockSize@Computes') 
 
         await this.volumeMap.computeTensor()
-        await tf.nextFrame()
+        await nextFrame()
 
         await this.distanceMap.computeTexture()
-        await tf.nextFrame()
+        await nextFrame()
 
         await this.volumeMap.computeTexture()
         this.volumeMap.tensor?.dispose()
         this.volumeMap.tensor = null
         this.volumeMap.webgpuTensor?.dispose()
         this.volumeMap.webgpuTensor = null
-        await tf.nextFrame()
+        await nextFrame()
 
         console.timeEnd('onChangeBlockSize@Computes')
         this.printResources() 
@@ -80,17 +84,17 @@ export default class Computes extends EventEmitter
         console.time('onChangeDownscaleFactor@Computes') 
 
         await this.volumeMap.computeTensor()
-        await tf.nextFrame()
+        await nextFrame()
 
         await this.distanceMap.computeTexture()
-        await tf.nextFrame()
+        await nextFrame()
 
         await this.volumeMap.computeTexture()
         this.volumeMap.tensor?.dispose()
         this.volumeMap.tensor = null
         this.volumeMap.webgpuTensor?.dispose()
         this.volumeMap.webgpuTensor = null
-        await tf.nextFrame()
+        await nextFrame()
 
         console.timeEnd('onChangeDownscaleFactor@Computes') 
         this.printResources()
@@ -121,7 +125,7 @@ export default class Computes extends EventEmitter
     
     printResources()
     {
-        console.log(`Num of tensors: ${tf.memory().numTensors}, Num of textures: ${this.renderer.instance.info.memory.textures}`)
+        console.log(`Num of textures: ${this.renderer.instance.info.memory.textures}`)
         console.log(``)
     }
 }
