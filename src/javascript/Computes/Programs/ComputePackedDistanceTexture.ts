@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import * as DistanceMap from './GPGPUDistanceMap'
-import { computeBidirectionalShadowMap } from './GPGPUShadowMapFaces'
+import { computeBidirectionalShadowMap as computeBidirectionalShadowMap } from './GPGPUShadowMapFaces'
 // import { computeBidirectionalShadowMap } from './GPGPUShadowMapPaths'
 import { type Axis, type Octant, type Tuple } from '../../Utils/ShadowMapUtils'
 
@@ -230,7 +230,7 @@ function pack10Bit(maps: DistanceMaps): Uint32Array
     return packed
 }
 
-function computeDistance(
+function computeDistanceFromShadowMap(
     shadowMap: tf.Tensor3D,
     variant: DistanceVariant,
     axis: Axis,
@@ -252,7 +252,7 @@ function computeDistance(
     }
 }
 
-export function computeDistanceArray(
+export function computeDistanceMapData(
     volume: tf.Tensor3D,
     variant: DistanceVariant,
     axis: Axis,
@@ -263,12 +263,12 @@ export function computeDistanceArray(
     verbose: boolean = false,
 ): Int32Array
 {
-    const shadowMap = computeBidirectionalShadowMap(volume, axis, octant, tolerance, blockSize, false)
+    const shadowMap = computeBidirectionalShadowMap(volume, axis, octant, tolerance, blockSize)
     let distanceMap: tf.Tensor3D | undefined
 
     try
     {
-        distanceMap = computeDistance(shadowMap, variant, axis, octant, maxDistance, verbose)
+        distanceMap = computeDistanceFromShadowMap(shadowMap, variant, axis, octant, maxDistance, verbose)
         return distanceMap.dataSync() as Int32Array
     }
     finally
@@ -278,7 +278,7 @@ export function computeDistanceArray(
     }
 }
 
-export function computeDistanceMaps(
+export function computeDistanceMapsData(
     volume: tf.Tensor3D,
     variant: DistanceVariant,
     tolerance: number,
@@ -290,13 +290,13 @@ export function computeDistanceMaps(
     const maps = DISTANCE_TARGETS.map(({ axis, octant }) => 
     {
         let maxDistance = maxEncodableDistance(encoding, axis)
-        return computeDistanceArray(volume, variant, axis, octant, tolerance, blockSize, maxDistance, verbose)
+        return computeDistanceMapData(volume, variant, axis, octant, tolerance, blockSize, maxDistance, verbose)
     })
 
     return maps as DistanceMaps
 }
 
-export function computePackedDistanceMaps(
+export function computeDistanceMapsPackedData(
     volume: tf.Tensor3D,
     variant: DistanceVariant,
     tolerance: number,
@@ -305,12 +305,12 @@ export function computePackedDistanceMaps(
     verbose: boolean = false,
 ): PackedDistanceMaps
 {
-    const maps = computeDistanceMaps(volume, variant, tolerance, blockSize, encoding, verbose)
+    const maps = computeDistanceMapsData(volume, variant, tolerance, blockSize, encoding, verbose)
 
     return packDistanceMaps(maps, encoding)
 }
 
-export function computePackedDistanceTexture(
+export function computeDistanceMapsPackedTexture(
     volume: tf.Tensor3D,
     variant: DistanceVariant,
     tolerance: number,
@@ -324,10 +324,10 @@ export function computePackedDistanceTexture(
 
     if (verbose)
     {
-        console.time('computePackedDistanceTexture')
+        console.time('computeDistanceMapsPackedTexture')
     }
 
-    const data = computePackedDistanceMaps( volume, variant, tolerance, blockSize, encoding, verbose)
+    const data = computeDistanceMapsPackedData(volume, variant, tolerance, blockSize, encoding, verbose)
  
     const texture = new THREE.Data3DTexture(data as any, dimensions.x, dimensions.y, dimensions.z)
     texture.format = textureFormat.format as any
@@ -341,7 +341,7 @@ export function computePackedDistanceTexture(
 
     if (verbose)
     {
-        console.timeEnd('computePackedDistanceTexture')
+        console.timeEnd('computeDistanceMapsPackedTexture')
     }
 
     return { data, texture, dimensions, encoding }

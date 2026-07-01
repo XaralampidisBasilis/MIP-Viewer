@@ -1133,3 +1133,90 @@ export function computeBidirectionalShadowMap(
     
     return bidirectionalBlockShadows
 }
+
+// Using the old iterate method for comparison with the new propagate method. 
+export function computeUnidirectionalShadowMap2(
+    volume: tf.Tensor3D,
+    dominantAxis: Axis,
+    directionOctant: Octant,
+    errorTolerance: number,
+    blockSize: number,
+    verbose: boolean = false
+): tf.Tensor3D
+{
+    const faceMinValues = computeFaceMinValues(volume, dominantAxis, directionOctant, verbose)
+    const faceMinmaxValues = iterateFaceMinmaxValues(faceMinValues, dominantAxis, directionOctant, verbose)
+    tf.dispose(faceMinValues)
+    
+    const faceMaxValues = computeFaceMaxValues(volume, dominantAxis, directionOctant, verbose)
+    const faceShadows = computeFaceShadows(faceMaxValues, faceMinmaxValues, dominantAxis, directionOctant, errorTolerance, verbose)
+    tf.dispose([faceMinmaxValues, faceMaxValues])
+
+    const cellShadows = computeCellShadows(faceShadows, dominantAxis, directionOctant, verbose)
+    tf.dispose(faceShadows)
+
+    if (blockSize === 1) 
+        return cellShadows
+
+    const blockShadows = minPool3d(cellShadows, blockSize, blockSize, 0, 'ceil') 
+    tf.dispose(cellShadows)
+    if (verbose) logMean3d('blockShadows', blockShadows)
+    
+    return blockShadows
+}
+
+export function computeBidirectionalShadowMap2(
+    volume: tf.Tensor3D,
+    dominantAxis: Axis,
+    directionOctant: Octant,
+    errorTolerance: number,
+    blockSize: number,
+    verbose: boolean = false
+): tf.Tensor3D
+{   
+    // Forward
+    const forwardOctant = directionOctant
+    const forwardFaceMinValues = computeFaceMinValues(volume, dominantAxis, forwardOctant, verbose)
+    const forwardFaceMinmaxValues = iterateFaceMinmaxValues(forwardFaceMinValues, dominantAxis, forwardOctant, verbose)
+    tf.dispose(forwardFaceMinValues)
+    
+    const forwardFaceMaxValues = computeFaceMaxValues(volume, dominantAxis, forwardOctant, verbose)
+    const forwardFaceShadows = computeFaceShadows(forwardFaceMaxValues, forwardFaceMinmaxValues, dominantAxis, forwardOctant, errorTolerance, verbose)
+    tf.dispose([forwardFaceMinmaxValues, forwardFaceMaxValues])
+
+    const forwardCellShadows = computeCellShadows(forwardFaceShadows, dominantAxis, forwardOctant, verbose)
+    tf.dispose(forwardFaceShadows)
+
+    // Backward
+    const backwardOctant = su.reverseOctant(directionOctant)
+    const backwardFaceHoles = computeFaceHoles(forwardCellShadows, dominantAxis, backwardOctant, verbose)
+
+    const backwardFaceMinValues = computeFaceMinValues(volume, dominantAxis, backwardOctant, verbose)
+    const backwardHollowFaceMinValues = hollowFaceMinValues(backwardFaceMinValues, backwardFaceHoles, dominantAxis, backwardOctant, verbose)
+    tf.dispose([backwardFaceMinValues, backwardFaceHoles])
+
+    const backwardFaceMinmaxValues = iterateFaceMinmaxValues(backwardHollowFaceMinValues, dominantAxis, backwardOctant, verbose)
+    tf.dispose(backwardHollowFaceMinValues)
+    
+    const backwardFaceMaxValues = computeFaceMaxValues(volume, dominantAxis, backwardOctant, verbose)
+    const backwardFaceShadows = computeFaceShadows(backwardFaceMaxValues, backwardFaceMinmaxValues, dominantAxis, backwardOctant, errorTolerance, verbose)
+    tf.dispose([backwardFaceMinmaxValues, backwardFaceMaxValues])
+
+    const backwardCellShadows = computeCellShadows(backwardFaceShadows, dominantAxis, backwardOctant, verbose)
+    tf.dispose(backwardFaceShadows)
+
+    // Bidirectional 
+    const bidirectionalCellShadows = tf.logicalOr(forwardCellShadows, backwardCellShadows) as tf.Tensor3D
+    tf.dispose([forwardCellShadows, backwardCellShadows])
+    if (verbose) logMean3d('bidirectionalCellShadows', bidirectionalCellShadows)
+
+    if (blockSize === 1) 
+        return bidirectionalCellShadows
+
+    const bidirectionalBlockShadows = minPool3d(bidirectionalCellShadows, blockSize, blockSize, 0, 'ceil') 
+    tf.dispose(bidirectionalCellShadows)
+    if (verbose) logMean3d('bidirectionalBlockShadows', bidirectionalBlockShadows)
+    
+    return bidirectionalBlockShadows
+}
+

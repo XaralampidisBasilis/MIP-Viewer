@@ -1,5 +1,5 @@
 import Computes from '../Computes'
-import { computePackedDistanceTexture } from '../Programs/ComputePackedDistanceTexture'
+import { computeDistanceMapsPackedTexture } from '../Programs/ComputePackedDistanceTexture'
 // import { computePackedDistanceTexture } from '../Programs/ComputeFusedPackedDistanceTexture'
 
 export default class DistanceMap
@@ -18,7 +18,7 @@ export default class DistanceMap
     {
         const volume = this.computes.volumeMap.tensor
 
-        const result = computePackedDistanceTexture(
+        const result = computeDistanceMapsPackedTexture(
             volume,
             'unidirectional',
             this.errorTolerance,
