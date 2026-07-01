@@ -83,7 +83,7 @@ export default function()
         MARCHING_METHOD   : 1,
         SKIPPING_METHOD   : 2,
 
-        BERNSTEIN_ENABLED : 1,
+        BERNSTEIN_ENABLED : 0,
         SKIPPING_ENABLED  : 1,
         PRODUCTION_ENABLED: 0,
         DEBUG_ENABLED     : 1,

@@ -1,8 +1,8 @@
 import * as THREE from 'three'
 import * as tf from '@tensorflow/tfjs'
 import * as DistanceMap from './GPGPUDistanceMap'
-// import { computeBidirectionalShadowMap } from './GPGPUShadowMapFaces'
-import { computeBidirectionalShadowMap } from './GPGPUShadowMapPaths'
+import { computeBidirectionalShadowMap } from './GPGPUShadowMapFaces'
+// import { computeBidirectionalShadowMap } from './GPGPUShadowMapPaths'
 import { type Axis, type Octant, type Tuple } from '../../Utils/ShadowMapUtils'
 
 type DistanceVariant = 'isotropic' | 'unidirectional' | 'bidirectional'
@@ -327,7 +327,7 @@ export function computePackedDistanceTexture(
         console.time('computePackedDistanceTexture')
     }
 
-    const data = computePackedDistanceMaps( volume, variant, tolerance, blockSize, encoding, false)
+    const data = computePackedDistanceMaps( volume, variant, tolerance, blockSize, encoding, verbose)
  
     const texture = new THREE.Data3DTexture(data as any, dimensions.x, dimensions.y, dimensions.z)
     texture.format = textureFormat.format as any
